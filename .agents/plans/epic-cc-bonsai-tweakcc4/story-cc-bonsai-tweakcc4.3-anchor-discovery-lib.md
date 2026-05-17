@@ -130,8 +130,8 @@ Examples only:
 
 - Approval Status: `approved`
 - Approval Citation: `User approval: "Approved" (2026-05-17)`
-- Plan Commit Hash: `none`
-- Ready-for-Orchestration: `no`
+- Plan Commit Hash: `314b715`
+- Ready-for-Orchestration: `yes`
 
 ## Completion Checklist
 
