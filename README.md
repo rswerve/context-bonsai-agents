@@ -53,8 +53,8 @@ The main repo explains shared behavior. Harness-specific installation and usage 
 | OpenCode | Reference implementation | [opencode-context-bonsai installation](https://github.com/Vibecodelicious/opencode_context_bonsai_plugin#installation) |
 | Claude Code via tweakcc | Tested Claude Code implementation | [tweakcc Context Bonsai installation](https://github.com/Vibecodelicious/tweakcc_context_bonsai#installation) |
 | Cline | Warning: This Context Bonsai implementation has not yet been tested with its target agent harness. | [Cline Context Bonsai installation](https://github.com/Vibecodelicious/cline_context_bonsai#installation) |
-| Codex | Warning: This Context Bonsai implementation has not yet been tested with its target agent harness. | [Codex Context Bonsai installation](https://github.com/Vibecodelicious/codex_context_bonsai#installation) |
-| Gemini CLI | Warning: This Context Bonsai implementation has not yet been tested with its target agent harness. | [Gemini CLI Context Bonsai installation](https://github.com/Vibecodelicious/gemini-cli_context_bonsai#installation) |
+| Codex | Bonsai integrated into the Codex fork at compile time; install path documented. | [Codex Context Bonsai installation](https://github.com/Vibecodelicious/codex_context_bonsai#installation) |
+| Gemini CLI | Bonsai integrated into the Gemini CLI fork; install path documented. | [Gemini CLI Context Bonsai installation](https://github.com/Vibecodelicious/gemini-cli_context_bonsai#installation) |
 | Kilo | Warning: This Context Bonsai implementation has not yet been tested with its target agent harness. | [Kilo Context Bonsai installation](https://github.com/Vibecodelicious/kilo_context_bonsai#installation) |
 | Pi | In-tree extension package at `pi-mono/packages/context-bonsai/`. | [Pi Context Bonsai installation](https://github.com/Vibecodelicious/pi_context_bonsai#installation) |
 
