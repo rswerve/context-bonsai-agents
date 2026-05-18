@@ -9,7 +9,7 @@ This document specializes the shared Context Bonsai contract for Anthropic's Cla
 ### User Gamut
 
 - Claude Code CLI users in long terminal/IDE sessions
-- Users who can install MCP servers via `~/.claude/settings.json` and can apply a local transcript-rewrite seam to Claude Code
+- Users who can install MCP servers via `~/.claude.json` and can apply a local transcript-rewrite seam to Claude Code
 - Users who need the tweakcc patch, or an equivalent seam, for the context-reduction guarantee
 - Operators relying on Claude Code's session JSONL exports for resumption and audit
 
@@ -30,7 +30,7 @@ This document specializes the shared Context Bonsai contract for Anthropic's Cla
 
 | Area | Status | Notes |
 |---|---|---|
-| MCP tool registration | Verified | `~/.claude/settings.json` `mcpServers.<name>.command/args` registers stdio MCP servers |
+| MCP tool registration | Verified | Story 7 confirmed current Claude Code 2.1.x uses `~/.claude.json`: top-level `mcpServers` is a map, and per-project entries under `projects` can also contain `mcpServers` maps. |
 | Persistent transcript | Verified | `~/.claude/projects/<project-hash>/<session-id>.jsonl` is append-only JSONL of `tool_use` / `tool_result` / text blocks |
 | Session discovery from MCP | Verified | `/proc/<pid>` walk finds the parent Claude Code process; cmdline contains `--resume <session-id>` (see `src/lib/session.ts`) |
 | In-band gauge | Partial | No public token-budget API. tweakcc patch can read internal state; otherwise gauge is delivered only as text inside prune/retrieve tool responses |
@@ -40,7 +40,7 @@ This document specializes the shared Context Bonsai contract for Anthropic's Cla
 
 ## Verified Host Primitives
 
-- MCP server registration: `~/.claude/settings.json` `mcpServers.context-bonsai.{command,args}` — stdio MCP transport; tool names exposed as `mcp__context-bonsai__context-bonsai-prune` / `mcp__context-bonsai__context-bonsai-retrieve` per Claude Code's MCP-prefix convention.
+- MCP server registration: `~/.claude.json` `mcpServers.context-bonsai.{command,args}` or per-project `projects.<project>.mcpServers.context-bonsai.{command,args}` — stdio MCP transport; tool names exposed as `mcp__context-bonsai__context-bonsai-prune` / `mcp__context-bonsai__context-bonsai-retrieve` per Claude Code's MCP-prefix convention.
 - Session JSONL location: `~/.claude/projects/<project-hash>/<session-id>.jsonl`. Each line is one of `{ type: "user" | "assistant" | "summary", uuid, parentUuid, timestamp, message?, summary?, ... }`. See `tweakcc_context_bonsai/src/types.ts` for the canonical `SessionMessage` union.
 - Process discovery: `/proc/<pid>` walk from the MCP server's parent process up the chain, parsing `cmdline` for `--resume <session-id>` to identify the live Claude Code session. See `tweakcc_context_bonsai/src/lib/session.ts:findCurrentSession` and `findSessionPath`.
 - Archive marker file: `~/.claude/archived-<session-id>.json` — written by `addArchivedMarkerEntries` in `tweakcc_context_bonsai/src/lib/compact.ts`. Read by the required transcript-rewrite seam to hide archived ranges in the live transcript.
