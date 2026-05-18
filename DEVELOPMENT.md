@@ -82,6 +82,7 @@ Side-repo `DEVELOPMENT.md` files should contain maintainer details, build/test c
 ## TODO
 
 - [ ] Automated per-agent rebase/re-implementation to make sure Context Bonsai works on the latest release of each supported agent.
+- [ ] Forward-port planning contract: before implementing a port against a new host release, require the parent epic to pin the exact target release and define reproducible validation artifacts. For patched, minified, or closed-source hosts, the plan must record the host version/platform, extraction tool/version, reproduction command, artifact checksum, and evidence expected from that artifact. Local installs may be used only to recreate the pinned target artifact, not as ambient truth; credentials must never be part of validation artifacts.
 - [ ] Automated e2e test for per-agent user-installation instructions.
 - [ ] Automated propagation of spec changes from the main spec to per-agent specs.
 - [ ] Submodule `opencode_context_bonsai_plugin` — clean commit history rewrite.
