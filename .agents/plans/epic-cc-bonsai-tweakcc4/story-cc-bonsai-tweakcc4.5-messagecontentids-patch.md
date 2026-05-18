@@ -10,7 +10,7 @@ Implement `patches/message-content-ids.patch.ts` — the patch that lets the mod
 
 The patch targets Claude Code's message-to-API converter (the function that turns stored user/assistant messages into API-ready objects). It injects a wrapper that, **only when the marker file `~/.claude/compaction-mode-<session>` exists**, appends a `[msg:<uuid>]` text tag to each message's model-visible content. With those tags present the model can name a precise range to `context-bonsai-prune` and an exact anchor to `context-bonsai-retrieve`.
 
-The reference implementation is `the_observer/tweakcc/src/patches/messageContentIds.ts`: five converter-matching regexes at L14–44 (covering several minification shapes), the `_tag()` helper at L83–89, and the mode-gated wrapper at L111/L144. This story re-expresses it as a `BonsaiPatch` transform module per epic Contract A, using Story 3's `discovery.ts` for patch-point location and `findRuntimeHelpers` for the `sessionIdFunc` (needed to build the marker path).
+This story expresses the converter wrapper as a `BonsaiPatch` transform module per epic Contract A, using Story 3's `discovery.ts` for patch-point location and `findRuntimeHelpers` for the `sessionIdFunc` (needed to build the marker path). There is no external reference source in this worktree; implementers must derive behavior from the epic contracts, committed fixtures, current code, and live Claude Code/tweakcc APIs available through the story validation flow.
 
 Per epic Contract A the module exports one `BonsaiPatch` with `name: "message-content-ids"` and `sentinel: "/*cb:message-content-ids:v1*/"`. It is the second patch in the registry, so its `apply` transform receives the content already modified by `archived-filter` and MUST locate its anchor against that modified content.
 
@@ -58,7 +58,6 @@ Examples only:
 
 ### Relevant Codebase Files (must read)
 
-- `/home/basil/projects/the_observer/tweakcc/src/patches/messageContentIds.ts` - reference implementation (five regexes L14–44, `_tag()` L83–89, mode-gated wrapper L111/L144).
 - `tweakcc_context_bonsai/mcp-server/index.ts` - confirm the `compaction-mode-<session>` marker path/semantics the MCP server creates.
 - `tweakcc_context_bonsai/patches/discovery.ts` - Story 3 API.
 - `tweakcc_context_bonsai/patches/types.ts` - `BonsaiPatch` interface.
@@ -76,7 +75,7 @@ Examples only:
 
 ### Phase 1: Foundation
 
-- Read `messageContentIds.ts` and confirm the `compaction-mode-<session>` marker contract.
+- Confirm the `compaction-mode-<session>` marker contract and derive the converter wrapper behavior from the epic contracts, committed fixtures, current code, and live Claude Code/tweakcc APIs available through validation.
 
 ### Phase 2: Core Implementation
 

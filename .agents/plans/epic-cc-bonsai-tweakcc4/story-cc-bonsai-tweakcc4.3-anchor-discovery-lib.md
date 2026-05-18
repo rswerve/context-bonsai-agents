@@ -12,7 +12,7 @@ Two responsibilities:
 
 **(a) Patch-point discovery.** Claude Code's bundle is minified and re-minified roughly weekly; a single brittle regex is the recurring failure mode. The library locates an insertion point with multiple candidate patterns, scores each candidate against contextual signals, and selects a unique winner with explicit disambiguation — or throws. The `switch(X.type)` pattern alone occurs 133 times in the extracted JS, so scoring and a minimum-margin disambiguation rule are mandatory, not optional.
 
-**(b) Runtime-helper discovery.** The old patches relied on the forked tweakcc's `findRuntimeHelpers()` to resolve the minified names of Claude Code's `fs` module getter, config-directory getter, and session-id getter. tweakcc 4.0's `adhoc-patch` does NOT expose this. This story re-homes that logic into `discovery.ts`. The reference implementation is `the_observer/tweakcc/src/patches/helpers.ts` lines 288–336 (`fsFunc` discovery L294–306, `configDirFunc` L312–321, `sessionIdFunc` L323–332).
+**(b) Runtime-helper discovery.** The old patches relied on fork-specific `findRuntimeHelpers()` logic to resolve the minified names of Claude Code's `fs` module getter, config-directory getter, and session-id getter. tweakcc 4.0's `adhoc-patch` does NOT expose this. This story re-homes that capability into `discovery.ts`. There is no external reference source in this worktree; implementers must derive the behavior from the epic contracts, committed fixtures, current code, and live Claude Code/tweakcc APIs available through the story validation flow.
 
 The fixed public surface is epic Contract B verbatim: `findCandidates`, `scoreCandidates`, `selectUnique`, `findRuntimeHelpers`, `verifySentinel`, plus the error classes `AnchorNotFoundError`, `AnchorAmbiguousError`, `RuntimeHelpersError`. Every throwing path is the fail-closed mechanism the harness relies on.
 
@@ -58,10 +58,8 @@ Examples only:
 
 ### Relevant Codebase Files (must read)
 
-- `/home/basil/projects/the_observer/tweakcc/src/patches/helpers.ts:288` - `findRuntimeHelpers()` reference implementation to re-home (L294–306 fs, L312–321 configDir, L323–332 sessionId, L273–277 caching).
-- `/home/basil/projects/the_observer/tweakcc/src/patches/archivedFilter.ts:8` - the visibility-predicate matcher + scoring (L28–39) Story 4 will need; informs the discovery API shape.
-- `/home/basil/projects/the_observer/tweakcc/src/patches/messageContentIds.ts:14` - the five converter-matching regexes Story 5 will need; informs multi-strategy design.
 - `tweakcc_context_bonsai/patches/types.ts` - created by Story 2; `BonsaiPatchError` base for the discovery error classes.
+- No external reference source is available in this worktree. Derive runtime-helper and anchor behavior from the epic contracts, committed fixtures, current code, and live Claude Code/tweakcc APIs available through the story validation flow.
 
 ### New Files to Create
 
@@ -78,7 +76,7 @@ Examples only:
 
 ### Phase 1: Foundation
 
-- Read `helpers.ts`, `archivedFilter.ts`, `messageContentIds.ts` to capture the discovery patterns and runtime-helper logic.
+- Derive the discovery patterns and runtime-helper logic from the epic contracts, committed fixtures, current code, and live Claude Code/tweakcc APIs available through validation.
 - Define the error classes on `BonsaiPatchError`.
 
 ### Phase 2: Core Implementation
@@ -98,7 +96,7 @@ Examples only:
 
 ## Step-by-Step Tasks
 
-1. Read the three `the_observer/tweakcc/src/patches/*.ts` reference files.
+1. Review the epic contracts, committed fixtures, current code, and live Claude Code/tweakcc APIs available through validation to derive the required patch-point and runtime-helper behavior.
 2. Define `AnchorNotFoundError`, `AnchorAmbiguousError`, `RuntimeHelpersError`.
 3. Implement `findCandidates` and `scoreCandidates` (minification-robust signals).
 4. Implement `selectUnique` with `minScore` + `minMargin`.

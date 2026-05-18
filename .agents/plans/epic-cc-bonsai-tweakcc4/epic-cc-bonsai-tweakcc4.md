@@ -13,7 +13,7 @@ Confirmed during investigation (session `cab27379`):
 
 - The user runs the **native** Claude Code (`~/.local/bin/claude` → `~/.local/share/claude/versions/2.1.143`, a 233 MB Bun-compiled ELF). It has **zero** Context Bonsai patch markers.
 - The MCP `context-bonsai-prune` tool *did* run — `~/.claude/archived-<session>.json` marker files exist and are written — but with no `archivedFilter` patch consuming them, nothing removes archived messages from the API request. Prune only **adds** tool_use/tool_result blocks; net context **grows**.
-- The old patches lived in a **fork** of tweakcc (`the_observer/tweakcc`), pending a PR to Piebald-AI, and only patched the npm `cli.js` — a JS bundle the user no longer runs.
+- The old patches lived in a **fork** of tweakcc, pending a PR to Piebald-AI, and only patched the npm `cli.js` — a JS bundle the user no longer runs.
 - tweakcc **4.0** changes the picture: it ships `adhoc-patch` (sandboxed custom patches, no fork needed), `unpack`/`repack` (native-binary round trip via `node-lief`), a programmatic API (`readContent`/`writeContent` — install-agnostic), and `--restore`.
 - Spike result (this session): `tweakcc unpack` on native 2.1.143 produced **14.5 MB of plain JS source** (`file`: "JavaScript source"); the `switch(X.type)` patch-point pattern occurs **133 times**. Native patching is viable; anchor disambiguation among many candidates is the central risk.
 
@@ -119,7 +119,7 @@ Examples only, spanning correctness, durability, trust, reversibility, and maint
 - **Integration points:**
   - Parent repo: `docs/context-bonsai-agent-spec.md`, `docs/agent-specs/claude-code-context-bonsai-spec.md` (Story 1); `docs/context-bonsai-e2e-template.md` reference (Story 8).
   - Side repo `tweakcc_context_bonsai/`: new `adhoc-patch` script set + apply harness + discovery library (Stories 2–6), `mcp-server/` and `src/` (Story 7), operator docs (Story 9).
-  - No submodule de-registration is required. The forked tweakcc lives at the sibling project `~/projects/the_observer/tweakcc` — it is NOT a submodule of `context-bonsai-agents` or of `tweakcc_context_bonsai/` (verified: `.gitmodules` has no such entry). "Retire the fork" (Story 2) means re-homing its patch infrastructure into `tweakcc_context_bonsai/` and updating stale docs (`STANDARDS.md`, `CC_BONSAI.md`); no git submodule change occurs.
+  - No submodule de-registration is required. The old fork is NOT a submodule of `context-bonsai-agents` or of `tweakcc_context_bonsai/` (verified: `.gitmodules` has no such entry). "Retire the fork" (Story 2) means re-homing the needed patch infrastructure into `tweakcc_context_bonsai/` from the epic contracts, committed fixtures, current code, and live Claude Code/tweakcc APIs available through the story validation flow; no git submodule change occurs.
 - **Patch composition contract:** the apply harness applies the three patches as ordered transforms over a single accumulating content string (one `readContent`, three transforms, one `writeContent`). Stories 4–6 MUST NOT assume pristine input — a later patch sees the earlier patches' insertions and must re-find anchors against the modified content.
 - **Cross-cutting risks:**
   - Claude Code auto-update silently reverts patches (five versions observed locally — roughly weekly cadence). Mitigated on two fronts: the Story 7 MCP fail-closed check surfaces the failure to the model the moment prune is attempted on a reverted install, and Story 9 documents re-apply plus disabling auto-update. Automatic re-apply is out of scope.

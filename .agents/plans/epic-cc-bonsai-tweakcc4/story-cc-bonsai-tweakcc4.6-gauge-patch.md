@@ -8,7 +8,7 @@
 
 Implement `patches/context-bonsai-gauge.patch.ts` — the patch that injects the context-utilization gauge: in-band, model-visible feedback about how full the context is and graduated guidance about when to prune.
 
-It is the most complex of the three patches. The reference implementation is `the_observer/tweakcc/src/patches/contextBonsaiGauge.ts`: three distinct anchor points (L324–393 — the token-usage helper, the attachment-registration pipeline, and the todo-reminder render case), the injected helper functions (L431–442 — port the full set present in the reference; do not rely on a fixed count), the gauge function `MM1Bonsai()` (L443), the attachment registration (L447), and the severity-banded reminder case (L451). The gauge fires when a prune/retrieve tool response is detected, or when threshold rules are met (more than 20 turns total, at least 5 turns since the last gauge, and context usage above 25%); reminder text is graduated across severity bands.
+It is the most complex of the three patches: three distinct anchor points (the token-usage helper, the attachment-registration pipeline, and the todo-reminder render case), injected helper functions, the gauge function, attachment registration, and the severity-banded reminder case. There is no external reference source in this worktree; implementers must derive behavior from the epic contracts, committed fixtures, current code, and live Claude Code/tweakcc APIs available through the story validation flow. The gauge fires when a prune/retrieve tool response is detected, or when threshold rules are met (more than 20 turns total, at least 5 turns since the last gauge, and context usage above 25%); reminder text is graduated across severity bands.
 
 This story re-expresses it as a single `BonsaiPatch` transform module per epic Contract A, using Story 3's `discovery.ts` for all anchor location. Per Contract A the module exports one `BonsaiPatch` with `name: "context-bonsai-gauge"` and `sentinel: "/*cb:context-bonsai-gauge:v1*/"`.
 
@@ -62,7 +62,6 @@ Examples only:
 
 ### Relevant Codebase Files (must read)
 
-- `/home/basil/projects/the_observer/tweakcc/src/patches/contextBonsaiGauge.ts` - reference implementation (three anchors L324–393, injected helpers L431–442, `MM1Bonsai` L443, attachment registration L447, reminder case L451).
 - `tweakcc_context_bonsai/mcp-server/index.ts` - the `<context-bonsai-tool-response>` metadata wrapper the gauge decodes to detect prune/retrieve responses.
 - `tweakcc_context_bonsai/patches/discovery.ts` - Story 3 API.
 - `tweakcc_context_bonsai/patches/types.ts` - `BonsaiPatch` interface.
@@ -81,12 +80,12 @@ Examples only:
 
 ### Phase 1: Foundation
 
-- Read `contextBonsaiGauge.ts` in full; map the three anchors and the tool-response metadata format.
+- Map the three anchors and the tool-response metadata format from the epic contracts, committed fixtures, current code, and live Claude Code/tweakcc APIs available through validation.
 
 ### Phase 2: Core Implementation
 
 - Implement the `BonsaiPatch`: discover anchor 1, insert; re-discover and insert at anchor 2; re-discover and insert at anchor 3; append the sentinel.
-- Port the full set of injected helpers, `MM1Bonsai`, the firing rules, and the severity bands.
+- Implement the injected helpers, `MM1Bonsai`, firing rules, and severity bands from the epic contracts and validation-derived behavior.
 
 ### Phase 3: Integration
 
@@ -98,10 +97,10 @@ Examples only:
 
 ## Step-by-Step Tasks
 
-1. Read the reference patch and the tool-response metadata wrapper in `mcp-server/index.ts`.
+1. Read the tool-response metadata wrapper in `mcp-server/index.ts` and derive the gauge behavior from the epic contracts, committed fixtures, current code, and live Claude Code/tweakcc APIs available through validation.
 2. Implement `context-bonsai-gauge.patch.ts` as a `BonsaiPatch` using `discovery`.
 3. Implement the three-insertion flow with a fresh discovery pass before each insertion.
-4. Port the helpers, `MM1Bonsai`, firing rules, severity bands.
+4. Implement the helpers, `MM1Bonsai`, firing rules, and severity bands.
 5. Append the `/*cb:context-bonsai-gauge:v1*/` sentinel; self-verify.
 6. Register the module in `patches/registry.ts` as patch 3.
 7. Write `context-bonsai-gauge.patch.test.ts`, including a compose-all-three case.

@@ -10,7 +10,7 @@ Implement `patches/archived-filter.patch.ts` — the patch that makes context ac
 
 The patch targets Claude Code's transcript visibility predicate: the function `function X(Y){switch(Y.type){...}}` that decides which messages are included when the request is assembled. The patch injects, ahead of that switch, code that on first use reads `~/.claude/archived-<session>.json` (the marker file the MCP server writes), caches it with mtime tracking, and returns "not visible" (false) for any message whose `uuid` is in the archived list. Archived messages therefore never reach the provider — context shrinks.
 
-The reference implementation is `the_observer/tweakcc/src/patches/archivedFilter.ts`: the matcher regex at L9, candidate scoring at L28–39, the `minScore` floor at L47, the injection at L82–92. This story re-expresses it as a `BonsaiPatch` transform module per epic Contract A, using Story 3's `discovery.ts` for both patch-point location and runtime-helper resolution (`fsFunc` to read the marker file) instead of the fork's own helpers.
+This story expresses the filter as a `BonsaiPatch` transform module per epic Contract A, using Story 3's `discovery.ts` for both patch-point location and runtime-helper resolution (`fsFunc` to read the marker file). There is no external reference source in this worktree; implementers must derive behavior from the epic contracts, committed fixtures, current code, and live Claude Code/tweakcc APIs available through the story validation flow.
 
 Per epic Contract A the module exports one `BonsaiPatch` with `name: "archived-filter"` and `sentinel: "/*cb:archived-filter:v1*/"`. Per epic Contract C that sentinel is the single artifact the MCP server (Story 7) scans the running binary for to confirm the patch is live — this story injects it; Story 7 reads it; there is no separate state file.
 
@@ -58,7 +58,6 @@ Examples only:
 
 ### Relevant Codebase Files (must read)
 
-- `/home/basil/projects/the_observer/tweakcc/src/patches/archivedFilter.ts` - reference implementation (matcher L9, scoring L28–39, minScore L47, injection L82–92).
 - `tweakcc_context_bonsai/src/lib/compact.ts:74` - `getArchivedMarkerPath()`; the marker-file path/format the injected code reads.
 - `tweakcc_context_bonsai/src/lib/compact.ts:103` - `addArchivedMarkerEntries()`; the writer side of the IPC contract.
 - `tweakcc_context_bonsai/patches/discovery.ts` - Story 3 API (`selectUnique`, `findRuntimeHelpers`, `verifySentinel`).
@@ -78,7 +77,7 @@ Examples only:
 
 ### Phase 1: Foundation
 
-- Read `archivedFilter.ts` and the marker-file helpers in `compact.ts`.
+- Read the marker-file helpers in `compact.ts` and derive the patch behavior from the epic contracts, committed fixtures, current code, and live Claude Code/tweakcc APIs available through validation.
 
 ### Phase 2: Core Implementation
 
