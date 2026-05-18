@@ -315,7 +315,7 @@ An implementation MUST document the policy envelope of its host and provider set
 
 - If direct tool registration or transcript mutation triggers provider policy problems, the implementation MUST choose a policy-safe transport.
 - Policy workarounds are acceptable if the model-visible contract remains intact.
-- Required patch or hook insertion-point discovery MUST be resilient when host code can change between releases: use multiple matching strategies where practical, score candidates with explicit disambiguation rules, and self-verify after application that the intended change landed exactly as required.
+- Required patch or hook insertion-point discovery MUST be resilient when host code can change between releases: use multiple matching strategies, score candidates with explicit disambiguation rules, and self-verify after application that the intended change landed exactly as required.
 - Required patch or hook discovery MUST fail closed when the host runtime changes and the insertion point can no longer be identified reliably.
 - Resilient discovery complements, and does not supersede, the fail-closed requirement: if discovery is still missing, ambiguous, or cannot be self-verified, the implementation MUST refuse to proceed.
 - Unsupported runtime states MUST not silently no-op when the model believes pruning succeeded.
