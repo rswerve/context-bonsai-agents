@@ -170,8 +170,8 @@ The `Plausible wrong candidates rejected` field must name at least one plausible
 
 - Approval Status: `approved`
 - Approval Citation: `User request: "Yes. Use planning_guidance.md to make that plan" (2026-05-19)`
-- Plan Commit Hash: `pending`
-- Ready-for-Orchestration: `no` until plan is committed and clean
+- Plan Commit Hash: `0180107ee6b0321ea57eded71e6e99690a81f767`
+- Ready-for-Orchestration: `yes`
 
 ## Completion Checklist
 
