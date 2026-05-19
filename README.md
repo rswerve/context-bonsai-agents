@@ -48,15 +48,17 @@ Pruning is non-destructive in the intended behavior model: archived content is h
 
 The main repo explains shared behavior. Harness-specific installation and usage lives in each side repo.
 
-| Agent harness | Status | Install and usage |
-| --- | --- | --- |
-| OpenCode | Reference implementation | [opencode-context-bonsai installation](https://github.com/Vibecodelicious/opencode_context_bonsai_plugin#installation) |
-| Claude Code via tweakcc | Tested Claude Code implementation | [tweakcc Context Bonsai installation](https://github.com/Vibecodelicious/tweakcc_context_bonsai#installation) |
-| Cline | Warning: This Context Bonsai implementation has not yet been tested with its target agent harness. | [Cline Context Bonsai installation](https://github.com/Vibecodelicious/cline_context_bonsai#installation) |
-| Codex | Bonsai integrated into the Codex fork at compile time; install path documented. | [Codex Context Bonsai installation](https://github.com/Vibecodelicious/codex_context_bonsai#installation) |
-| Gemini CLI | Bonsai integrated into the Gemini CLI fork; install path documented. | [Gemini CLI Context Bonsai installation](https://github.com/Vibecodelicious/gemini-cli_context_bonsai#installation) |
-| Kilo | Warning: This Context Bonsai implementation has not yet been tested with its target agent harness. | [Kilo Context Bonsai installation](https://github.com/Vibecodelicious/kilo_context_bonsai#installation) |
-| Pi | In-tree extension package at `pi-mono/packages/context-bonsai/`. | [Pi Context Bonsai installation](https://github.com/Vibecodelicious/pi_context_bonsai#installation) |
+Status means: **Verified** — installed and exercised end to end; **Untested** — the integration exists but its behavior has not been verified.
+
+| Agent harness | Status | Notes | Install and usage |
+| --- | --- | --- | --- |
+| OpenCode | Verified | Reference implementation. | [opencode-context-bonsai installation](https://github.com/Vibecodelicious/opencode_context_bonsai_plugin#installation) |
+| Claude Code via tweakcc | Untested | Verification is in progress separately. Installing applies patches to Claude Code in addition to setting up the MCP server. | [tweakcc Context Bonsai installation](https://github.com/Vibecodelicious/tweakcc_context_bonsai#installation) |
+| Pi | Verified | Pruning and retrieval confirmed by running them against a live model. Installation instructions are being revised. | [Pi Context Bonsai installation](https://github.com/Vibecodelicious/pi_context_bonsai#installation) |
+| Codex | Untested | Integrated into the Codex fork. Running a verification needs an OpenAI API key, since Codex talks to OpenAI directly. | [Codex Context Bonsai installation](https://github.com/Vibecodelicious/codex_context_bonsai#installation) |
+| Gemini CLI | Untested | Integrated into the Gemini CLI fork. Running a verification needs a Gemini API key or Google sign-in. | [Gemini CLI Context Bonsai installation](https://github.com/Vibecodelicious/gemini-cli_context_bonsai#installation) |
+| Cline | Untested | Integrated into the Cline fork. Cline runs as a VS Code extension; there is no automated way to verify it yet. | [Cline Context Bonsai installation](https://github.com/Vibecodelicious/cline_context_bonsai#installation) |
+| Kilo | Untested | Integrated into the Kilo fork. Kilo runs as a VS Code extension; there is no automated way to verify it yet. | [Kilo Context Bonsai installation](https://github.com/Vibecodelicious/kilo_context_bonsai#installation) |
 
 ## Reference Material
 
