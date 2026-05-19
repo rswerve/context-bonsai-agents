@@ -315,13 +315,13 @@ An implementation MUST document the policy envelope of its host and provider set
 
 - If direct tool registration or transcript mutation triggers provider policy problems, the implementation MUST choose a policy-safe transport.
 - Policy workarounds are acceptable if the model-visible contract remains intact.
-- Required patch or hook insertion-point discovery MUST be resilient when host code can change between releases: use multiple matching strategies, score candidates with explicit disambiguation rules, and self-verify after application that the intended change landed exactly as required.
+- Required patch or hook insertion-point discovery MUST be resilient when host code can change between releases. For host internals the project does not control, discovery is a semantic analysis task: the implementer must inspect the real pinned target, identify the host-code behavior that corresponds to the required bonsai behavior, explain why the chosen anchor is the correct seam, explain why plausible nearby candidates are wrong, and self-verify after application that the intended change landed exactly as required.
 - Required patch or hook discovery MUST fail closed when the host runtime changes and the insertion point can no longer be identified reliably.
 - Resilient discovery complements, and does not supersede, the fail-closed requirement: if discovery is still missing, ambiguous, or cannot be self-verified, the implementation MUST refuse to proceed.
-- Reviewers MUST reject release-gate evidence that uses selector or scorer logic different from the production patch or hook code unless the implementation documents and tests an equivalence layer. Artifact and e2e evidence for patch anchors MUST exercise the same production selector functions used by the patch modules, not duplicated selector logic, weaker scorer copies, or evidence-only selectors.
-- Required patch-anchor tests MUST include false-positive and negative coverage: a broad candidate is rejected, tied strong candidates fail closed, no-match fails closed, and the intended target resolves uniquely. Happy-path fixtures alone are insufficient for resilient anchor compliance.
-- Self-verification sentinel checks are necessary but not sufficient. They prove insertion happened where the selected selector pointed; they do not prove the selected anchor was semantically correct.
-- Reviewers SHOULD treat duplicated selector/scorer logic, missing negative tests, or evidence-only selectors as HIGH findings, and as CRITICAL findings when they affect release-gate evidence or could allow a broken shipped patch to pass validation.
+- Temporary scripts, searches, and helper tools MAY assist anchor discovery, but they are not proof by themselves. Reviewers MUST reject anchors justified only by matching syntax, candidate counts, helper output, or synthetic fixtures instead of documented host-behavior reasoning.
+- Required patch-anchor evidence MUST include false-positive and negative coverage tied to the real target behavior: plausible wrong host locations are rejected, tied or ambiguous plausible anchors fail closed, no-match fails closed, and the chosen target is shown to be the correct behavior seam. Synthetic fixtures may test helper mechanics, but happy-path or made-up fixtures alone are not acceptance evidence for anchor correctness.
+- Self-verification sentinel checks are necessary but not sufficient. They prove insertion happened at the selected location; they do not prove the selected location was the semantically correct host-code seam.
+- Reviewers SHOULD treat missing semantic anchor analysis, missing negative evidence against plausible wrong anchors, or reliance on synthetic fixtures/sentinel checks as HIGH findings, and as CRITICAL findings when they affect release-gate evidence or could allow a broken shipped patch to pass validation.
 - Implementations MUST NOT weaken `minScore`, `minMargin`, or equivalent disambiguation thresholds merely to make an anchor pass; ambiguous or weak anchors must continue to fail closed.
 - Unsupported runtime states MUST not silently no-op when the model believes pruning succeeded.
 
@@ -367,7 +367,7 @@ Every agent implementation plan derived from this spec SHOULD include at least t
 6. Persistence across session resume or reload, if the host supports persistence
 7. Same-step prune/retrieve guard, if implemented
 8. Secret or sensitive-content prune oracle to confirm post-prune recall is not available from active context alone
-9. Patch-anchor negative coverage for any patch or hook discovery layer: broad candidate rejected, tied strong candidates fail closed, no-match fails closed, and intended target resolves uniquely using the production selector/scorer path
+9. Patch-anchor semantic evidence for any patch or hook discovery layer: the implementer explains the real target host behavior, rejects plausible wrong anchors, shows ambiguous/no-match cases fail closed, and demonstrates that the chosen anchor produces the required behavior on the pinned target
 
 ## Evidence Expectations
 
@@ -381,7 +381,7 @@ Strong evidence includes:
 - session-file or transcript-store inspection when that is the authoritative persisted source
 - runtime logs only when they support, not replace, transcript evidence
 
-For patch or hook anchors, strong evidence MUST come from the same production selector functions used by the patch modules. Evidence built from duplicated selector/scorer logic, narrower happy-path-only fixtures, or scripts that merely prove a sentinel was inserted where an evidence-only selector pointed is not sufficient release-gate evidence.
+For patch or hook anchors, strong evidence MUST come from the pinned target artifact and/or runtime behavior. Synthetic fixtures, syntax matches, candidate counts, helper output, or scripts that merely prove a sentinel was inserted are not sufficient release-gate evidence unless paired with documented semantic analysis of the real target and behavior proof.
 
 ## Planning Checklist For A New Agent Port
 
@@ -396,7 +396,7 @@ Before writing an implementation plan, identify:
 - how session reload or resume works
 - whether message ids are stable, synthetic, absent, or branch-relative
 - how required hook or patch-point discovery will be made resilient, and what fail-closed path will be used if discovery fails or cannot be self-verified
-- how reviewers can verify that patch-anchor evidence uses the production selector/scorer path, includes false-positive and negative tests, and does not rely on happy-path fixtures or sentinel checks alone
+- how reviewers can verify semantic anchor analysis: why each chosen host-code location is the correct behavior seam, why plausible alternatives are wrong, what fail-closed path covers ambiguity or target drift, and what pinned-target behavior proves the patch works
 - which required bonsai capabilities can live entirely plugin-side or MCP-side, and which cannot
 - the smallest upstream or host-core seam that would be needed if plugin-side delivery proves insufficient
 

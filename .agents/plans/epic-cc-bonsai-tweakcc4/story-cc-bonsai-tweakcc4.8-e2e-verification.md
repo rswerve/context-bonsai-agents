@@ -14,7 +14,7 @@ Two mandatory test classes, plus the existing scenario set:
 
 **(b) Protocol A — secret-prune oracle.** In a fresh session: seed a unique secret, have the assistant acknowledge it without over-repeating, prune the secret-introducing message (the secret must not appear in tool arguments, summary, or index terms), forbid further tool use, then ask for the secret. The model must be unable to reveal it from active context. The oracle is **invalidated** if the secret appears anywhere unpruned in the transcript — the protocol must check that explicitly.
 
-**(c) Pinned-target artifact evidence.** Because this epic forward-ports a patch-based integration to a minified closed-source host, the release gate must produce or refresh the evidence record for the epic's pinned target: Claude Code native `2.1.143` Linux x64 extracted with tweakcc `4.0.13` or compatible `4.0.x`. The evidence must include the extraction tool/version, exact reproduction command or harness entry point, extracted bundle checksum, candidate count(s), selected candidate evidence, timestamp, and operator. Patch-anchor evidence must exercise the same production selector/scorer functions used by the patch modules; duplicated selector logic, weaker scorer copies, or evidence-only selectors are not acceptable release-gate evidence unless backed by a documented, tested equivalence layer. It must exclude credentials, session transcripts, and `~/.claude` auth/config data.
+**(c) Pinned-target artifact evidence.** Because this epic forward-ports a patch-based integration to a minified closed-source host, the release gate must produce or refresh the evidence record for the epic's pinned target: Claude Code native `2.1.143` Linux x64 extracted with tweakcc `4.0.13` or compatible `4.0.x`. The evidence must include the extraction tool/version, exact reproduction command or harness entry point, extracted bundle checksum, candidate count(s), selected anchor evidence, timestamp, and operator. Patch-anchor evidence must explain why each chosen location is the semantically correct Claude Code behavior seam and why plausible nearby candidates are wrong. Syntax matches, candidate counts, sentinel insertion, or synthetic fixtures are not acceptable release-gate evidence by themselves. It must exclude credentials, session transcripts, and `~/.claude` auth/config data.
 
 Adapt the existing protocol document `tweakcc_context_bonsai/docs/e2e-protocol.md`: it already covers scenarios E2E-01..07; add the install-procedure scenario, and align it to native + tweakcc 4.0. While editing, **correct the stale `settings.json` references to `~/.claude.json`** — they occur at `e2e-protocol.md` lines 9, 46, and 64 (all three; Story 7 confirms the authoritative file). `docs/context-bonsai-e2e-template.md` is the cross-port template to align with.
 
@@ -39,7 +39,7 @@ Examples only:
 - Proof that the documented install commands work verbatim from a clean state.
 - A reproducible protocol any contributor can re-run.
 - A secret-oracle result that is sound — explicitly invalidated if the secret leaked into unpruned transcript.
-- Patch-anchor artifact evidence that cannot pass through a parallel weaker selector path.
+- Patch-anchor artifact evidence grounded in the real pinned Claude Code behavior, not made-up fixtures or syntax-only matches.
 
 ### Design Implications
 
@@ -48,7 +48,7 @@ Examples only:
 - Native is the primary verified path; npm `cli.js` is smoke-checked, not deeply exercised.
 - Provider credentials for the sprite are out-of-band and never committed (see the installation-e2e template's Phase 0).
 - Target artifact evidence is about the Claude Code binary/bundle only; it never includes provider credentials, session transcripts, or `~/.claude` auth/config data.
-- Target artifact evidence is valid only if it calls the production patch-anchor selector/scorer path and records fail-closed behavior for broad, tied, and no-match cases; sentinel checks are necessary but not sufficient.
+- Target artifact evidence is valid only if it documents semantic anchor analysis for the pinned target and records fail-closed behavior for plausible wrong, ambiguous, and no-match cases; sentinel checks are necessary but not sufficient.
 
 ## Acceptance Criteria
 
@@ -57,8 +57,8 @@ Examples only:
 - [ ] The install-procedure test runs the documented apply commands verbatim from a clean fly.io sprite and verifies the tools are functional (a prune measurably reduces context), not merely registered.
 - [ ] The Protocol A secret-prune oracle is specified and executed, including the explicit invalidation check that the secret never appears in unpruned transcript, tool arguments, summary, or index terms.
 - [ ] The existing scenario set (E2E-01..07) is run against the integrated system; results are recorded with PASS/BLOCKED/FAIL verdicts and evidence.
-- [ ] A pinned-target artifact evidence record is produced or refreshed for Claude Code native `2.1.143` Linux x64, including extraction tool/version, exact reproduction command or harness entry point, extracted bundle checksum, candidate count(s), selected candidate evidence, timestamp, and operator. The evidence must use the same production selector/scorer functions as the shipped patch modules, must not duplicate weaker selector logic in `native-e2e.ts` or artifact scripts, and must exclude credentials, session transcripts, and `~/.claude` auth/config data.
-- [ ] Release-gate patch-anchor evidence includes required false-positive and negative coverage: broad candidate rejected, tied strong candidates fail closed, no-match fails closed, and intended target resolves uniquely without weakening fail-closed `minScore`/`minMargin` thresholds.
+- [ ] A pinned-target artifact evidence record is produced or refreshed for Claude Code native `2.1.143` Linux x64, including extraction tool/version, exact reproduction command or harness entry point, extracted bundle checksum, candidate count(s), selected anchor evidence, timestamp, and operator. The evidence must explain the semantic role of each selected anchor, why plausible nearby candidates are wrong, and must exclude credentials, session transcripts, and `~/.claude` auth/config data.
+- [ ] Release-gate patch-anchor evidence includes required negative coverage: plausible wrong candidates rejected, ambiguous candidates fail closed, no-match fails closed, and the chosen target is proven by pinned-target behavior without weakening fail-closed `minScore`/`minMargin` thresholds.
 - [ ] A full PASS run is recorded as the epic's release gate.
 - [ ] `bun run typecheck` and `bun test` still pass (no regression in the side repo).
 
@@ -92,7 +92,7 @@ Examples only:
 - Update `e2e-protocol.md` for native + tweakcc 4.0; add the install-procedure scenario; fix the three `settings.json` lines.
 - Specify the Protocol A oracle with the explicit invalidation check.
 - Specify the pinned-target artifact evidence step and credential boundary.
-- Specify that patch-anchor artifact/e2e evidence uses production selector functions, not duplicated evidence-only selector/scorer logic, and that sentinel checks do not replace semantic anchor validation.
+- Specify that patch-anchor artifact/e2e evidence is based on semantic analysis of the real pinned target, and that sentinel checks do not replace semantic anchor validation.
 
 ### Phase 3: Integration
 
@@ -102,7 +102,7 @@ Examples only:
 
 - Execute the full protocol; record verdicts and evidence; confirm a full PASS gate.
 - Produce or refresh the pinned-target evidence record before declaring the epic release gate passed.
-- Confirm the pinned-target evidence records broad/tied/no-match fail-closed cases and unique intended-target resolution through the production selector/scorer path.
+- Confirm the pinned-target evidence records plausible-wrong/ambiguous/no-match fail-closed cases and explains why the chosen anchors are the correct behavior seams.
 
 ## Step-by-Step Tasks
 
@@ -111,7 +111,7 @@ Examples only:
 3. Add the install-procedure scenario (clean sprite → documented commands verbatim → functional prune check).
 4. Specify the Protocol A secret-prune oracle with the invalidation gate.
 5. Add the pinned-target artifact evidence step and credential boundary to the protocol/run record.
-6. Add reviewer-enforceable evidence checks that reject duplicated selector/scorer logic, missing negative tests, evidence-only selectors, and sentinel-only proof for patch anchors.
+6. Add reviewer-enforceable evidence checks that reject syntax-only matches, missing negative evidence against plausible wrong anchors, synthetic-fixture-only claims, and sentinel-only proof for patch anchors.
 7. Build the runnable e2e harness/script.
 8. Execute the full protocol on a fly.io sprite; record PASS/BLOCKED/FAIL with evidence.
 9. Produce or refresh the pinned-target evidence record, then confirm and record the full-PASS release gate; run `bun run typecheck` and `bun test`.
@@ -120,8 +120,8 @@ Examples only:
 
 - This story *is* the test story: e2e on a clean fly.io sprite. Native install is primary; npm `cli.js` gets a smoke check.
 - Evidence favors model-visible transcript over internal logs, per the spec's Evidence Expectations.
-- Pinned-target artifact evidence favors binary/bundle metadata and discovery outputs from the production selector/scorer path; it must not include credentials or session content.
-- Happy-path fixtures and sentinel-only checks are insufficient for patch-anchor release evidence; broad, tied, no-match, and unique-intended-target cases must be recorded.
+- Pinned-target artifact evidence favors binary/bundle metadata, semantic anchor notes, and runtime behavior; it must not include credentials or session content.
+- Synthetic fixtures and sentinel-only checks are insufficient for patch-anchor release evidence; plausible wrong, ambiguous, no-match, and behavior-proven chosen-target cases must be recorded.
 - Each scenario gets an explicit PASS/BLOCKED/FAIL verdict; a missing dependency is BLOCKED, not FAIL.
 
 ## Validation Commands

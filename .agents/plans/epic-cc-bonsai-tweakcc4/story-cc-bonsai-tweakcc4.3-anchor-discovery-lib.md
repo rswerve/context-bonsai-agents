@@ -99,7 +99,7 @@ Examples only:
 ### Phase 4: Testing and Validation
 
 - Unit tests for each function incl. the not-found / ambiguous throwing paths.
-- Negative tests must prove broad/tied/no-match false positives fail closed and the intended target resolves uniquely; happy-path fixtures alone are insufficient.
+- Negative tests must prove plausible wrong anchors, ambiguous anchors, and no-match cases fail closed. Synthetic fixtures may test helper mechanics, but they are not acceptance evidence that the Claude Code anchor is correct.
 - The 133-candidate disambiguation assertion against a deterministic committed fixture.
 - Optional target-bundle verification against the pinned target artifact, with release-gate evidence deferred to Story 8 when the artifact is absent.
 
@@ -119,7 +119,7 @@ Examples only:
 
 - Unit: every export, including both throwing paths of `selectUnique` and the `RuntimeHelpersError` path.
 - Deterministic fixture: assert exactly one visibility-predicate candidate is selected from a committed 133-candidate fixture.
-- Target artifact: if `tweakcc_context_bonsai/.artifacts/claude-code/2.1.143/linux-x64/extracted.js` exists or `CB_CLAUDE_TARGET_BUNDLE_JS` is provided, assert the real pinned-target bundle selects exactly one visibility-predicate candidate through the production selector/scorer functions used by the patch modules and record evidence per the epic Target Release And Artifact Contract; otherwise skip with a clear reason naming the expected bundle path, `CB_CLAUDE_TARGET_BUNDLE_JS`, and `tweakcc_context_bonsai/.artifacts/claude-code/2.1.143/linux-x64/manifest.json`. This skip is acceptable for Story 3 but not for Story 8's release gate.
+- Target artifact: if `tweakcc_context_bonsai/.artifacts/claude-code/2.1.143/linux-x64/extracted.js` exists or `CB_CLAUDE_TARGET_BUNDLE_JS` is provided, record semantic anchor evidence from the real pinned-target bundle: what behavior the selected visibility predicate controls, why it is the required provider-bound transcript seam, and why plausible nearby candidates are wrong. Otherwise skip with a clear reason naming the expected bundle path, `CB_CLAUDE_TARGET_BUNDLE_JS`, and `tweakcc_context_bonsai/.artifacts/claude-code/2.1.143/linux-x64/manifest.json`. This skip is acceptable for Story 3 but not for Story 8's release gate.
 
 ## Validation Commands
 
