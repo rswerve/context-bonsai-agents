@@ -108,8 +108,13 @@ This epic is a forward-port, not a greenfield implementation. Before patch-speci
 
 ### Story 8: End-to-end verification for native Claude Code
 **Size:** Medium
-**Description:** Adapt the e2e protocol to the native install + tweakcc 4.0 flow. MUST include an **install-procedure e2e test** (clean state → documented apply commands verbatim → tools loaded and functional) and the **Protocol A secret-prune oracle** (prune actually removes content from active context). Full PASS is the epic's release gate.
+**Description:** Adapt the e2e protocol to the native install + tweakcc 4.0 flow. MUST include an **install-procedure e2e test** (clean state → documented apply commands verbatim → tools loaded and functional) and the **Protocol A secret-prune oracle** (prune actually removes content from active context). Full PASS is the epic's release gate. Current Story 8 mechanical artifact evidence is not sufficient for release readiness until Story 8A supplies semantic anchor evidence.
 **Implementation Plan:** `.agents/plans/epic-cc-bonsai-tweakcc4/story-cc-bonsai-tweakcc4.8-e2e-verification.md`
+
+### Story 8A: Semantic anchor revalidation for Claude Code 2.1.143
+**Size:** Medium
+**Description:** Remediate the anchor-evidence gap found during Story 8. Produce a committed semantic-anchor analysis for the pinned Claude Code native `2.1.143` target, reclassify the existing Story 8 artifact PASS as mechanical locator evidence only, and update the artifact harness so release-gate evidence cannot pass without semantic anchor analysis. This story does not replace Story 8's live model e2e; it unblocks trustworthy pinned-target patch evidence before Story 8 can be completed.
+**Implementation Plan:** `.agents/plans/epic-cc-bonsai-tweakcc4/story-cc-bonsai-tweakcc4.8a-semantic-anchor-revalidation.md`
 
 ### Story 9: Operator documentation
 **Size:** Medium
@@ -127,7 +132,8 @@ This epic is a forward-port, not a greenfield implementation. Before patch-speci
   - Stories 4, 5, 6 → each depends on Story 3; independent of each other (could parallelize if orchestration allowed; default sequential).
   - Story 7 → depends on Stories 4–6 (IPC alignment is verified against the final patches).
   - Story 8 → depends on Stories 4–7 (verifies the full integrated system).
-  - Story 9 → depends on Story 8 (docs describe the verified, final apply flow).
+  - Story 8A → depends on the existing Story 8 blocked run record and mechanical artifact output, not on Story 8 completion; Story 8 final PASS/release-gate completion depends on Story 8A.
+  - Story 9 → depends on Story 8 and Story 8A (docs describe the verified, final apply flow and must not claim release readiness before semantic anchor evidence exists).
 - **Integration points:**
   - Parent repo: `docs/context-bonsai-agent-spec.md`, `docs/agent-specs/claude-code-context-bonsai-spec.md` (Story 1); `docs/context-bonsai-e2e-template.md` reference (Story 8).
   - Side repo `tweakcc_context_bonsai/`: new `adhoc-patch` script set + apply harness + discovery library (Stories 2–6), `mcp-server/` and `src/` (Story 7), operator docs (Story 9).
