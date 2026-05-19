@@ -62,9 +62,10 @@ Pi is an unusually strong fit for a first-party extension implementation because
 
 ### Required architecture stance
 
-- Pi Context Bonsai MUST be implemented as an in-tree first-party extension package at `pi/packages/context-bonsai/`.
-- The side repo `pi_context_bonsai` remains a standards/spec holder unless future shared scaffolding is needed outside `pi-mono`.
-- Pi core changes SHOULD NOT be required for the approved plan; any future core change must identify the missing extension primitive and be narrowly scoped.
+- Pi Context Bonsai MUST be implemented as a standalone extension package in the `pi_context_bonsai` side repository. It MUST NOT live in-tree inside pi-mono.
+- The extension is loaded through Pi's extension discovery — a user-global entry under `~/.pi/agent/extensions/`, a project-local `.pi/extensions/` entry, or an explicit extension path. The wiring MUST work regardless of the directory Pi is launched from.
+- Pi requires no fork. The extension integrates entirely through Pi's public `ExtensionAPI` and makes no modification to pi-mono source. A pinned pi-mono reference MAY be kept for testing, but it carries no Context Bonsai code.
+- Pi core changes are not required and none are present. If a future capability genuinely cannot be delivered through the extension API, a narrow core change is the last resort per the shared spec, and the missing primitive MUST be identified before implementation.
 - The implementation MUST use Pi-native session custom entries for archive records and tombstones rather than an external shadow store as the authority.
 
 ### Prune and retrieve contract
@@ -113,7 +114,7 @@ Pi is an unusually strong fit for a first-party extension implementation because
 
 ## Specified Implementation Direction
 
-- Preferred: direct first-party extension at `packages/context-bonsai/`, owning prompt guidance, tools, archive store, context transform, gauge, and tests.
+- Preferred: a standalone extension in the `pi_context_bonsai` side repository, owning prompt guidance, tools, archive store, context transform, gauge, and tests.
 - Acceptable: narrow Pi core seam only if a required primitive becomes unavailable or proves insufficient, with the missing capability documented before implementation.
 - Not acceptable: an external sidecar-only implementation that cannot rewrite the actual outgoing transcript, a text-only matcher that ignores tool structures, or a UI-only gauge.
 

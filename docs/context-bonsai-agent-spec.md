@@ -48,6 +48,15 @@ Context Bonsai implementations MUST prefer the narrowest viable integration surf
 
 Upstream or host-core changes are acceptable only when a required behavioral capability cannot be delivered from the plugin-side or sidecar-side, and the missing capability is explicitly identified.
 
+## Code Placement Rule
+
+The integration surface (which mechanism) and code placement (which repository) are separate decisions. Choosing a narrow integration surface does not license placing port code inside the host harness repository.
+
+- A port's Context Bonsai logic MUST live in the port's side repository (`<agent>_context_bonsai`).
+- The agent harness fork MUST carry only the narrow seam: the minimal, irreducible host-side modifications required to reach that logic. It MUST NOT carry the port's logic.
+- When a port needs no harness modification at all — the integration is delivered entirely through a supported extension, plugin, or MCP mechanism — the harness fork carries nothing from the port, and a harness fork may be unnecessary.
+- Development convenience (workspace linking, shared tooling, test wiring) is not a sufficient reason to place port logic in the harness repository.
+
 When host-core changes are required, the implementation plan SHOULD:
 
 - minimize touched upstream files
