@@ -93,6 +93,14 @@ This document specializes the shared Context Bonsai contract for Anthropic's Cla
 - If `~/.claude/archived-<session-id>.json` cannot be written (filesystem permissions, disk full), the MCP tool MUST roll back any partial JSONL mutation and return an error.
 - Pattern ambiguity, after the prune-wrapper filter, MUST return the deterministic plain-text error verbatim per the cross-agent spec.
 
+## Patch-Anchor Evidence Requirements
+
+- Release-gate evidence for Claude Code tweakcc patches MUST exercise the same production selector/scorer functions imported by `archived-filter`, `message-content-ids`, and `context-bonsai-gauge` patch modules. `native-e2e.ts` or any artifact script MUST NOT duplicate weaker selector/scorer logic unless there is a documented and tested equivalence layer.
+- Required tests for each production patch-anchor path MUST include the false-positive cases from the shared spec: broad candidate rejected, tied strong candidates fail closed, no-match fails closed, and intended target resolves uniquely.
+- Happy-path fixtures alone are insufficient for resilient anchor compliance on this port. A fixture or artifact check that only shows a sentinel appears exactly once is necessary but not sufficient, because the sentinel proves insertion at the selected offset rather than semantic correctness of the selected anchor.
+- Reviewers should report duplicated selector/scorer logic, missing negative tests, or evidence-only selectors as HIGH findings by default, and CRITICAL findings when the evidence is used to claim the native Claude Code release gate passed.
+- Fail-closed thresholds such as `minScore` and `minMargin` must remain mandatory; do not lower them or bypass ambiguity errors to make the pinned target pass.
+
 ## Parity Gaps Against Shared Spec
 
 - In-band gauge delivery without the tweakcc patch is best-effort (text in tool responses, not a separate signal).

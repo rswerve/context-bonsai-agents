@@ -318,6 +318,11 @@ An implementation MUST document the policy envelope of its host and provider set
 - Required patch or hook insertion-point discovery MUST be resilient when host code can change between releases: use multiple matching strategies, score candidates with explicit disambiguation rules, and self-verify after application that the intended change landed exactly as required.
 - Required patch or hook discovery MUST fail closed when the host runtime changes and the insertion point can no longer be identified reliably.
 - Resilient discovery complements, and does not supersede, the fail-closed requirement: if discovery is still missing, ambiguous, or cannot be self-verified, the implementation MUST refuse to proceed.
+- Reviewers MUST reject release-gate evidence that uses selector or scorer logic different from the production patch or hook code unless the implementation documents and tests an equivalence layer. Artifact and e2e evidence for patch anchors MUST exercise the same production selector functions used by the patch modules, not duplicated selector logic, weaker scorer copies, or evidence-only selectors.
+- Required patch-anchor tests MUST include false-positive and negative coverage: a broad candidate is rejected, tied strong candidates fail closed, no-match fails closed, and the intended target resolves uniquely. Happy-path fixtures alone are insufficient for resilient anchor compliance.
+- Self-verification sentinel checks are necessary but not sufficient. They prove insertion happened where the selected selector pointed; they do not prove the selected anchor was semantically correct.
+- Reviewers SHOULD treat duplicated selector/scorer logic, missing negative tests, or evidence-only selectors as HIGH findings, and as CRITICAL findings when they affect release-gate evidence or could allow a broken shipped patch to pass validation.
+- Implementations MUST NOT weaken `minScore`, `minMargin`, or equivalent disambiguation thresholds merely to make an anchor pass; ambiguous or weak anchors must continue to fail closed.
 - Unsupported runtime states MUST not silently no-op when the model believes pruning succeeded.
 
 ## Operator Documentation Contract
@@ -362,6 +367,7 @@ Every agent implementation plan derived from this spec SHOULD include at least t
 6. Persistence across session resume or reload, if the host supports persistence
 7. Same-step prune/retrieve guard, if implemented
 8. Secret or sensitive-content prune oracle to confirm post-prune recall is not available from active context alone
+9. Patch-anchor negative coverage for any patch or hook discovery layer: broad candidate rejected, tied strong candidates fail closed, no-match fails closed, and intended target resolves uniquely using the production selector/scorer path
 
 ## Evidence Expectations
 
@@ -374,6 +380,8 @@ Strong evidence includes:
 - direct final-model responses after prune or retrieve
 - session-file or transcript-store inspection when that is the authoritative persisted source
 - runtime logs only when they support, not replace, transcript evidence
+
+For patch or hook anchors, strong evidence MUST come from the same production selector functions used by the patch modules. Evidence built from duplicated selector/scorer logic, narrower happy-path-only fixtures, or scripts that merely prove a sentinel was inserted where an evidence-only selector pointed is not sufficient release-gate evidence.
 
 ## Planning Checklist For A New Agent Port
 
@@ -388,6 +396,7 @@ Before writing an implementation plan, identify:
 - how session reload or resume works
 - whether message ids are stable, synthetic, absent, or branch-relative
 - how required hook or patch-point discovery will be made resilient, and what fail-closed path will be used if discovery fails or cannot be self-verified
+- how reviewers can verify that patch-anchor evidence uses the production selector/scorer path, includes false-positive and negative tests, and does not rely on happy-path fixtures or sentinel checks alone
 - which required bonsai capabilities can live entirely plugin-side or MCP-side, and which cannot
 - the smallest upstream or host-core seam that would be needed if plugin-side delivery proves insufficient
 

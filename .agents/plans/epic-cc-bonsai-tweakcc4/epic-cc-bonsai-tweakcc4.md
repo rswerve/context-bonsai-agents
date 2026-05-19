@@ -64,6 +64,7 @@ This epic is a forward-port, not a greenfield implementation. Before patch-speci
 - **Pinned target:** Claude Code native `2.1.143` on Linux x64 is the primary target for this epic. npm `@anthropic-ai/claude-code` `cli.js` remains a secondary smoke target through the same tweakcc API path.
 - **Extraction toolchain:** tweakcc `4.0.13` or compatible `4.0.x`, using the Story 2 programmatic `readContent` path or an equivalent documented `tweakcc unpack` path.
 - **Reproducible artifact identity:** target-bundle evidence must record the Claude Code version, platform/install kind, extraction tool/version, exact reproduction command or harness entry point, extracted bundle checksum, candidate count(s), selected candidate evidence, timestamp, and operator.
+- **Production-selector evidence:** target-bundle evidence for patch anchors must be produced through the same production selector/scorer functions used by the patch modules. Reviewers must reject artifact or e2e evidence that duplicates weaker selector/scorer logic, uses evidence-only selectors, or relies on happy-path fixtures alone unless a documented, tested equivalence layer proves parity with production.
 - **Canonical optional Story 3 artifact input:** if a developer or e2e operator has already produced the pinned-target extract, place it at `tweakcc_context_bonsai/.artifacts/claude-code/2.1.143/linux-x64/extracted.js` or point `CB_CLAUDE_TARGET_BUNDLE_JS` at the extracted JS bundle. The companion manifest path is `tweakcc_context_bonsai/.artifacts/claude-code/2.1.143/linux-x64/manifest.json` and must contain the reproducible artifact identity fields above. These artifacts are local validation artifacts and MUST NOT be committed unless explicitly approved.
 - **Credential boundary:** credentials, session transcripts, and `~/.claude` auth/config data are never part of target artifact generation or committed evidence. A local Claude install may be used only as a source for recreating the pinned target binary/bundle, not as unversioned ambient truth.
 - **Story responsibility split:** library stories may provide deterministic fixtures and target-artifact verification hooks; the release gate (Story 8) must produce or refresh the real pinned-target evidence before the epic is declared complete.
@@ -185,6 +186,8 @@ function verifySentinel(content: string, sentinel: string): void;  // throws unl
 ```
 
 Every throwing path IS the fail-closed mechanism: the apply harness catches it, restores the backup, and reports which patch and which anchor failed. No silent no-op.
+
+Contract B tests and release-gate evidence MUST prove more than the happy path. They must cover broad candidate rejection, tied strong candidates failing closed, no-match failing closed, and unique intended-target resolution, and they must exercise the same production selector/scorer path consumed by patch modules. `verifySentinel` is mandatory but insufficient by itself because it proves insertion happened at the selected offset, not that the selected anchor was semantically correct. Do not weaken `minScore`/`minMargin` or bypass `AnchorAmbiguousError` to make the pinned target pass.
 
 ### Contract C — Patch-presence detection (the root-cause fix for the original bug)
 

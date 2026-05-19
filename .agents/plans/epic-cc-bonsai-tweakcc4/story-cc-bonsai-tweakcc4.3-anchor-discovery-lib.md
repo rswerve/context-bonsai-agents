@@ -54,6 +54,7 @@ Examples only:
 - [ ] `findRuntimeHelpers` resolves `fsFunc`, `configDirFunc`, `sessionIdFunc` from a Claude Code bundle and throws `RuntimeHelpersError` if any is unresolved.
 - [ ] `verifySentinel` throws unless the given sentinel appears exactly once.
 - [ ] Discovery scoring is demonstrated with a deterministic committed fixture containing 133 `switch(X.type)` candidates and exactly one visibility-predicate winner.
+- [ ] Discovery tests include required false-positive and negative coverage: a broad candidate is rejected, tied strong candidates fail closed via `AnchorAmbiguousError`, no-match fails closed via `AnchorNotFoundError`, and the intended target resolves uniquely without weakening `minScore` or `minMargin`.
 - [ ] The test suite includes a target-artifact verification path for the epic's pinned Claude Code target: default path `tweakcc_context_bonsai/.artifacts/claude-code/2.1.143/linux-x64/extracted.js`, optional override `CB_CLAUDE_TARGET_BUNDLE_JS`, and manifest path `tweakcc_context_bonsai/.artifacts/claude-code/2.1.143/linux-x64/manifest.json`. When the extracted bundle is absent, it skips with a clear reason that names Claude Code native `2.1.143` Linux x64 and the expected artifact/manifest contract rather than silently passing as release evidence.
 - [ ] Committed fixtures cover each code shape; the test suite passes without `/tmp` artifacts.
 - [ ] `bun run typecheck` and `bun test` pass.
@@ -98,6 +99,7 @@ Examples only:
 ### Phase 4: Testing and Validation
 
 - Unit tests for each function incl. the not-found / ambiguous throwing paths.
+- Negative tests must prove broad/tied/no-match false positives fail closed and the intended target resolves uniquely; happy-path fixtures alone are insufficient.
 - The 133-candidate disambiguation assertion against a deterministic committed fixture.
 - Optional target-bundle verification against the pinned target artifact, with release-gate evidence deferred to Story 8 when the artifact is absent.
 
@@ -117,7 +119,7 @@ Examples only:
 
 - Unit: every export, including both throwing paths of `selectUnique` and the `RuntimeHelpersError` path.
 - Deterministic fixture: assert exactly one visibility-predicate candidate is selected from a committed 133-candidate fixture.
-- Target artifact: if `tweakcc_context_bonsai/.artifacts/claude-code/2.1.143/linux-x64/extracted.js` exists or `CB_CLAUDE_TARGET_BUNDLE_JS` is provided, assert the real pinned-target bundle selects exactly one visibility-predicate candidate and record evidence per the epic Target Release And Artifact Contract; otherwise skip with a clear reason naming the expected bundle path, `CB_CLAUDE_TARGET_BUNDLE_JS`, and `tweakcc_context_bonsai/.artifacts/claude-code/2.1.143/linux-x64/manifest.json`. This skip is acceptable for Story 3 but not for Story 8's release gate.
+- Target artifact: if `tweakcc_context_bonsai/.artifacts/claude-code/2.1.143/linux-x64/extracted.js` exists or `CB_CLAUDE_TARGET_BUNDLE_JS` is provided, assert the real pinned-target bundle selects exactly one visibility-predicate candidate through the production selector/scorer functions used by the patch modules and record evidence per the epic Target Release And Artifact Contract; otherwise skip with a clear reason naming the expected bundle path, `CB_CLAUDE_TARGET_BUNDLE_JS`, and `tweakcc_context_bonsai/.artifacts/claude-code/2.1.143/linux-x64/manifest.json`. This skip is acceptable for Story 3 but not for Story 8's release gate.
 
 ## Validation Commands
 
