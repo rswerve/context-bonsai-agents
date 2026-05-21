@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document specializes the shared Context Bonsai contract for Anthropic's Claude Code (the CLI / IDE agent host). Unlike the other four ports, Claude Code is closed-source — there is no agent repo to fork or patch. The integration surface is MCP plus a transcript-rewrite seam in the locally-installed Claude Code binary via [`tweakcc`](https://github.com/Piebald-AI/tweakcc), or an equivalent seam. The bonsai implementation lives in the [`tweakcc_context_bonsai/`](/home/basil/projects/context-bonsai-agents/tweakcc_context_bonsai) side repo (the `ccsnap` CLI plus the `context-bonsai` MCP server).
+This document specializes the shared Context Bonsai contract for Anthropic's Claude Code (the CLI / IDE agent host). Unlike the other four ports, Claude Code is closed-source — there is no agent repo to fork or patch. The integration surface is MCP plus a transcript-rewrite seam in the locally-installed Claude Code binary via [`tweakcc`](https://github.com/Piebald-AI/tweakcc), or an equivalent seam. The bonsai implementation lives in the [`tweakcc_context_bonsai/`](/home/basil/projects/context-bonsai-agents/tweakcc_context_bonsai) side repo: the `context-bonsai` MCP server, tweakcc patch apply/restore tooling, and shared TypeScript libraries.
 
 ## User Model
 
@@ -32,7 +32,7 @@ This document specializes the shared Context Bonsai contract for Anthropic's Cla
 |---|---|---|
 | MCP tool registration | Verified | Story 7 confirmed current Claude Code 2.1.x uses `~/.claude.json`: top-level `mcpServers` is a map, and per-project entries under `projects` can also contain `mcpServers` maps. |
 | Persistent transcript | Verified | `~/.claude/projects/<project-hash>/<session-id>.jsonl` is append-only JSONL of `tool_use` / `tool_result` / text blocks |
-| Session discovery from MCP | Verified | `/proc/<pid>` walk finds the parent Claude Code process; cmdline contains `--resume <session-id>` (see `src/lib/session.ts`) |
+| Session discovery from MCP | Verified | `mcp-server/index.ts` walks `/proc/<pid>` to find the parent Claude Code process; cmdline contains `--resume <session-id>` |
 | In-band gauge | Partial | No public token-budget API. tweakcc patch can read internal state; otherwise gauge is delivered only as text inside prune/retrieve tool responses |
 | System-guidance injection | Gap | No MCP-side system-prompt API. Tool descriptions are the only model-visible MCP-controlled text |
 | Transcript mutation | Verified (with caveat) | The MCP server can rewrite the JSONL on disk to insert placeholder messages and mark archived ranges. A transcript-rewrite seam, currently the tweakcc `archivedFilter` patch or an equivalent, is required to hide archived ranges in the live transcript view |
@@ -42,7 +42,7 @@ This document specializes the shared Context Bonsai contract for Anthropic's Cla
 
 - MCP server registration: `~/.claude.json` `mcpServers.context-bonsai.{command,args}` or per-project `projects.<project>.mcpServers.context-bonsai.{command,args}` — stdio MCP transport; tool names exposed as `mcp__context-bonsai__context-bonsai-prune` / `mcp__context-bonsai__context-bonsai-retrieve` per Claude Code's MCP-prefix convention.
 - Session JSONL location: `~/.claude/projects/<project-hash>/<session-id>.jsonl`. Each line is one of `{ type: "user" | "assistant" | "summary", uuid, parentUuid, timestamp, message?, summary?, ... }`. See `tweakcc_context_bonsai/src/types.ts` for the canonical `SessionMessage` union.
-- Process discovery: `/proc/<pid>` walk from the MCP server's parent process up the chain, parsing `cmdline` for `--resume <session-id>` to identify the live Claude Code session. See `tweakcc_context_bonsai/src/lib/session.ts:findCurrentSession` and `findSessionPath`.
+- Process discovery: `/proc/<pid>` walk from the MCP server's parent process up the chain, parsing `cmdline` for `--resume <session-id>` to identify the live Claude Code session. See `tweakcc_context_bonsai/mcp-server/index.ts`.
 - Archive marker file: `~/.claude/archived-<session-id>.json` — written by `addArchivedMarkerEntries` in `tweakcc_context_bonsai/src/lib/compact.ts`. Read by the required transcript-rewrite seam to hide archived ranges in the live transcript.
 
 ## Unverified Or Weak Areas
@@ -127,9 +127,9 @@ See `tweakcc_context_bonsai/docs/e2e-protocol.md` for the canonical step-by-step
 ## Key References
 
 - [tweakcc_context_bonsai/mcp-server/index.ts](/home/basil/projects/context-bonsai-agents/tweakcc_context_bonsai/mcp-server/index.ts) — MCP server entry; tool registration; prune/retrieve handlers
-- [tweakcc_context_bonsai/src/lib/session.ts](/home/basil/projects/context-bonsai-agents/tweakcc_context_bonsai/src/lib/session.ts) — JSONL session loader, `/proc` discovery
+- [tweakcc_context_bonsai/src/lib/session.ts](/home/basil/projects/context-bonsai-agents/tweakcc_context_bonsai/src/lib/session.ts) — JSONL session loader and session path helpers
 - [tweakcc_context_bonsai/src/lib/compact.ts](/home/basil/projects/context-bonsai-agents/tweakcc_context_bonsai/src/lib/compact.ts) — `markMessagesArchived`, `addArchivedMarkerEntries`, `retrieveSession`
 - [tweakcc_context_bonsai/src/types.ts](/home/basil/projects/context-bonsai-agents/tweakcc_context_bonsai/src/types.ts) — `SessionMessage`, `CompactMetadata`, `SummaryMessage`
-- [tweakcc_context_bonsai/CC_BONSAI.md](/home/basil/projects/context-bonsai-agents/tweakcc_context_bonsai/CC_BONSAI.md), [PRD_CONTEXT_BONSAI_V2.md](/home/basil/projects/context-bonsai-agents/tweakcc_context_bonsai/PRD_CONTEXT_BONSAI_V2.md) — full design spec
+- [tweakcc_context_bonsai/README.md](/home/basil/projects/context-bonsai-agents/tweakcc_context_bonsai/README.md), [PRD_CONTEXT_BONSAI_V2.md](/home/basil/projects/context-bonsai-agents/tweakcc_context_bonsai/PRD_CONTEXT_BONSAI_V2.md) — operator docs and design background
 - [tweakcc_context_bonsai/docs/e2e-protocol.md](/home/basil/projects/context-bonsai-agents/tweakcc_context_bonsai/docs/e2e-protocol.md) — end-to-end validation procedure
 - [tweakcc](https://github.com/Piebald-AI/tweakcc) — patching tool used to provide the required transcript-rewrite seam
