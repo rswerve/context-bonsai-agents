@@ -1,0 +1,11 @@
+[
+  {
+    "source_sha": "4d88b953624c869122d4b37c4cbae01fd7a0f47e",
+    "approved_action": "cherry-pick",
+    "approval_refs": [
+      "parent-repo commit 0167749 (docs: broaden carry-on-upstream wording to cover doc commits) — establishes fork-only doc commits (signpost README) as a structural part of the chain that rebases forward together",
+      "user instruction in orchestration request 'orchestrate story-meta-plan-for-future-rebase-planning.md for getting us onto v1.15.7' — explicit go-ahead to advance the entire chain, including the README signpost, to v1.15.7"
+    ],
+    "resolution_state": "approved"
+  }
+]

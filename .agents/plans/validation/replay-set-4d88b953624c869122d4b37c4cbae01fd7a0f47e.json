@@ -1,0 +1,39 @@
+[
+  {
+    "source_sha": "ec63292d00fca02c38ec653c821948e0501d96fe",
+    "bucket": "required_runtime",
+    "replay_action": "cherry-pick",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "packages/opencode/src/session/message-v2.ts",
+      "packages/opencode/test/session/context-bonsai.test.ts",
+      "packages/opencode/test/session/message-v2.test.ts"
+    ],
+    "rationale": "All touched paths inside packages/opencode/** runtime allowlist; git cherry -v marks as not upstream; current parent pin depends on this integration patch.",
+    "evidence_ref": ".agents/plans/validation/baseline-4d88b953624c869122d4b37c4cbae01fd7a0f47e.json#commit-ec63292d"
+  },
+  {
+    "source_sha": "7d4dfb827c0425928020fecdfc2d44936cb43559",
+    "bucket": "required_runtime",
+    "replay_action": "cherry-pick",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "packages/opencode/src/tool/registry.ts",
+      "packages/opencode/test/tool/registry.test.ts",
+      "packages/plugin/src/tool.ts"
+    ],
+    "rationale": "All touched paths inside packages/opencode/** and packages/plugin/** runtime allowlists; git cherry -v marks as not upstream; this is the current parent submodule pin and exposes the plugin-tool metadata-update API the opencode_context_bonsai_plugin depends on.",
+    "evidence_ref": ".agents/plans/validation/baseline-4d88b953624c869122d4b37c4cbae01fd7a0f47e.json#commit-7d4dfb82"
+  },
+  {
+    "source_sha": "4d88b953624c869122d4b37c4cbae01fd7a0f47e",
+    "bucket": "manual_review",
+    "replay_action": "cherry-pick",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "README.md"
+    ],
+    "rationale": "Root README.md falls outside default runtime allowlist (packages/opencode/**, packages/plugin/**) and default docs allowlist (.agents/plans/**, .opencode/context_bonsai/**). Fork-only signpost README on the default branch is an expected structural part of the chain per parent DEVELOPMENT.md 'Carrying Patches on Upstream' section. Manual-review approval recorded at .agents/plans/validation/manual-review-approvals-4d88b953624c869122d4b37c4cbae01fd7a0f47e.json.",
+    "evidence_ref": ".agents/plans/validation/manual-review-approvals-4d88b953624c869122d4b37c4cbae01fd7a0f47e.json#commit-4d88b953"
+  }
+]
