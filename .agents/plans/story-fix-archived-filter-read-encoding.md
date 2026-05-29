@@ -158,7 +158,7 @@ These are the source of truth for the developer's starting-state check and compl
 
 - Approval Status: approved
 - Approval Citation: Basil approved on 2026-05-28: "Approved. Commit and orchestrate".
-- Plan Commit Hash: pending (recorded in a follow-up commit per repo convention)
+- Plan Commit Hash: 9128439a45f02e59745af03f799709dc1d78867f
 - Ready-for-Orchestration: yes
 
 ## Validation Loop Results
