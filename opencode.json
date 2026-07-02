@@ -1,0 +1,32 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "opencode": {
+      "options": {
+        "reasoningEffort": "medium"
+      }
+    }
+  },
+  "agent": {
+    "bonsai-orchestrator": {
+      "mode": "primary",
+      "model": "opencode/gpt-5.5",
+      "description": "Process orchestrator for Context Bonsai forward-port cycles. Coordinates developer/reviewer/judge subagents; never implements directly."
+    },
+    "bonsai-developer": {
+      "mode": "subagent",
+      "model": "opencode/gpt-5.5",
+      "description": "Developer subagent for forward-port cycle work. Operates per .llm-conductor/DEVELOPER_SUBAGENTS.md as instructed in its task prompt."
+    },
+    "bonsai-reviewer": {
+      "mode": "subagent",
+      "model": "opencode/gpt-5.5",
+      "description": "Adversarial reviewer subagent for forward-port cycle work. Operates per .llm-conductor/REVIEWER_SUBAGENTS.md as instructed in its task prompt."
+    },
+    "bonsai-judge": {
+      "mode": "subagent",
+      "model": "opencode/gpt-5.5",
+      "description": "Review judge subagent for forward-port cycle work. Operates per .llm-conductor/REVIEW_JUDGE_SUBAGENTS.md as instructed in its task prompt."
+    }
+  }
+}
