@@ -2,7 +2,7 @@
 
 This is the authoritative contract for carrying a Context Bonsai port onto a new upstream release of its harness. Context Bonsai is a context-management capability (prune, retrieve, and an in-band context gauge) ported onto multiple AI-agent harnesses; a *port* is the harness-specific implementation, carried as a patch chain, plugin, or artifact-patching side repo on top of the harness's releases. This spec defines a shape-agnostic core (the determinism machinery every cycle obeys), two upstream shape bindings (git-fork and closed npm artifact), and the per-harness binding slots a harness must fill before the routine path can run against it.
 
-**Status.** This spec restructures `.agents/plans/story-meta-plan-for-future-rebase-planning.md`. Until the regeneration acceptance test in `docs/meta-loop-direction.md` §"Next Step" passes, that meta-plan remains the operative cycle-plan generator and this spec is a candidate. After acceptance, the meta-plan is superseded by a pointer note at its old path and this spec governs.
+**Status: operative.** This spec restructured `.agents/plans/story-meta-plan-for-future-rebase-planning.md` and passed the regeneration acceptance test defined in `docs/meta-loop-direction.md` §"Next Step" on 2026-07-02: both most-recent executed cycle plans (OpenCode `4d88b95`, Claude Code `95c2422`) were regenerated clean-room from this spec plus their bindings — including the §1.15 validation loop — and independently audited equivalent on all four criteria (seal/blocking gates, bucket taxonomy and precedence, validation command set with working directories, immutable e2e scope). The meta-plan's old path now holds a pointer note; its full text remains in git history.
 
 ## Relationship to the other documents
 
@@ -34,6 +34,7 @@ Every cycle freezes its inputs once, at cycle start, and never re-resolves them.
 - **Source identity**: `SOURCE_REF` (full ref) and `SOURCE_HEAD_SHA` (full 40-char SHA) of the port being carried forward. Short SHAs are rejected; refs must pass `git rev-parse --verify` and are normalized to full SHAs before any planning logic.
 - **Upstream identity**: shape-defined (Part 2: fetched release ref frozen to SHA; Part 3: npm package identity with tarball integrity). Frozen the same way: resolve once, record, use only the frozen value.
 - All cycle commands reference frozen values. The executor must not substitute moving refs, `HEAD`, or "latest".
+- The invoker-supplied identities define the cycle. If, already at generation time, the supplied source identity differs from the tracked source's current tip, STOP and confirm with the invoker (stale input vs. intended historical cycle) rather than silently generating or re-keying; drift discovered later, at execution preflight, is handled per §1.9.
 - The frozen identities appear verbatim in the generated plan's header, together with every derived value (base SHA, worktree path, target branch/tag names, validation mode) so the plan is executable without re-derivation.
 
 ## 1.2 Deterministic inventory
@@ -58,12 +59,13 @@ The replay set is the sole machine-readable input to execution.
 - Path: `.agents/plans/validation/replay-set-<SOURCE_HEAD_SHA>.json`.
 - Schema and row sort are shape-defined (Parts 2 and 3 fix field order exactly).
 - Checksum discipline is shape-bound. Git-fork (Part 2): the plan records a SHA-256 of the UTF-8 canonical JSON (fixed key order, no insignificant whitespace; canonicalize with `jq -c`), verified before replay begins and unchanged at seal time. Closed-artifact (Part 3): the executed precedent commits the artifact without a recorded checksum; the committed, diff-tracked file itself is the frozen input.
+- Checksum verification must be concretely executable: at compute time the digest is captured into a named shell variable or written as the literal value into the plan header, and every later verify command references that captured value — an executable command must never contain unresolved placeholder text.
 
 ## 1.5 Manual-review approval recording
 
 The core invariant: the seal hard-fails while any hard-blocking row lacks an explicit, recorded reviewer+judge-approved resolution. The recording mechanism is shape-bound:
 
-- **Git-fork (Part 2)**: a separate approvals artifact at `.agents/plans/validation/manual-review-approvals-<SOURCE_HEAD_SHA>.json`. Row fields, in order: `source_sha`, `approved_action`, `approval_refs`, `resolution_state`. Row sort: lexical by item id. Checksum: SHA-256 of canonical JSON (`jq -S -c .`), recorded in the plan and re-verified at preflight. Approved means `resolution_state=approved`.
+- **Git-fork (Part 2)**: a separate approvals artifact at `.agents/plans/validation/manual-review-approvals-<SOURCE_HEAD_SHA>.json`. Row fields, in order: `source_sha`, `approved_action`, `approval_refs`, `resolution_state`. Row sort: lexical by item id. Checksum: SHA-256 of the canonical JSON (`jq -c`, as for the replay set in §1.4 and as the executed precedent sealed), recorded in the plan and re-verified at preflight. Approved means `resolution_state=approved`.
 - **Closed-artifact (Part 3)**: per the executed precedent, approval is recorded in the generated plan itself — an acceptance criterion naming each hard-blocking row and its approved resolution, with the approval citation. No separate approvals file is created.
 
 ## 1.6 Baseline capture
@@ -71,7 +73,7 @@ The core invariant: the seal hard-fails while any hard-blocking row lacks an exp
 A dedicated phase, before any replay work, that only runs the required validations and records results. No replay changes occur in this phase.
 
 - Row fields, in order: `row_id`, `command`, frozen upstream identity field (shape-defined name), `frozen_source_head_sha`, `exit_code`, `result`, `artifact_path`, `provenance_ref`.
-- A missing required field hard-fails the phase. `BLOCKED` is allowed only when a required external dependency is genuinely unavailable; placeholder `n/a` rows are forbidden.
+- A missing required field — `command`, `result`, `provenance_ref`, or any other schema field — hard-fails the phase. `BLOCKED` is allowed only when a required external dependency is genuinely unavailable; placeholder `n/a` rows are forbidden. These rules apply to every baseline row, not only provenance.
 - Non-zero `exit_code` is captured as data, not as a phase failure — except rows the plan designates must-be-green: if a designated row fails on the clean upstream baseline, STOP and escalate (a pre-existing upstream regression is not this cycle's to fix).
 - For an artifact that replay itself introduces (it cannot exist at baseline), the baseline row is an existence probe with `result` of `missing-as-expected` or `unexpected-presence` (`unexpected-presence` hard-fails). Do not run a test command against a path known not to exist.
 - Missing `provenance_ref` on any row blocks progression to replay.
@@ -87,7 +89,7 @@ The core invariant: every deviation from the plan's default path (out-of-scope f
 ## 1.8 Approval contract
 
 - Approver format: `name <email>`.
-- Sealing requires two distinct approvers: reviewer and judge.
+- Sealing requires two distinct approvers: reviewer and judge. When the cycle runs under an orchestration layer with its own reviewer and judge gates, those gates satisfy this requirement; the plan records their approval citations.
 - Reviewer+judge approval is the unlock token for every STOP condition in this spec that is not an unconditional escalation.
 
 ## 1.9 Late fixes and source drift
@@ -132,25 +134,25 @@ Sealing a cycle requires all of the following, each machine-checkable, with hard
 9. Change-scope check: the realized diff touches only paths in the union of replay-set `target_paths` (or working-tree diff in pressure-test mode), with any exceptions approved per §1.7 **before** the offending change landed. If an out-of-scope path has already landed without an exception record: STOP and revert.
 10. No unresolved exception records, per the shape's exception-recording mechanism (§1.7).
 11. E2E release gate: pass evidence for the harness slot's required scenario set, or an explicit reviewer+judge-approved exception record (§1.7). Never record an e2e bypass exception without that approval.
-12. Spec immutability: `git diff --name-only -- docs/agent-specs/forward-port-spec.md` is empty — a cycle run must not modify this spec (routine maintenance, 1.16, happens after seal as its own change).
+12. Spec immutability, as the exact asserting commands `test -f docs/agent-specs/forward-port-spec.md` and `test -z "$(git diff --name-only -- docs/agent-specs/forward-port-spec.md)"` — the spec still exists and a cycle run has not modified it (routine maintenance, 1.16, happens after seal as its own change).
 13. Reviewer and judge approvals recorded.
 14. The shape's release-gate steps completed in order (Part 2 §2.9 / Part 3 §3.8).
 
 ## 1.14 Generated cycle-plan contract
 
-- Path and name: `.agents/plans/story-rebase-cycle-<SOURCE_HEAD_SHA>.md`, a new file. Generating it must not modify this spec or any prior plan; generation hard-fails if the output path collides with an existing artifact.
+- Path and name: `.agents/plans/story-rebase-cycle-<SOURCE_HEAD_SHA>.md`, a new file. Generating it must not modify this spec or any prior plan; generation hard-fails if the output path collides with an existing artifact. If the colliding artifacts are this same cycle's own (same `SOURCE_HEAD_SHA` plan, validation artifacts, or shape-derived worktree/branch/tag names), the cycle has already been generated or executed: STOP and report to the invoker rather than regenerating or resuming.
 - Single-story output is the default. An epic (`.agents/plans/epic-rebase-cycle-<SOURCE_HEAD_SHA>/`) is allowed only when all three hold: at least two independently executable stories are required, each has distinct acceptance criteria, and inter-story dependency order is explicit.
 - Required sections, all concrete (commands bound to frozen values and working directories, no policy-only guidance):
   1. Goal, Non-Goal, and an execution outcome statement (final `HEAD` based on the frozen upstream, containing the approved replay set only).
   2. Frozen-inputs header (1.1), including validation mode and any recorded supersession lineage.
   3. Allowlists and planned targets, including explicit non-targets.
-  4. Classification: for the git-fork shape, a table in the plan with one row per inventory item and fields `sha`, `subject`, `bucket`, `replay_action`, `target_paths`, `mapping_type` (`1:1`, `many:1`, `1:many`, `drop`; non-`1:1` requires equivalence evidence), `evidence`, `rationale`, `approver`. For the closed-artifact shape, the committed replay-set artifact (§3.4) serves as the classification record (per the executed precedent), with hard-blocking approvals recorded per §1.5.
+  4. Classification: for the git-fork shape, a table in the plan with one row per inventory item and fields `sha`, `subject`, `bucket`, `replay_action`, `target_paths`, `mapping_type` (`1:1`, `many:1`, `1:many`, `drop`; non-`1:1` requires equivalence evidence), `evidence`, `rationale`, `approver`. For the closed-artifact shape, the committed replay-set artifact (§3.4) serves as the classification record (per the executed precedent), with hard-blocking approvals recorded per §1.5. In either form, rows requiring no per-row approval carry the plan's approval citation in `approver`; distinct per-row approver entries are required only for hard-blocking and exception rows.
   5. Shape-required analysis sections (Part 2: reviewer-simplicity evaluation, re-implementation behavioral contracts; Part 3: anchor re-derivation records).
   6. Acceptance criteria.
   7. Implementation phases with commands: credentials preflight, bootstrap and frozen-identity verification, workspace preparation per the shape binding (Part 2: isolated worktree creation; Part 3: in-place side-repo preflight), baseline capture, replay, post-replay validation, e2e gate, release-gate steps and final verification.
   8. Validation commands grouped by working directory, matching the harness slot's canonical set exactly.
   9. E2E gate section citing the slot's e2e procedure and required scenario set.
-  10. Worktree artifact check: for every planned target file, record overlap against the classes `tracked-dirty` (tracked, uncommitted modifications) and `existing-untracked` (on disk, untracked). Any overlap blocks implementation for that path until explicitly approved or deferred, recorded with a decision citation.
+  10. Worktree artifact check: for every planned target file, record overlap against the classes `tracked-dirty` (tracked, uncommitted modifications) and `existing-untracked` (on disk, untracked). The generator records the check at generation time; the executor re-runs it immediately before its first edit. Any overlap blocks implementation for that path until explicitly approved or deferred, recorded with a decision citation.
   11. Plan approval and commit status: approval status, approval citation, plan commit hash, ready-for-orchestration flag. Execution is blocked until all four are affirmative.
   12. Validation loop results (1.15).
   13. Completion checklist mirroring the seal gates.
@@ -248,6 +250,7 @@ Row fields, in order: `source_sha`, `bucket`, `replay_action`, `mapping_type`, `
 - Patch-id comparison (`git patch-id`) demonstrates equivalence when conflict resolution required line-level edits.
 - Direct source-SHA equality against a replayed commit SHA is forbidden as evidence.
 - Final-state checks: `git merge-base "$UPSTREAM_HEAD_SHA" HEAD` returns `$UPSTREAM_HEAD_SHA`; `git rev-list --count "$UPSTREAM_HEAD_SHA"..HEAD` equals the replayed row count; commit subjects match the replay set.
+- Push-readiness at seal, after the rebase-point tag exists locally (§2.9 step 1) and before anything is pushed (§2.9 step 5): `git push --dry-run origin <replay-branch>` and `git push --dry-run origin refs/tags/<bonsai-tag>` must both exit 0.
 
 ## 2.7 Generated-artifact exclusion
 
@@ -324,11 +327,12 @@ Row fields, in order: `anchor_id`, `source_version`, `target_version`, `bucket`,
 
 ## 3.5 Replay: semantic re-derivation
 
-Replay is the re-derivation itself plus the side-repo changes it requires: updating the anchor registry, discovery seam, patch code, and tests to bind the target version. Work happens in place in the side repo's working tree on its tracked branch (the executed precedent); there is no replay worktree or branch, and the clean-state preflight of §1.10 still applies. Scope notes in the plan bound each file's purpose (e.g. "in scope only to verify and minimally adjust X — not an invitation to redesign Y"); edits outside a file's stated purpose are out-of-scope fixups requiring an exception row.
+Replay is the re-derivation itself plus the side-repo changes it requires: updating the anchor registry, discovery seam, patch code, and tests to bind the target version. Work happens in place in the side repo's working tree on its tracked branch (the executed precedent); there is no replay worktree or branch, and the clean-state preflight of §1.10 still applies. If preflight finds the tracked branch's HEAD no longer equal to the frozen `SOURCE_HEAD_SHA`, that is source drift: handle per §1.9 (generate a fresh plan keyed to the new SHA) — never reset or rewrite the branch to reach the frozen point. Scope notes in the plan bound each file's purpose (e.g. "in scope only to verify and minimally adjust X — not an invitation to redesign Y"); edits outside a file's stated purpose are out-of-scope fixups requiring an exception row.
 
 ## 3.6 Validation and immutable e2e scope
 
 - Side-repo validation (slot-defined commands) plus a pinned-target artifact-evidence check that ties test evidence to the frozen bundle and manifest.
+- The patch-application step itself enforces the §3.1 runtime binding: run apply with the explicit frozen install path (e.g. `bun run apply --path <native-install-path>`, as the executed baseline row 07 did) or record evidence that discovery detected exactly the target-version install. Re-assert the CLI version immediately before live validation begins; stop on mismatch.
 - The plan fixes the required live-scenario set for a release-gate PASS. Implementation may update the side repo's e2e docs but may not narrow that cycle's acceptance scope. No release-gate PASS may be claimed with an unapproved `BLOCKED` or omitted scenario.
 - Behavioral oracles verify transform **effects** (content genuinely absent from the real payload, measured footprint change), never flag-based or recall-based proxies, per the e2e spec's disciplines.
 
@@ -340,6 +344,7 @@ Live-run evidence is written to out-of-repo storage (slot-defined paths). No cre
 
 - The side repo is committed before the parent submodule pin is advanced; the parent commit updates only the pin and any necessary parent spec/docs.
 - Final verification runs in both repos: side-repo log/diff/status checks, parent `git diff --submodule=short`, and the spec-immutability check.
+- The routine cycle ends there: local pin advance plus final verification. The pin-advance commit lands on the parent's current branch (the executed precedent names no working branch for this shape). Pushing the side repo and parent is a separate, owner-approved step — this shape has no proven publish ladder (unlike §2.9), and the executor must not invent one.
 
 ---
 
@@ -371,7 +376,7 @@ Each supported harness binds the slots below before the routine path can run aga
 - **Upstream identity**: upstream release tags (`refs/tags/v<version>`), frozen per §2.1.
 - **Allowlists**: runtime `packages/opencode/**`, `packages/plugin/**`; docs `.agents/plans/**`, `.opencode/context_bonsai/**`; state-only: metadata/state artifacts outside both.
 - **Fork-owned wholesale files**: root `README.md` (signpost; classified `manual_review` per §2.3, wholesale-replaced on conflict per §2.5; content probe: `grep -q "Context Bonsai" README.md`).
-- **Naming**: worktree `opencode/.agent_tmp/rebase-on-<version>`; branch `replay/context-bonsai-on-opencode-<version>`; tag `bonsai/v1-on-opencode-<version>`.
+- **Naming**: worktree `opencode/.agent_tmp/rebase-on-<tag>` where `<tag>` is the upstream tag name including its `v` prefix (e.g. `rebase-on-v1.15.7`); branch `replay/context-bonsai-on-opencode-<version>` and tag `bonsai/v1-on-opencode-<version>` use the bare version without `v` (e.g. `...-1.15.7`). Parent pin-advance working branch (§2.9 step 3): `pin-advance/opencode-<version>` — a fixed default this spec sets (no precedent named one; DEVELOPMENT.md requires only "non-`main`").
 - **Toolchain**: `bun`, `jq`, `sha256sum`. Bootstrap (worktree root): `test -d node_modules || bun install`. Script existence preflight: `jq -r '.scripts.typecheck' packages/opencode/package.json` and `packages/plugin/package.json` non-empty; `bun turbo run build --filter=opencode --dry-run` lists the build task.
 - **Baseline rows** (in the worktree):
   - r01 (must-be-green), from `packages/opencode`: `bun test test/tool/registry.test.ts test/session/message-v2.test.ts test/session/session.test.ts`
@@ -382,7 +387,7 @@ Each supported harness binds the slots below before the routine path can run aga
 - **Canonical validation set** (post-replay, in the worktree): r01's test command, plus `bun test test/session/context-bonsai.test.ts` (must now pass), `bun typecheck` from `packages/opencode`, `bun typecheck` from `packages/plugin`, `bun turbo run build --filter=opencode` from worktree root. Post-replay r01 must be no worse than baseline; net-new failures are hard-fail regressions.
 - **E2E**: procedure `docs/context-bonsai-e2e-template.md` (the meta-plan's citation of `.agents/e2e-context-bonsai-opencode-integration.md` is obsolete — that file does not exist; this binding is the corrected citation). Required minimum: Protocol A (secret-prune oracle) and Protocol B (retrieve roundtrip). Rebased binary at `packages/opencode/dist/opencode-linux-x64/bin/opencode` (platform-equivalent), wired to `opencode_context_bonsai_plugin/` via the worktree's `.opencode/opencode.jsonc` templated from the pinned harness's copy; verify with `grep -A2 '"plugin"' .opencode/opencode.jsonc`. Install gate per §2.9 uses `docs/installation-e2e-template.md`.
 - **Credentials**: `OPENCODE_PROVIDER`, `OPENCODE_MODEL`, `OPENCODE_API_KEY`, provisioned out of band, verified present with `test -n`, never persisted or logged.
-- **Evidence paths**: `opencode/.agent_tmp/e2e-on-<version>/protocol-a/`, `.../protocol-b/` (worktree-local, uncommitted).
+- **Evidence paths**: `opencode/.agent_tmp/e2e-on-<tag>/protocol-a/`, `.../protocol-b/` (worktree-local, uncommitted; `<tag>` includes the `v` prefix, e.g. `e2e-on-v1.15.7`).
 - **Explicit non-targets**: this spec; the source branch in place; the parent's `.agents/plans/` tree during replay (except the cycle's own validation artifacts); `opencode_context_bonsai_plugin/`; prior cycles' worktrees.
 
 ## 4.3 Claude Code (shape: closed npm artifact)
@@ -391,10 +396,13 @@ Each supported harness binds the slots below before the routine path can run aga
 - **Upstream identity**: npm package `@anthropic-ai/claude-code`, frozen per §3.1 (`npm view`, `claude --version` runtime binding, extraction manifest).
 - **Seam/anchor registry**: `tweakcc_context_bonsai/patches/anchors.ts`; install-discovery seam `tweakcc_context_bonsai/patches/discovery.ts`.
 - **Artifact storage**: `/tmp/cc-bonsai-artifacts/claude-code/<version>/native/` (extracted bundle + `manifest.json`); e2e evidence under `/tmp/cc-bonsai-e2e/`.
+- **Extraction procedure**: tweakcc's `readContent` via `apply/tweakcc-api.ts`, run with bun against the native install at `~/.local/share/claude/versions/<version>` — `bun --eval "import { tweakccApi } from './apply/tweakcc-api'; const c = await tweakccApi.readContent({ path: '<native-install-path>', kind: 'native', version: '<version>' }); await Bun.write('/tmp/cc-bonsai-artifacts/claude-code/<version>/native/extracted.js', c);"` from `tweakcc_context_bonsai/` (procedure recorded in `docs/semantic-anchor-analysis-2.1.156.md`). The tweakcc version and this command land in the manifest per §3.1.
+- **Credentials**: provisioned out of band per `tweakcc_context_bonsai/docs/e2e-protocol.md` Phase 0 (harness operator provisions; nothing written into commands, run records, or artifacts). Missing environmental preconditions make affected live scenarios `BLOCKED` under that doc's reason codes (`credentials-missing-in-harness`, `sprite-unavailable`, `native-runtime-missing`, …) — BLOCKED is per-scenario with the e2e spec's discipline 5 semantics, never a plan-wide preflight hard-fail, and any BLOCKED accepted at seal needs the reviewer+judge exception per gate 11.
 - **Toolchain and bootstrap**: `bun`, `npm`, installed `claude` CLI at target version. From `tweakcc_context_bonsai/`: `bun install`.
 - **Preflight** (from parent root): `git status --short`; `git -C tweakcc_context_bonsai status --short`; `git -C tweakcc_context_bonsai rev-parse HEAD`; the `npm view` freeze command; `claude --version | grep '<version>'`; spec-immutability check.
 - **Side-repo validation** (from `tweakcc_context_bonsai/`): `bun test`; `bun run typecheck`; `bun run e2e/native-e2e.ts artifact-evidence --bundle <extracted.js> --manifest <manifest.json> --out /tmp/cc-bonsai-e2e/<version>-artifact-evidence.json`; `git status --short`.
-- **Live e2e** (from `tweakcc_context_bonsai/`): `claude --version | grep '<version>'`; `bun run apply`; `claude mcp list`; `bun run e2e/native-e2e.ts protocol-a-oracle --session <session-jsonl> --secret <secret> --out ...`; `bun run e2e/native-e2e.ts prune-guard-live <args>`; `bun run e2e/native-e2e.ts prune-effect --pre-session <pre> --session <session-jsonl> --from-uuid <from> --to-uuid <to> --out ...`. Harness argument shapes come from `native-e2e.ts` usage output.
+- **Baseline rows** (pre-replay, from `tweakcc_context_bonsai/`, per the executed artifact `baseline-95c24228….json`): 01 `bun install`; 02 `bun test` (must-be-green); 03 `bun run typecheck` (must-be-green); 04 the artifact-evidence command above against the frozen target bundle. The executed precedent records post-replay and live-e2e result rows in the same baseline artifact file; follow that convention.
+- **Live e2e** (from `tweakcc_context_bonsai/`): `claude --version | grep '<version>'`; `bun run apply --path <native-install-path>` (§3.6 runtime binding); `claude mcp list`; `bun run e2e/native-e2e.ts protocol-a-oracle --session <session-jsonl> --secret <secret> --out ...`; `bun run e2e/native-e2e.ts prune-guard-live <args>`; `bun run e2e/native-e2e.ts prune-effect --pre-session <pre> --session <session-jsonl> --from-uuid <from> --to-uuid <to> --out ...`. Harness argument shapes come from `native-e2e.ts` usage output.
 - **Required e2e scenario set** (immutable per cycle, §3.6): E2E-00 through E2E-08 (clean install; contiguous prune success; ambiguity rejection; retrieve by anchor; gauge cadence; compatibility error path; persistence across resume; Protocol A secret-prune oracle; bug-shape prune guard) plus pinned-target artifact evidence. E2E-08 verifies a transform effect — archived content absent from the real payload plus a measured input-token footprint drop; it must not be degraded into a flag-based or recall-based oracle. Shared oracle reference: `docs/context-bonsai-e2e-template.md#protocol-a-secret-prune-oracle`; side-repo procedure doc: `tweakcc_context_bonsai/docs/e2e-protocol.md` (may be updated, never narrowed).
 - **Final verification**: from `tweakcc_context_bonsai/`: `git log --oneline -5`, `git diff --name-status HEAD~1..HEAD`, `git status --short`; from parent root: `git status --short`, `git diff --submodule=short HEAD~1..HEAD`, spec-immutability check. Side-repo commit precedes parent pin advance (§3.8).
 - **Explicit non-targets**: this spec; superseded prior cycle plans; `opencode/`; `docs/agent-specs/context-bonsai-e2e-spec.md`; extracted bundles or manifests inside any repository; any `~/.claude/**`, auth, credential, or live transcript files.
