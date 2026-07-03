@@ -7,6 +7,14 @@
 #
 # PILOT_DRYRUN=1 substitutes a no-op for the orchestrator so the
 # marker-reaches-log plumbing can be verified before a real launch.
+#
+# Expected mid-run behavior (run-3 precedent, watchdog-ratified for
+# run 4): a provider 429 quota error stalls the run silently — the
+# provider SDK sleeps out the retry-after in-process and the session
+# self-resumes at quota reset. On any silent stall, the observer checks
+# the newest ~/.local/share/opencode/log/*.log for session.processor
+# errors and verifies self-resume at the retry-after horizon BEFORE
+# considering any injection; injection requires watchdog sanction.
 set -u
 cd "$(dirname "$0")/../.."
 LOG=.agents/pilot/gpt55-v1.17.13-run.log
