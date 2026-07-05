@@ -31,12 +31,16 @@ Final OpenCode `HEAD` on `replay/context-bonsai-on-opencode-1.17.13` must have m
 - Toolchain pin: upstream v1.17.13's root `package.json` records `"packageManager": "bun@1.3.14"`; this cycle requires `bun --version` to report exactly `1.3.14` (Phase 0). A mismatch is STOP-and-escalate (environmental), not a version to upgrade mid-cycle.
 - Range scope: all commits in `UPSTREAM_HEAD_SHA..SOURCE_HEAD_SHA`, no author filter.
 - Pre-existing dirty parent status enumerated by the invoker (§1.10): ` M tweakcc_context_bonsai` only; untouchable.
+- Supersession lineage: revision 2, 2026-07-05, owner tier (Fable) — Phase 3 replay re-bound from cherry-picks to the pre-authored re-implementation patch series after the run-5e Phase-4 STOP (`@/bus/bus-event` target-resolution failure); authorized by spec §1.15 target-resolution rehearsal (spec commit 461dc8b) and §2.5 re-implement escape; rehearsal evidence in Validation Loop Results.
+- `REIMPL_PATCH`: `.agents/plans/validation/reimpl-0dfbeeda-on-v1.17.13.patch` — 3-commit series, SHA-256 `ec64191bdb6e168f22dbd73c204a56e3f7c34c30f4b56f3871918836ec5c537d` (canonical file bytes, `sha256sum`).
+- Required starting state (revision 2): the invoker cleared every leftover of the prior (run-5e) execution attempt before hand-off — no `rebase-on-v1.17.13` worktree, no `replay/context-bonsai-on-opencode-1.17.13` branch, `opencode/` checkout clean, baseline JSON absent at parent `HEAD` (run-5e's baseline commit reverted). The Phase 0 clean-state and Phase 1 collision checks verify this; a failure there is a genuine collision to STOP on, never an expected leftover to clean up.
 
 All commands below use these frozen identities. Do not substitute moving refs, `HEAD`-relative resolution of the inputs, `latest`, or a newly resolved tag.
 
 ## Allowlists and Planned Targets
 
 - Runtime allowlist: `packages/opencode/**`, `packages/plugin/**`.
+- Single-file runtime-allowlist widening: `packages/schema/src/v1/session.ts` — the message-metadata field's proper home after upstream's schema refactor; single file, no wildcards.
 - Docs allowlist: `.agents/plans/**`, `.opencode/context_bonsai/**`.
 - State-only: metadata/state artifacts outside both allowlists.
 - Fork-owned wholesale file: root `README.md` — outside the allowlists by design, classified `manual_review`, resolved through the approvals artifact per cycle (§2.3); content probe `grep -q "Context Bonsai" README.md`.
@@ -72,9 +76,9 @@ All commands below use these frozen identities. Do not substitute moving refs, `
 ## Validation Artifact References
 
 - Replay set: `.agents/plans/validation/replay-set-0dfbeeda7d8a273c52a564333c8179c68d6ab04d.json`
-- Replay-set checksum (SHA-256 of `jq -c` canonical JSON): `136fb08d9854f92c5704e33dbf30aa3ebadefa01ddfe00d845fa9a237231c6f9`
+- Replay-set checksum (SHA-256 of `jq -c` canonical JSON): `b3393eb327ffb910c242afaa8a5177bb210365eb4a3f8d166e2af8985ddfe702`
 - Manual-review approvals: `.agents/plans/validation/manual-review-approvals-0dfbeeda7d8a273c52a564333c8179c68d6ab04d.json`
-- Manual-review approvals checksum: `32a9a2c71598593f5c0736b830d5c9518d5a847f4632a687d953caedab6cdddf` (final post-approval content: `resolution_state=approved` with the reviewer+judge refs recorded 2026-07-03, before plan commit)
+- Manual-review approvals checksum: `3fbe8d305210ac5d0a1a7022bd85f90c60df8c19a40b0e0fa303cbae2214ccab` (final post-approval content: `resolution_state=approved` with the reviewer+judge refs recorded 2026-07-03, before plan commit)
 - Exception ledger: `.agents/plans/validation/exceptions-0dfbeeda7d8a273c52a564333c8179c68d6ab04d.json` (empty by default; checksum `37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570`)
 - Baseline artifact to create in Phase 2: `.agents/plans/validation/baseline-0dfbeeda7d8a273c52a564333c8179c68d6ab04d.json`
 
@@ -83,20 +87,52 @@ All commands below use these frozen identities. Do not substitute moving refs, `
 | sha | subject | bucket | replay_action | target_paths | mapping_type | evidence | rationale | approver |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `5451227deb5a502afe44e1664e81df7ecb208ed1` | release: v1.15.7 | `already_in_upstream` | `drop` | release/version files enumerated in the replay set | `drop` | `git cherry -v 10c894… 0dfbee…` marks `-` | Old release metadata is patch-equivalent in v1.17.13; replaying would regress versions. | plan approval |
-| `712175fd95d2923c91e082c1c02708d648832cdd` | Persist Context Bonsai message metadata through parsing and storage | `required_runtime` | `cherry-pick` | `packages/opencode/src/session/message-v2.ts`; `packages/opencode/test/session/context-bonsai.test.ts`; `packages/opencode/test/session/message-v2.test.ts` | `1:1` | `git cherry -v` marks `+`; `git log --name-status` shows only `packages/opencode/**` paths | Required metadata persistence for Context Bonsai archives. | plan approval |
-| `bedf144c066448d8668179ffd1a2cdb2a31b6207` | Expose safe message-metadata updates to plugin tools | `required_runtime` | `cherry-pick` | `packages/opencode/src/tool/registry.ts`; `packages/opencode/test/tool/registry.test.ts`; `packages/plugin/src/tool.ts` | `1:1` | `git cherry -v` marks `+`; paths inside runtime allowlists | Required plugin-tool metadata bridge. | plan approval |
-| `0dfbeeda7d8a273c52a564333c8179c68d6ab04d` | docs(README): replace upstream README with Context Bonsai signpost | `manual_review` | `cherry-pick` | `README.md` | `1:1` | root README outside all allowlists; approval recorded in the approvals artifact | Fork-owned signpost carried each cycle; on conflict replace wholesale from source. | reviewer+judge per approvals artifact |
+| `712175fd95d2923c91e082c1c02708d648832cdd` | Persist Context Bonsai message metadata through parsing and storage | `required_runtime` | `re-implement` | `packages/opencode/src/session/message-v2.ts`; `packages/opencode/test/session/context-bonsai.test.ts`; `packages/opencode/test/session/message-v2.test.ts`; `packages/schema/src/v1/session.ts` | `1:1` | re-implemented against v1.17.13 per §2.5; contract in "Re-Implementation Behavioral Contracts" | Required metadata persistence for Context Bonsai archives; see behavioral contracts section. | plan approval |
+| `bedf144c066448d8668179ffd1a2cdb2a31b6207` | Expose safe message-metadata updates to plugin tools | `required_runtime` | `re-implement` | `packages/opencode/src/tool/registry.ts`; `packages/opencode/test/tool/registry.test.ts`; `packages/plugin/src/tool.ts` | `1:1` | re-implemented against v1.17.13 per §2.5; contract in "Re-Implementation Behavioral Contracts" | Required plugin-tool metadata bridge; see behavioral contracts section. | plan approval |
+| `0dfbeeda7d8a273c52a564333c8179c68d6ab04d` | docs(README): replace upstream README with Context Bonsai signpost | `manual_review` | `re-implement` | `README.md` | `1:1` | root README outside all allowlists; approval recorded in the approvals artifact | Fork-owned signpost carried each cycle; wholesale content copy applied via the re-implementation patch series. | reviewer+judge per approvals artifact |
 
 Merge scan: `git log --merges 10c894bdeef3618f5666fb506ef7f9491bb964d8..0dfbeeda7d8a273c52a564333c8179c68d6ab04d` is empty (verified at generation).
 
 ## Reviewer-Simplicity Evaluation
 
-- Runtime rows `712175fd` and `bedf144c`: cherry-pick preferred — narrow runtime targets, source provenance preserved. Cherry-pick plus line-level fixups is allowed only inside that row's `target_paths`. Re-implementation is disallowed unless cherry-pick cannot be resolved without out-of-scope changes; if that occurs, STOP and obtain reviewer+judge approval before writing the §2.5 behavioral contract.
-- README row `0dfbeeda`: cherry-pick preferred. On conflict, replace wholesale from source: `git show 0dfbeeda7d8a273c52a564333c8179c68d6ab04d:README.md > README.md && git add README.md && git cherry-pick --continue`; verify `diff <(git show 0dfbeeda7d8a273c52a564333c8179c68d6ab04d:README.md) README.md` is empty and `grep -q "Context Bonsai" README.md` succeeds. Do not use `git checkout --theirs`.
+- Runtime rows `712175fd` and `bedf144c`: cherry-pick was preferred at generation (revision 1) — narrow runtime targets, source provenance preserved. Revision 2 re-evaluation (§2.5): the §1.15 target-resolution rehearsal proved cherry-pick and cherry-pick + minor fixups both infeasible — the source-era APIs the ported commits reference (`@/bus/bus-event`, the v1.15.7 message-schema and storage boundaries) were removed by upstream's v1.17.13 schema/core refactor, so an intent-preserving re-implementation reviews better than forced hunks and stays within the rows' widened `target_paths`. Re-implementation is bound to the pre-authored `REIMPL_PATCH` series with the §2.5 behavioral contracts above; reviewer+judge approval is pending under the revision-2 §1.15 loop.
+- README row `0dfbeeda`: wholesale content copy of the source README, applied via the `REIMPL_PATCH` series (revision 2). Verify `grep -q "Context Bonsai" README.md` succeeds; the manual-review approval is unchanged (approvals artifact).
 
 ## Re-Implementation Behavioral Contracts
 
-None at generation time. If any row switches to `re-implement`, populate all §2.5 required fields before the deviating action: `source_primitive_or_intent`, `current_upstream_boundary`, `return_shape`, `runtime_bridge_pattern`, `allowed_mutation_surface`, `approved_metadata_schema`, `metadata_runtime_validation`, `atomicity_requirement`, `generated_artifact_decision`, `public_api_exposure_decision`, `validation_evidence`.
+Revision 2 re-bound the two runtime rows and the README row to the `re-implement` action (§2.5 escape) after the run-5e Phase-4 STOP. The two runtime rows carry the §2.5 behavioral-contract tables below, one per row, using exactly the eleven required fields.
+
+### Row `712175fd` — Persist Context Bonsai message metadata through parsing and storage
+
+| field | value |
+| --- | --- |
+| `source_primitive_or_intent` | Persist optional message-level `metadata` (JSON record) on User/Assistant Info through parse/store/read round-trip for Context Bonsai anchor state. |
+| `current_upstream_boundary` | Message schema in `packages/schema/src/v1/session.ts` (`SessionV1`), storage `MessageTable` JSON `data` column (`packages/core/src/session/sql.ts`), reads via `MessageV2.page`/`get` (`packages/opencode/src/session/message-v2.ts`), event persistence via projector `MessageUpdated` handler (`packages/core/src/projector.ts`). |
+| `return_shape` | `SessionV1.Info` (User \| Assistant) with optional `metadata: Record<string, unknown>`. |
+| `runtime_bridge_pattern` | `MessageV2.update`: existence check via `get`, `db.update(MessageTable).set({data})`, then publish `SessionV1.Event.MessageUpdated` carrying the identical updated info so the projector's `onConflictDoUpdate` rewrite is byte-consistent. |
+| `allowed_mutation_surface` | `data` column of an existing `MessageTable` row only — no creation, no part/session mutation. |
+| `approved_metadata_schema` | `Schema.optional(Schema.Record(Schema.String, Schema.Any))` on both User and Assistant structs. |
+| `metadata_runtime_validation` | `SessionV1` schema decode on every read path. |
+| `atomicity_requirement` | Single-row update, event published after the write, projector handler idempotent with identical data. |
+| `generated_artifact_decision` | None — source-only schema change, no DB migration (JSON blob column). |
+| `public_api_exposure_decision` | None new — metadata rides existing message read APIs. |
+| `validation_evidence` | 2026-07-05 rehearsal: metadata round-trip tests green (59+2), typechecks 0, build 0. |
+
+### Row `bedf144c` — Expose safe message-metadata updates to plugin tools
+
+| field | value |
+| --- | --- |
+| `source_primitive_or_intent` | Expose safe message read + metadata-only update to plugin tools with `msg_*` id redaction of context-bonsai tool output. |
+| `current_upstream_boundary` | Plugin `ToolContext` (`packages/plugin/src/tool.ts`), tool bridge in `packages/opencode/src/tool/registry.ts`, session service `packages/opencode/src/session/session.ts`. |
+| `return_shape` | `ToolContext` gains `messages` and `updateMessage` (SDK Message & metadata). |
+| `runtime_bridge_pattern` | Registry clones target message, applies plugin mutation, restores id/sessionID/role, delegates to `MessageV2.update`; `sanitize()` wraps tool output. |
+| `allowed_mutation_surface` | Message metadata via `MessageV2.update` only, identity fields restored. |
+| `approved_metadata_schema` | Same as row `712175fd`. |
+| `metadata_runtime_validation` | Identity restoration in the bridge plus `SessionV1` decode. |
+| `atomicity_requirement` | Per-message single update through `MessageV2.update`. |
+| `generated_artifact_decision` | None. |
+| `public_api_exposure_decision` | Plugin `ToolContext` only, no new HTTP surface. |
+| `validation_evidence` | Rehearsal registry tests: metadata update with immutable identity, msg-id redaction — green. |
 
 ## Acceptance Criteria
 
@@ -105,7 +141,7 @@ None at generation time. If any row switches to `re-implement`, populate all §2
 - [ ] Frozen source and upstream refs still resolve to the frozen SHAs; drift triggers §1.9, never a patch to this plan.
 - [ ] Replay-set and manual-approval checksums verified before replay and again at seal.
 - [ ] Baseline artifact exists before replay, has all five rows with no placeholder fields, and `r01` is green on clean upstream.
-- [ ] Exactly three cherry-picked replay commits on `TARGET_BRANCH` from `UPSTREAM_HEAD_SHA`; the dropped release commit absent.
+- [ ] Exactly three re-implementation replay commits on `TARGET_BRANCH` from `UPSTREAM_HEAD_SHA` (applied from `REIMPL_PATCH`); the dropped release commit absent.
 - [ ] Replay diff limited to replay-set target paths; generated-artifact probe returns zero.
 - [ ] Canonical validation set passes; post-replay results no worse than baseline.
 - [ ] Runtime e2e Protocol A and Protocol B PASS against the freshly built binary, or a reviewer+judge-approved exception is recorded before seal.
@@ -135,8 +171,8 @@ Working directories: "From parent" = `/home/basil/projects/context-bonsai-agents
 - From `opencode`: `test "$(git rev-parse --verify refs/tags/v1.17.13)" = "10c894bdeef3618f5666fb506ef7f9491bb964d8"`.
 - From `opencode`: `test "$(git merge-base 10c894bdeef3618f5666fb506ef7f9491bb964d8 0dfbeeda7d8a273c52a564333c8179c68d6ab04d)" = "6bee6ee7557072a81eed030edcf021acc0faf3c6"`.
 - From parent: verify artifact checksums against the literal values in "Validation Artifact References":
-  - `test "$(jq -c < .agents/plans/validation/replay-set-0dfbeeda7d8a273c52a564333c8179c68d6ab04d.json | sha256sum | cut -d' ' -f1)" = "136fb08d9854f92c5704e33dbf30aa3ebadefa01ddfe00d845fa9a237231c6f9"`
-  - `test "$(jq -c < .agents/plans/validation/manual-review-approvals-0dfbeeda7d8a273c52a564333c8179c68d6ab04d.json | sha256sum | cut -d' ' -f1)" = "32a9a2c71598593f5c0736b830d5c9518d5a847f4632a687d953caedab6cdddf"`
+  - `test "$(jq -c < .agents/plans/validation/replay-set-0dfbeeda7d8a273c52a564333c8179c68d6ab04d.json | sha256sum | cut -d' ' -f1)" = "b3393eb327ffb910c242afaa8a5177bb210365eb4a3f8d166e2af8985ddfe702"`
+  - `test "$(jq -c < .agents/plans/validation/manual-review-approvals-0dfbeeda7d8a273c52a564333c8179c68d6ab04d.json | sha256sum | cut -d' ' -f1)" = "3fbe8d305210ac5d0a1a7022bd85f90c60df8c19a40b0e0fa303cbae2214ccab"`
   - `test "$(jq -c < .agents/plans/validation/exceptions-0dfbeeda7d8a273c52a564333c8179c68d6ab04d.json | sha256sum | cut -d' ' -f1)" = "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"`
 - From `opencode`: collision checks; any failure is a §1.14 STOP (already-generated/executed cycle), not license to resume or delete:
   - `test ! -e /home/basil/projects/context-bonsai-agents/opencode/.agent_tmp/rebase-on-v1.17.13`
@@ -178,16 +214,15 @@ git commit -m "chore: record v1.17.13 cycle baseline (SOURCE 0dfbeeda)" -m "Five
 
 ### Phase 3: Replay
 
-- From worktree root, re-run the worktree artifact check against every replay target path immediately before the first cherry-pick:
-  - `git status --short -- README.md packages/opencode/src/session/message-v2.ts packages/opencode/test/session/context-bonsai.test.ts packages/opencode/test/session/message-v2.test.ts packages/opencode/src/tool/registry.ts packages/opencode/test/tool/registry.test.ts packages/plugin/src/tool.ts`
-  - `git ls-files --others --exclude-standard -- README.md packages/opencode/src/session/message-v2.ts packages/opencode/test/session/context-bonsai.test.ts packages/opencode/test/session/message-v2.test.ts packages/opencode/src/tool/registry.ts packages/opencode/test/tool/registry.test.ts packages/plugin/src/tool.ts`
+- From worktree root, re-run the worktree artifact check against every replay target path immediately before the first patch application:
+  - `git status --short -- README.md packages/opencode/src/session/message-v2.ts packages/opencode/test/session/context-bonsai.test.ts packages/opencode/test/session/message-v2.test.ts packages/opencode/src/tool/registry.ts packages/opencode/test/tool/registry.test.ts packages/plugin/src/tool.ts packages/schema/src/v1/session.ts`
+  - `git ls-files --others --exclude-standard -- README.md packages/opencode/src/session/message-v2.ts packages/opencode/test/session/context-bonsai.test.ts packages/opencode/test/session/message-v2.test.ts packages/opencode/src/tool/registry.ts packages/opencode/test/tool/registry.test.ts packages/plugin/src/tool.ts packages/schema/src/v1/session.ts`
   - Any output is a `tracked-dirty` or `existing-untracked` overlap: STOP until reviewer+judge approval or explicit deferral is recorded; never absorb it.
-- From worktree root, in this order:
-  - `git cherry-pick -x 712175fd95d2923c91e082c1c02708d648832cdd`
-  - `git cherry-pick -x bedf144c066448d8668179ffd1a2cdb2a31b6207`
-  - `git cherry-pick -x 0dfbeeda7d8a273c52a564333c8179c68d6ab04d` — on README conflict, apply the wholesale replacement from the Reviewer-Simplicity section.
-- Conflict-resolution edits must stay inside the conflicting row's `target_paths`; anything wider is an out-of-scope fixup requiring a pre-approved exception row (§1.7) before the edit lands.
-- From worktree root: `test "$(git log --format='%b' 10c894bdeef3618f5666fb506ef7f9491bb964d8..HEAD | grep -cE '^\(cherry picked from commit [0-9a-f]{40}\)$')" = "3"`.
+- From parent: `test "$(sha256sum .agents/plans/validation/reimpl-0dfbeeda-on-v1.17.13.patch | cut -d' ' -f1)" = "ec64191bdb6e168f22dbd73c204a56e3f7c34c30f4b56f3871918836ec5c537d"`.
+- From worktree root: `git am /home/basil/projects/context-bonsai-agents/.agents/plans/validation/reimpl-0dfbeeda-on-v1.17.13.patch` (3-commit series; on any `git am` failure: `git am --abort`, STOP — do not hand-resolve).
+- From worktree root: `test "$(git rev-list --count 10c894bdeef3618f5666fb506ef7f9491bb964d8..HEAD)" = "3"`.
+- From worktree root: `test "$(git log --format='%b' 10c894bdeef3618f5666fb506ef7f9491bb964d8..HEAD | grep -c '^Re-implemented from commit ')" = "3"` (re-implementation provenance replaces cherry-pick trailers; expected trailer count for cherry-picked rows is zero this cycle).
+- Conflict-resolution edits stay inside the conflicting row's `target_paths`; anything wider is an out-of-scope fixup requiring a pre-approved exception row (§1.7) before the edit lands. This applies to any future `git am` fallback and stays bounded by `target_paths`.
 
 ### Phase 4: Post-Replay Validation
 
@@ -348,8 +383,8 @@ Evidence stays worktree-local and uncommitted (§4.2). A FAIL on either protocol
 - From worktree root: `test "$(git merge-base 10c894bdeef3618f5666fb506ef7f9491bb964d8 HEAD)" = "10c894bdeef3618f5666fb506ef7f9491bb964d8"`.
 - From worktree root: `test "$(git rev-list --count 10c894bdeef3618f5666fb506ef7f9491bb964d8..HEAD)" = "3"`.
 - From worktree root: `git log --format='%H %s' 10c894bdeef3618f5666fb506ef7f9491bb964d8..HEAD` — subjects match the three non-dropped replay-set rows.
-- From worktree root: re-run the provenance trailer count from Phase 3, identically.
-- From worktree root: `git diff --name-only 10c894bdeef3618f5666fb506ef7f9491bb964d8..HEAD | sort` equals the sorted union of non-dropped replay-set `target_paths` (7 paths).
+- From worktree root: re-run the Phase 3 re-implementation provenance count identically: `test "$(git log --format='%b' 10c894bdeef3618f5666fb506ef7f9491bb964d8..HEAD | grep -c '^Re-implemented from commit ')" = "3"`.
+- From worktree root: `git diff --name-only 10c894bdeef3618f5666fb506ef7f9491bb964d8..HEAD | sort` equals the sorted union of non-dropped replay-set `target_paths` (8 paths): `README.md`, `packages/opencode/src/session/message-v2.ts`, `packages/opencode/src/tool/registry.ts`, `packages/opencode/test/session/context-bonsai.test.ts`, `packages/opencode/test/session/message-v2.test.ts`, `packages/opencode/test/tool/registry.test.ts`, `packages/plugin/src/tool.ts`, `packages/schema/src/v1/session.ts`.
 - From worktree root: the §2.7 generated-artifact probe from Phase 4 prints `0`.
 - From worktree root: `git push --dry-run origin replay/context-bonsai-on-opencode-1.17.13` exits 0.
 - From worktree root: `git push --dry-run origin refs/tags/bonsai/v1-on-opencode-1.17.13` exits 0.
@@ -521,8 +556,8 @@ Grouped by working directory; the source of truth for implementation agents.
 ### Parent (`/home/basil/projects/context-bonsai-agents`)
 
 - `git status --short` — only ` M tweakcc_context_bonsai` allowed beyond this cycle's own planned artifacts pre-commit
-- `test "$(jq -c < .agents/plans/validation/replay-set-0dfbeeda7d8a273c52a564333c8179c68d6ab04d.json | sha256sum | cut -d' ' -f1)" = "136fb08d9854f92c5704e33dbf30aa3ebadefa01ddfe00d845fa9a237231c6f9"`
-- `test "$(jq -c < .agents/plans/validation/manual-review-approvals-0dfbeeda7d8a273c52a564333c8179c68d6ab04d.json | sha256sum | cut -d' ' -f1)" = "32a9a2c71598593f5c0736b830d5c9518d5a847f4632a687d953caedab6cdddf"`
+- `test "$(jq -c < .agents/plans/validation/replay-set-0dfbeeda7d8a273c52a564333c8179c68d6ab04d.json | sha256sum | cut -d' ' -f1)" = "b3393eb327ffb910c242afaa8a5177bb210365eb4a3f8d166e2af8985ddfe702"`
+- `test "$(jq -c < .agents/plans/validation/manual-review-approvals-0dfbeeda7d8a273c52a564333c8179c68d6ab04d.json | sha256sum | cut -d' ' -f1)" = "3fbe8d305210ac5d0a1a7022bd85f90c60df8c19a40b0e0fa303cbae2214ccab"`
 - `test "$(jq -c < .agents/plans/validation/exceptions-0dfbeeda7d8a273c52a564333c8179c68d6ab04d.json | sha256sum | cut -d' ' -f1)" = "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"`
 - the four `jq -e` structural checks from Phase 6
 - `test -f docs/agent-specs/forward-port-spec.md`
@@ -548,7 +583,7 @@ Grouped by working directory; the source of truth for implementation agents.
 - From root: `bun turbo run build --filter=opencode`
 - From root: `test "$(git merge-base 10c894bdeef3618f5666fb506ef7f9491bb964d8 HEAD)" = "10c894bdeef3618f5666fb506ef7f9491bb964d8"`
 - From root: `test "$(git rev-list --count 10c894bdeef3618f5666fb506ef7f9491bb964d8..HEAD)" = "3"`
-- From root: `test "$(git log --format='%b' 10c894bdeef3618f5666fb506ef7f9491bb964d8..HEAD | grep -cE '^\(cherry picked from commit [0-9a-f]{40}\)$')" = "3"`
+- From root: `test "$(git log --format='%b' 10c894bdeef3618f5666fb506ef7f9491bb964d8..HEAD | grep -c '^Re-implemented from commit ')" = "3"`
 - From root: `git diff --name-status 10c894bdeef3618f5666fb506ef7f9491bb964d8..HEAD`
 - From root: the Phase 5 runtime e2e Protocol A and Protocol B blocks (bound from `docs/opencode-e2e-runbook.md`)
 - From root: `git push --dry-run origin replay/context-bonsai-on-opencode-1.17.13`
@@ -572,7 +607,7 @@ Grouped by working directory; the source of truth for implementation agents.
 
 - Checked At: 2026-07-03 (generation; the executor re-runs the Phase 3 check immediately before its first edit).
 - Parent planned target files: this plan and the three validation artifacts (created at generation; committed at plan approval); `baseline-0dfbeeda…​.json` (Phase 2); no collisions found — `.agents/plans/` and `.agents/plans/validation/` carry no `0dfbeeda…` artifacts before generation, and the parent's only dirty path is the enumerated ` M tweakcc_context_bonsai`.
-- OpenCode planned target files: the seven non-dropped replay `target_paths` in the isolated worktree. `opencode/` status clean at generation; `TARGET_WORKTREE`, `TARGET_BRANCH`, and `TARGET_TAG_AT_TIP` all verified non-existent at generation (collision commands in Phase 1).
+- OpenCode planned target files: the eight non-dropped replay `target_paths` in the isolated worktree. `opencode/` status clean at generation; `TARGET_WORKTREE`, `TARGET_BRANCH`, and `TARGET_TAG_AT_TIP` all verified non-existent at generation (collision commands in Phase 1).
 - Plugin planned target file: `docs/install-e2e-results-<DATE>.md` — plugin clean and detached at `b2ce708…` at generation; the branch `install-e2e/opencode-1.17.13` does not exist.
 - Overlaps Found: none beyond the enumerated untouchable ` M tweakcc_context_bonsai`.
 - Escalation Status: none.
@@ -580,7 +615,9 @@ Grouped by working directory; the source of truth for implementation agents.
 
 ## Plan Approval and Commit Status
 
-- Approval Status: approved.
+- Approval Status: approved (revision 2, 2026-07-05).
+- Revision-2 Approval Citation: judge verdict APPROVE — `bonsai-judge <judge@context-bonsai.local>`, 2026-07-05 (revision 2): "Verified against the live repository: the plan contains every forward-port-spec §1.14 required section, each concretely bound (the §1.14.4 classification table carries all nine fields across four rows; the §1.14.11 approval/commit-status block carries all four fields); both §2.5 re-implementation behavioral-contract tables for the runtime rows 712175fd and bedf144c carry all eleven required fields with repository-verifiable boundary and schema content against v1.17.13. All four artifact checksums were recomputed from the on-disk files and matched the plan's recorded values (replay-set b3393eb3, manual-review-approvals 3fbe8d30, exceptions 37517e5f, REIMPL_PATCH ec64191b — the last pinned at exactly two locations). The two revision-2 §1.15 ambiguity findings are genuinely resolved: the run-5e clean-start sweep was verified in the real repo (no rebase-on-v1.17.13 worktree, no replay/context-bonsai-on-opencode-1.17.13 branch, no bonsai/v1-on-opencode-1.17.13 tag, opencode checkout clean, baseline JSON absent at parent HEAD, and the Required-starting-state bullet matches reality), and the approval-state self-contradiction is closed by this recorded verdict. The REIMPL_PATCH provenance defect found in the first judging pass — trailers citing unreachable non-source commits — has been corrected and re-verified: the trailers now cite the canonical frozen source SHAs, `git am` applies clean at frozen upstream to exactly 3 commits touching only the 8 replay-set target paths, and the re-implementation resolution matches spec §2.3/§2.5/§4.2 with the README manual-review row approved (reviewer+judge refs in the approvals artifact). Nothing in the plan contradicts spec §1.13, §2.6, or §2.9. Approved for orchestration." Revision-2 generation and §1.15 loop ran on the owner tier (Fable) per the DRIVE directive of 2026-07-05; independent reviewers and judge as recorded in Validation Loop Results.
+- Original approval (revision 1 history): approved.
 - Approval Citation: §1.15 loop closed at iteration 1 with zero blocking findings from both independent reviewers (reports recorded in Validation Loop Results, 2026-07-03); judge verdict APPROVE — `bonsai-judge <judge@context-bonsai.local>`, 2026-07-03: "the plan contains every §1.14-required section … and its Validation Loop Results section records a closed loop at iteration 1 with zero blocking findings", with the README manual-review row separately approved ("the row's wholesale-replacement resolution matches spec §2.3 … §2.5/§4.2"); refs mirrored in the approvals artifact (checksum above). Routine-path execution authority: `docs/meta-loop-direction.md` decision record items (1)–(2).
 - Plan Commit Hash: the commit introducing this plan on parent `main` (a file cannot contain its own hash); the executor resolves and verifies it as `PARENT_BASE_COMMIT` via the Phase 7 step-1 `git ls-tree` check.
 - Ready-for-Orchestration: yes (upon this plan's commit to parent `main`, which immediately follows this update).
@@ -591,6 +628,8 @@ Grouped by working directory; the source of truth for implementation agents.
 - Iteration 1 missing-details review (independent reviewer, repository-inspecting): **zero blocking findings.** Verified live: frozen SHAs, all three artifact checksums, cherry/bucket agreement for all four rows, target-path unions against `git show --stat`, baseline test files present/absent as required, typecheck scripts non-empty, bun 1.3.14 pin match, all collision checks currently clean, plugin detached at the frozen commit, upstream `.opencode/opencode.jsonc` byte-match minus the plugin key, `.gitmodules` all-HTTPS (single `insteadOf` rule suffices), Protocol A/B and install-gate blocks transcribed verbatim from the runbook/README (checked line-by-line). Two non-blocking notes (baseline log path presented twice; "gitignored" claim wrong for the original sibling directory) — fixed: logs moved to the worktree's genuinely ignored `.agent_tmp/baseline/`, single path form.
 - Iteration 1 ambiguity review (independent reviewer, repository-inspecting): **zero blocking findings.** The three run-4 residual classes checked explicitly and clean: template-verbatim single HTTPS `insteadOf` rule (parent `origin` being SSH is irrelevant — the gate clones the README's literal HTTPS URL), concrete pin-bump commands with fixed position, result-recording order stated once with no contradicting section. Two non-blocking notes — both applied: `PARENT_BASE_COMMIT` ls-tree check tightened to a `wc -l` equality; baseline table path form collapsed (same fix as above).
 - Loop closed at iteration 1 per §1.15's early-stop rule (both passes returned zero blocking findings). Iterations run: 1.
+- Revision 2 (2026-07-05, owner tier): target-resolution rehearsal per spec §1.15 (spec commit 461dc8b) — scratch worktree at 10c894bde, hydrated, patch series applied, Phase-4 rows: r01 set 59 tests 0 fail; context-bonsai.test.ts 2 tests 0 fail; `bun typecheck` exit 0 (packages/opencode, packages/plugin); `bun turbo run build --filter=opencode` exit 0; diff scope exactly the 8 target paths. Original cherry-pick binding failed this rehearsal (run-5e Phase-4 STOP evidence: `Cannot find module '@/bus/bus-event'`) — rows re-bound per §2.5. Reviewer passes for this revision recorded below.
+- Revision-2 review iterations: iteration 1 — missing-details pass PASS (zero blocking; reviewer independently re-applied `REIMPL_PATCH` onto frozen upstream and byte-verified the 8-path diff union, checksums, and provenance counts; two environmental advisories about run-5e leftovers, resolved by the invoker sweep recorded in the Required starting state bullet). Ambiguity pass FAIL with two blocking findings: (1) run-5e leftovers contradicted the assumed clean start — fixed by the invoker sweep (worktree/branch removed, `opencode/` checkout reset, baseline commit reverted at parent `48263a4`) and the Required starting state bullet; (2) approval-state self-contradiction (`pending re-approval` alongside `Ready-for-Orchestration: yes`) — fixed by closing this loop and recording the revision-2 approval below. Iteration 2 — judge pass: first verdict REJECT on one blocking citation-integrity defect (REIMPL_PATCH provenance trailers cited unreachable re-implementation work-product commits instead of the frozen source SHAs); remediated by rewriting the two trailer lines to `712175fd…`/`bedf144c…` (diff bytes untouched) and re-pinning the new patch checksum `ec64191b…` at both plan locations; judge re-verified (`git am` clean at frozen upstream, 3 commits, 3 correct trailers, 8-path union) and issued APPROVE (verdict recorded verbatim in Plan Approval). Loop closed at iteration 2.
 
 ## Completion Checklist
 
@@ -600,7 +639,7 @@ Grouped by working directory; the source of truth for implementation agents.
 - [ ] Baseline artifact complete, no placeholders, r01 green, r02 missing-as-expected; baseline committed.
 - [ ] Manual-review README row approved (reviewer+judge refs recorded); no unresolved manual-review rows.
 - [ ] Exception ledger empty or all rows resolved with prior approval.
-- [ ] Exactly three replay commits; provenance trailer count 3; diff scope equals the replay-set union; generated-artifact probe 0.
+- [ ] Exactly three replay commits; re-implementation provenance trailer count 3; diff scope equals the replay-set union (8 paths); generated-artifact probe 0.
 - [ ] Post-replay validation no worse than baseline; context-bonsai test passes.
 - [ ] Runtime e2e Protocol A and Protocol B PASS with evidence on disk.
 - [ ] Rebase-point tag at tip; push dry-runs green.

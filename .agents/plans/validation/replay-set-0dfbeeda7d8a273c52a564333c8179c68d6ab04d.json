@@ -33,20 +33,21 @@
   {
     "source_sha": "712175fd95d2923c91e082c1c02708d648832cdd",
     "bucket": "required_runtime",
-    "replay_action": "cherry-pick",
+    "replay_action": "re-implement",
     "mapping_type": "1:1",
     "target_paths": [
       "packages/opencode/src/session/message-v2.ts",
       "packages/opencode/test/session/context-bonsai.test.ts",
-      "packages/opencode/test/session/message-v2.test.ts"
+      "packages/opencode/test/session/message-v2.test.ts",
+      "packages/schema/src/v1/session.ts"
     ],
     "rationale": "Required Context Bonsai runtime patch inside the OpenCode runtime allowlist; it persists message metadata needed by prune/retrieve state.",
-    "evidence_ref": "git cherry -v marks 712175fd with '+' and git log --name-status shows only packages/opencode paths"
+    "evidence_ref": "re-implemented against v1.17.13 per §2.5 (upstream schema/core refactor removed the v1.15.7 APIs); rehearsal green 2026-07-05, see plan Validation Loop Results"
   },
   {
     "source_sha": "bedf144c066448d8668179ffd1a2cdb2a31b6207",
     "bucket": "required_runtime",
-    "replay_action": "cherry-pick",
+    "replay_action": "re-implement",
     "mapping_type": "1:1",
     "target_paths": [
       "packages/opencode/src/tool/registry.ts",
@@ -54,17 +55,17 @@
       "packages/plugin/src/tool.ts"
     ],
     "rationale": "Required Context Bonsai runtime/plugin bridge patch inside the OpenCode runtime allowlists; it exposes safe metadata updates to plugin tools.",
-    "evidence_ref": "git cherry -v marks bedf144c with '+' and git log --name-status shows only packages/opencode and packages/plugin paths"
+    "evidence_ref": "re-implemented against v1.17.13 per §2.5 (upstream schema/core refactor removed the v1.15.7 APIs); rehearsal green 2026-07-05, see plan Validation Loop Results"
   },
   {
     "source_sha": "0dfbeeda7d8a273c52a564333c8179c68d6ab04d",
     "bucket": "manual_review",
-    "replay_action": "cherry-pick",
+    "replay_action": "re-implement",
     "mapping_type": "1:1",
     "target_paths": [
       "README.md"
     ],
     "rationale": "Root README is a fork-owned signpost outside the runtime/docs allowlists; the git-fork binding requires per-cycle manual-review approval instead of widening allowlists.",
-    "evidence_ref": "git log --name-status shows README.md only; approval recorded in manual-review-approvals-0dfbeeda7d8a273c52a564333c8179c68d6ab04d.json"
+    "evidence_ref": "wholesale content copy of the source README applied via the re-implementation patch series (§2.5); manual-review approval unchanged, recorded in manual-review-approvals-0dfbeeda7d8a273c52a564333c8179c68d6ab04d.json"
   }
 ]

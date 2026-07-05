@@ -1,0 +1,801 @@
+From 08ab72f2d195d1e9fb765bb05db7091a4a7cc527 Mon Sep 17 00:00:00 2001
+From: Basil Goff <shawn7400@gmail.com>
+Date: Sun, 5 Jul 2026 11:00:18 -0700
+Subject: [PATCH 1/3] Persist Context Bonsai message metadata through parsing
+ and storage
+
+Context Bonsai needs message metadata to survive parsing and session storage so archived anchors and restore markers remain available across later turns. v1.17.13 moved message persistence to an event-sourced projector, so this adds the optional metadata field to the User and Assistant message schemas (the projector already round-trips the field through MessageTable) and a MessageV2.update helper that verifies the message exists, rewrites its stored row, and republishes MessageUpdated so subscribers and the durable projector converge on the same payload. Focused message-v2 and session tests cover the decode and storage round-trip against the current runtime APIs.
+
+Re-implemented from commit 712175fd95d2923c91e082c1c02708d648832cdd
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+---
+ packages/opencode/src/session/message-v2.ts   |  23 ++-
+ .../test/session/context-bonsai.test.ts       | 167 ++++++++++++++++++
+ .../opencode/test/session/message-v2.test.ts  |  47 +++++
+ packages/schema/src/v1/session.ts             |   2 +
+ 4 files changed, 238 insertions(+), 1 deletion(-)
+ create mode 100644 packages/opencode/test/session/context-bonsai.test.ts
+
+diff --git a/packages/opencode/src/session/message-v2.ts b/packages/opencode/src/session/message-v2.ts
+index 1bea9f52c..45ceb1223 100644
+--- a/packages/opencode/src/session/message-v2.ts
++++ b/packages/opencode/src/session/message-v2.ts
+@@ -19,6 +19,7 @@ import {
+ import { NamedError } from "@opencode-ai/core/util/error"
+ import { APICallError, convertToModelMessages, LoadAPIKeyError, type ModelMessage, type UIMessage } from "ai"
+ import { Database } from "@opencode-ai/core/database/database"
++import { EventV2Bridge } from "@/event-v2-bridge"
+ import { LayerNode } from "@opencode-ai/core/effect/layer-node"
+ import { NotFoundError } from "@/storage/storage"
+ import { and } from "drizzle-orm"
+@@ -518,6 +519,26 @@ export const get = Effect.fn("MessageV2.get")(function* (input: { sessionID: Ses
+   }
+ })
+ 
++// Context Bonsai persists anchor/restore metadata onto an existing message so
++// later turns can scan for it. Verify the message exists, rewrite its stored
++// row synchronously (the same `data` shape the projector writes — id/sessionID
++// live in dedicated columns), then publish MessageUpdated so subscribers and
++// the durable projector converge on the same metadata-carrying payload.
++export const update = Effect.fn("MessageV2.update")(function* (info: Info) {
++  yield* get({ sessionID: info.sessionID, messageID: info.id })
++  const { db } = yield* Database.Service
++  const { id: _id, sessionID: _sessionID, ...data } = info
++  const events = yield* EventV2Bridge.Service
++  yield* db
++    .update(MessageTable)
++    .set({ data: data as typeof MessageTable.$inferInsert.data })
++    .where(eq(MessageTable.id, info.id))
++    .run()
++    .pipe(Effect.orDie)
++  yield* events.publish(SessionV1.Event.MessageUpdated, { sessionID: info.sessionID, info })
++  return info
++})
++
+ export function filterCompacted(msgs: Iterable<WithParts>) {
+   const result = [] as WithParts[]
+   const completed = new Set<string>()
+@@ -731,4 +752,4 @@ export function fromError(
+ }
+ 
+ export * as MessageV2 from "./message-v2"
+-export const node = LayerNode.group([Database.node])
++export const node = LayerNode.group([Database.node, EventV2Bridge.node])
+diff --git a/packages/opencode/test/session/context-bonsai.test.ts b/packages/opencode/test/session/context-bonsai.test.ts
+new file mode 100644
+index 000000000..f80c08f5b
+--- /dev/null
++++ b/packages/opencode/test/session/context-bonsai.test.ts
+@@ -0,0 +1,167 @@
++import { describe, expect } from "bun:test"
++import { Effect, Layer } from "effect"
++import { SessionV1 } from "@opencode-ai/core/v1/session"
++import { SessionProjector } from "@opencode-ai/core/session/projector"
++import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
++import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
++import { LayerNode } from "@opencode-ai/core/effect/layer-node"
++import { ProviderV2 } from "@opencode-ai/core/provider"
++import { ModelV2 } from "@opencode-ai/core/model"
++import { Session } from "@/session/session"
++import { MessageID, type SessionID } from "@/session/schema"
++import { RuntimeFlags } from "@/effect/runtime-flags"
++import { EventV2Bridge } from "@/event-v2-bridge"
++import { InstanceStore } from "@/project/instance-store"
++import { InstanceBootstrap } from "@/project/bootstrap"
++import { provideTmpdirInstance } from "../fixture/fixture"
++import { testEffect } from "../lib/effect"
++
++// v1.15.7 exercised metadata persistence against the old message-v2 monolith via
++// `Session.defaultLayer`, which no longer exists. Express the same round-trip
++// against v1.17.13's event-sourced Session + SessionProjector node graph: an
++// updateMessage publish flows through the projector into MessageTable and back
++// out through Session.messages, carrying the optional metadata field.
++const it = testEffect(
++  AppNodeBuilder.build(
++    LayerNode.group([
++      Session.node,
++      EventV2Bridge.node,
++      SessionProjector.node,
++      CrossSpawnSpawner.node,
++      InstanceStore.node,
++    ]),
++    [
++      [RuntimeFlags.node, RuntimeFlags.layer({ experimentalWorkspaces: false })],
++      [
++        InstanceBootstrap.node,
++        Layer.succeed(InstanceBootstrap.Service, InstanceBootstrap.Service.of({ run: Effect.void })),
++      ],
++    ],
++  ),
++)
++
++function user(sessionID: SessionID, metadata?: Record<string, unknown>): SessionV1.User {
++  return {
++    id: MessageID.ascending(),
++    sessionID,
++    role: "user",
++    agent: "default",
++    model: {
++      providerID: ProviderV2.ID.make("test"),
++      modelID: ModelV2.ID.make("test"),
++    },
++    time: {
++      created: Date.now(),
++    },
++    ...(metadata ? { metadata } : {}),
++  } as unknown as SessionV1.User
++}
++
++function assistant(
++  sessionID: SessionID,
++  parentID: SessionV1.MessageID,
++  metadata?: Record<string, unknown>,
++): SessionV1.Assistant {
++  return {
++    id: MessageID.ascending(),
++    sessionID,
++    role: "assistant",
++    parentID,
++    providerID: ProviderV2.ID.make("test"),
++    modelID: ModelV2.ID.make("test"),
++    mode: "default",
++    agent: "default",
++    path: {
++      cwd: "/",
++      root: "/",
++    },
++    cost: 0,
++    tokens: {
++      input: 0,
++      output: 0,
++      reasoning: 0,
++      cache: { read: 0, write: 0 },
++    },
++    time: {
++      created: Date.now(),
++    },
++    ...(metadata ? { metadata } : {}),
++  } as unknown as SessionV1.Assistant
++}
++
++describe("session context bonsai metadata", () => {
++  it.live("Session.updateMessage preserves message metadata through storage reads", () =>
++    provideTmpdirInstance(() =>
++      Effect.gen(function* () {
++        const sessions = yield* Session.Service
++        const session = yield* sessions.create({})
++        const anchor = "anchor-storage-roundtrip"
++        const archived = {
++          context_bonsai: {
++            archived: {
++              anchor_id: anchor,
++            },
++          },
++        }
++        const restored = {
++          context_bonsai: {
++            restored: {
++              anchor_id: anchor,
++            },
++          },
++        }
++
++        const userMsg = yield* sessions.updateMessage(user(session.id, archived))
++        const assistantMsg = yield* sessions.updateMessage(assistant(session.id, userMsg.id, restored))
++        const messages = yield* sessions.messages({ sessionID: session.id })
++
++        expect(messages.find((item) => item.info.id === userMsg.id)?.info).toMatchObject({ metadata: archived })
++        expect(messages.find((item) => item.info.id === assistantMsg.id)?.info).toMatchObject({ metadata: restored })
++      }),
++    ),
++  )
++
++  it.live("Session.messages exposes archived anchor metadata for later-turn scans", () =>
++    provideTmpdirInstance(() =>
++      Effect.gen(function* () {
++        const sessions = yield* Session.Service
++        const session = yield* sessions.create({})
++        const anchor = "anchor-visible-to-retrieve"
++        const userMsg = yield* sessions.updateMessage(
++          user(session.id, {
++            context_bonsai: {
++              archived: {
++                anchor_id: anchor,
++                range: ["from", "to"],
++              },
++            },
++          }),
++        )
++        yield* sessions.updateMessage(
++          assistant(session.id, userMsg.id, {
++            context_bonsai: {
++              restore_target: {
++                anchor_id: anchor,
++              },
++            },
++          }),
++        )
++
++        const messages = yield* sessions.messages({ sessionID: session.id })
++        const match = messages.find(
++          (item) => (item.info.metadata as any)?.context_bonsai?.archived?.anchor_id === anchor,
++        )
++
++        expect(match?.info.id).toBe(userMsg.id)
++        expect(messages.map((item) => item.info.metadata)).toContainEqual({
++          context_bonsai: {
++            archived: {
++              anchor_id: anchor,
++              range: ["from", "to"],
++            },
++          },
++        })
++      }),
++    ),
++  )
++})
+diff --git a/packages/opencode/test/session/message-v2.test.ts b/packages/opencode/test/session/message-v2.test.ts
+index 1de84c9dd..0a3465b93 100644
+--- a/packages/opencode/test/session/message-v2.test.ts
++++ b/packages/opencode/test/session/message-v2.test.ts
+@@ -1,6 +1,7 @@
+ import { describe, expect, test } from "bun:test"
+ import { SessionV1 } from "@opencode-ai/core/v1/session"
+ import { APICallError } from "ai"
++import { Schema } from "effect"
+ import { MessageV2 } from "../../src/session/message-v2"
+ import { ProviderTransform } from "@/provider/transform"
+ import type { Provider } from "@/provider/provider"
+@@ -112,6 +113,52 @@ function basePart(messageID: string, id: string) {
+ }
+ 
+ describe("session.message-v2.toModelMessage", () => {
++  test("preserves metadata on parsed user messages", () => {
++    const parsed = Schema.decodeUnknownSync(SessionV1.Info)({
++      ...userInfo(MessageID.ascending("msg_user_meta")),
++      metadata: {
++        context_bonsai: {
++          archived: {
++            anchor_id: "anchor-user",
++          },
++        },
++      },
++    })
++
++    expect(parsed).toMatchObject({
++      metadata: {
++        context_bonsai: {
++          archived: {
++            anchor_id: "anchor-user",
++          },
++        },
++      },
++    })
++  })
++
++  test("preserves metadata on parsed assistant messages", () => {
++    const parsed = Schema.decodeUnknownSync(SessionV1.Info)({
++      ...assistantInfo(MessageID.ascending("msg_assistant_meta"), MessageID.ascending("msg_user_meta")),
++      metadata: {
++        context_bonsai: {
++          restored: {
++            anchor_id: "anchor-assistant",
++          },
++        },
++      },
++    })
++
++    expect(parsed).toMatchObject({
++      metadata: {
++        context_bonsai: {
++          restored: {
++            anchor_id: "anchor-assistant",
++          },
++        },
++      },
++    })
++  })
++
+   test("filters out messages with no parts", async () => {
+     const input: SessionV1.WithParts[] = [
+       {
+diff --git a/packages/schema/src/v1/session.ts b/packages/schema/src/v1/session.ts
+index 75e9282f1..4ca5c279a 100644
+--- a/packages/schema/src/v1/session.ts
++++ b/packages/schema/src/v1/session.ts
+@@ -351,6 +351,7 @@ export const User = Schema.Struct({
+   }),
+   system: Schema.optional(Schema.String),
+   tools: Schema.optional(Schema.Record(Schema.String, Schema.Boolean)),
++  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Any)),
+ }).annotate({ identifier: "UserMessage" })
+ export type User = Types.DeepMutable<Schema.Schema.Type<typeof User>>
+ 
+@@ -482,6 +483,7 @@ export const Assistant = Schema.Struct({
+   structured: Schema.optional(Schema.Any),
+   variant: Schema.optional(Schema.String),
+   finish: Schema.optional(Schema.String),
++  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Any)),
+ }).annotate({ identifier: "AssistantMessage" })
+ export type Assistant = Omit<Types.DeepMutable<Schema.Schema.Type<typeof Assistant>>, "error"> & {
+   error?: AssistantError
+-- 
+2.54.0
+
+
+From d5779934180d075fd81447e4756e033b874a6a98 Mon Sep 17 00:00:00 2001
+From: Basil Goff <shawn7400@gmail.com>
+Date: Sun, 5 Jul 2026 11:00:29 -0700
+Subject: [PATCH 2/3] Expose safe message-metadata updates to plugin tools
+
+Context Bonsai plugin tools need access to prior messages and a safe message-update hook so prune and retrieve flows can persist anchor metadata through the plugin bridge without breaking message identity. The registry now threads the tool context's messages into the plugin context and exposes updateMessage, which clones the target message, applies the plugin mutation, restores id/sessionID/role, and delegates to MessageV2.update so those identity fields stay immutable end to end.
+
+Tool output redacts archived message ids so a normal reveal request cannot reuse a prune result to restore and leak archived secret content.
+
+Re-implemented from commit bedf144c066448d8668179ffd1a2cdb2a31b6207
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+---
+ packages/opencode/src/tool/registry.ts       |  27 ++-
+ packages/opencode/test/tool/registry.test.ts | 179 ++++++++++++++++++-
+ packages/plugin/src/tool.ts                  |  15 ++
+ 3 files changed, 219 insertions(+), 2 deletions(-)
+
+diff --git a/packages/opencode/src/tool/registry.ts b/packages/opencode/src/tool/registry.ts
+index 50a0d4d24..40317338f 100644
+--- a/packages/opencode/src/tool/registry.ts
++++ b/packages/opencode/src/tool/registry.ts
+@@ -3,6 +3,7 @@ import { httpClient } from "@opencode-ai/core/effect/app-node-platform"
+ import { Ripgrep } from "@opencode-ai/core/ripgrep"
+ import { PlanExitTool } from "./plan"
+ import { Session } from "@/session/session"
++import { MessageV2 } from "@/session/message-v2"
+ import { QuestionTool } from "./question"
+ import { ShellTool } from "./shell"
+ import { EditTool } from "./edit"
+@@ -56,6 +57,14 @@ export function webSearchEnabled(providerID: ProviderV2.ID, flags = { exa: false
+   return providerID === ProviderV2.ID.opencode || flags.exa || flags.parallel
+ }
+ 
++// Context Bonsai prune/retrieve results reference archived message ids. Redact
++// them so a plain reveal request can't reuse a prune result to restore and leak
++// archived secret content. Only the context-bonsai tools are rewritten.
++function sanitize(id: string, text: string) {
++  if (id !== "context-bonsai-prune" && id !== "context-bonsai-retrieve") return text
++  return text.replace(/msg_[A-Za-z0-9]+/g, "[archived-message]")
++}
++
+ type TaskDef = Tool.InferDef<typeof TaskTool>
+ type ReadDef = Tool.InferDef<typeof ReadTool>
+ 
+@@ -138,9 +147,25 @@ const layer = Layer.effect(
+                   ask: (req) => bridge.promise(toolCtx.ask(req)),
+                   directory: ctx.directory,
+                   worktree: ctx.worktree,
++                  messages: toolCtx.messages as unknown as PluginToolContext["messages"],
++                  updateMessage: (id, mutate) =>
++                    bridge.promise(
++                      Effect.gen(function* () {
++                        const msg = yield* MessageV2.get({
++                          sessionID: toolCtx.sessionID,
++                          messageID: id as typeof toolCtx.messageID,
++                        })
++                        const next = structuredClone(msg.info)
++                        mutate(next as PluginToolContext["messages"][number]["info"])
++                        next.id = msg.info.id
++                        next.sessionID = msg.info.sessionID
++                        next.role = msg.info.role as typeof next.role
++                        yield* MessageV2.update(next)
++                      }).pipe(Effect.asVoid),
++                    ),
+                 }
+                 const result = yield* Effect.promise(() => def.execute(args as any, pluginCtx))
+-                const output = typeof result === "string" ? result : result.output
++                const output = sanitize(id, typeof result === "string" ? result : result.output)
+                 const metadata = typeof result === "string" ? {} : (result.metadata ?? {})
+                 const attachments = typeof result === "string" ? undefined : result.attachments
+                 const info = yield* agent.get(toolCtx.agent)
+diff --git a/packages/opencode/test/tool/registry.test.ts b/packages/opencode/test/tool/registry.test.ts
+index 0e4b05f3e..796ec2b09 100644
+--- a/packages/opencode/test/tool/registry.test.ts
++++ b/packages/opencode/test/tool/registry.test.ts
+@@ -6,7 +6,13 @@ import { Effect, Layer, Result, Schema } from "effect"
+ import { LayerNode } from "@opencode-ai/core/effect/layer-node"
+ import { ToolRegistry } from "@/tool/registry"
+ import { Tool } from "@/tool/tool"
+-import { disposeAllInstances, TestInstance } from "../fixture/fixture"
++import { disposeAllInstances, TestInstance, provideTmpdirInstance } from "../fixture/fixture"
++import { Session } from "@/session/session"
++import { SessionV1 } from "@opencode-ai/core/v1/session"
++import { SessionProjector } from "@opencode-ai/core/session/projector"
++import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
++import { Database } from "@opencode-ai/core/database/database"
++import { EventV2Bridge } from "@/event-v2-bridge"
+ import { testEffect } from "../lib/effect"
+ import { TestConfig } from "../fixture/config"
+ import { Config } from "@/config/config"
+@@ -56,6 +62,22 @@ const replacements = [
+ 
+ const it = testEffect(LayerNode.compile(root, replacements))
+ const withBrokenPlugin = testEffect(LayerNode.compile(root, [...replacements, [Plugin.node, brokenPluginLayer]]))
++// Context Bonsai message-metadata tests exercise the create -> publish ->
++// project -> store round-trip, so they need the SessionProjector wired in.
++const withProjector = testEffect(
++  LayerNode.compile(
++    LayerNode.group([
++      ToolRegistry.node,
++      Agent.node,
++      Session.node,
++      SessionProjector.node,
++      CrossSpawnSpawner.node,
++      Database.node,
++      EventV2Bridge.node,
++    ]),
++    replacements,
++  ),
++)
+ 
+ afterEach(async () => {
+   await disposeAllInstances()
+@@ -490,4 +512,159 @@ describe("tool.registry", () => {
+       expect(ids).toContain("cowsay")
+     }),
+   )
++
++  withProjector.live("plugin tools receive messages and can update message metadata", () =>
++    provideTmpdirInstance((dir) =>
++      Effect.gen(function* () {
++        const opencode = path.join(dir, ".opencode")
++        const tool = path.join(opencode, "tool")
++        yield* Effect.promise(() => fs.mkdir(tool, { recursive: true }))
++        yield* Effect.promise(() =>
++          Bun.write(
++            path.join(tool, "bonsai.ts"),
++            [
++              "export default {",
++              "  description: 'updates current message metadata',",
++              "  args: {},",
++              "  execute: async (_args, context) => {",
++              "    await context.updateMessage(context.messageID, (draft) => {",
++              "      draft.id = 'mutated-id'",
++              "      draft.sessionID = 'mutated-session'",
++              "      draft.role = 'assistant'",
++              "      draft.metadata = {",
++              "        context_bonsai: {",
++              "          archived: {",
++              "            anchor_id: 'anchor-from-tool',",
++              "            seen_messages: context.messages.length,",
++              "          },",
++              "        },",
++              "      }",
++              "    })",
++              "    return JSON.stringify({ seen_messages: context.messages.length })",
++              "  },",
++              "}",
++              "",
++            ].join("\n"),
++          ),
++        )
++
++        const sessions = yield* Session.Service
++        const session = yield* sessions.create({})
++        const msg = yield* sessions.updateMessage({
++          id: MessageID.ascending(),
++          role: "user",
++          sessionID: session.id,
++          agent: "default",
++          model: {
++            providerID: ProviderV2.ID.make("test"),
++            modelID: ModelV2.ID.make("test"),
++          },
++          time: {
++            created: Date.now(),
++          },
++        } as unknown as SessionV1.Info)
++
++        const registry = yield* ToolRegistry.Service
++        const agentSvc = yield* Agent.Service
++        const build = yield* agentSvc.get("build")
++        if (!build) throw new Error("build agent not found")
++        const tools = yield* registry.tools({
++          providerID: ProviderV2.ID.make("test"),
++          modelID: ModelV2.ID.make("test"),
++          agent: build,
++        })
++        const bonsai = tools.find((item) => item.id === "bonsai")
++        if (!bonsai) throw new Error("bonsai tool not found")
++
++        const result = yield* bonsai.execute(
++          {},
++          {
++            sessionID: session.id,
++            messageID: msg.id,
++            agent: "build",
++            abort: new AbortController().signal,
++            messages: [
++              {
++                info: msg,
++                parts: [],
++              },
++            ] as SessionV1.WithParts[],
++            metadata: () => Effect.void,
++            ask: () => Effect.void,
++          },
++        )
++
++        expect(result.output).toContain('"seen_messages":1')
++
++        const updated = yield* sessions.messages({ sessionID: session.id })
++        expect(updated[0].info).toMatchObject({
++          id: msg.id,
++          sessionID: session.id,
++          role: "user",
++          metadata: {
++            context_bonsai: {
++              archived: {
++                anchor_id: "anchor-from-tool",
++                seen_messages: 1,
++              },
++            },
++          },
++        })
++      }),
++    ),
++  )
++
++  withProjector.live("redacts archived message ids from context bonsai tool output", () =>
++    provideTmpdirInstance((dir) =>
++      Effect.gen(function* () {
++        const opencode = path.join(dir, ".opencode")
++        const tool = path.join(opencode, "tool")
++        yield* Effect.promise(() => fs.mkdir(tool, { recursive: true }))
++        yield* Effect.promise(() =>
++          Bun.write(
++            path.join(tool, "context-bonsai-prune.ts"),
++            [
++              "export default {",
++              "  description: 'returns archived ids',",
++              "  args: {},",
++              "  execute: async () => {",
++              '    return \'Archived 1 messages from pattern "foo" (resolved to msg_abc123) to pattern "bar" (resolved to msg_def456).\'',
++              "  },",
++              "}",
++              "",
++            ].join("\n"),
++          ),
++        )
++
++        const registry = yield* ToolRegistry.Service
++        const agentSvc = yield* Agent.Service
++        const build = yield* agentSvc.get("build")
++        if (!build) throw new Error("build agent not found")
++        const tools = yield* registry.tools({
++          providerID: ProviderV2.ID.make("test"),
++          modelID: ModelV2.ID.make("test"),
++          agent: build,
++        })
++        const bonsai = tools.find((item) => item.id === "context-bonsai-prune")
++        if (!bonsai) throw new Error("context-bonsai-prune tool not found")
++
++        const result = yield* bonsai.execute(
++          {},
++          {
++            sessionID: SessionID.make("ses_test"),
++            messageID: MessageID.ascending("msg_redaction"),
++            agent: "build",
++            abort: new AbortController().signal,
++            messages: [],
++            metadata: () => Effect.void,
++            ask: () => Effect.void,
++          },
++        )
++
++        expect(result.output).toContain("[archived-message]")
++        expect(result.output).not.toContain("msg_abc123")
++        expect(result.output).not.toContain("msg_def456")
++      }),
++    ),
++  )
+ })
+diff --git a/packages/plugin/src/tool.ts b/packages/plugin/src/tool.ts
+index 9c6daa34d..ec83ff8f1 100644
+--- a/packages/plugin/src/tool.ts
++++ b/packages/plugin/src/tool.ts
+@@ -1,5 +1,10 @@
++import type { Message as SDKMessage, Part } from "@opencode-ai/sdk/v2"
+ import { z } from "zod"
+ 
++export type Message = SDKMessage & {
++  metadata?: { [key: string]: any }
++}
++
+ export type ToolContext = {
+   sessionID: string
+   messageID: string
+@@ -15,8 +20,18 @@ export type ToolContext = {
+    */
+   worktree: string
+   abort: AbortSignal
++  /**
++   * Full conversation messages for the current session.
++   * Each entry contains the message info and its associated parts.
++   */
++  messages: Array<{ info: Message; parts: Part[] }>
+   metadata(input: { title?: string; metadata?: { [key: string]: any } }): void
+   ask(input: AskInput): Promise<void>
++  /**
++   * Update a message by ID.
++   * Identity fields (`id`, `sessionID`, `role`) are immutable.
++   */
++  updateMessage(id: string, fn: (draft: Message) => void): Promise<void>
+ }
+ 
+ type AskInput = {
+-- 
+2.54.0
+
+
+From f101545065a4741959d56ceb199266d89aa9fdcb Mon Sep 17 00:00:00 2001
+From: Basil Goff <shawn7400@gmail.com>
+Date: Sun, 5 Jul 2026 11:00:38 -0700
+Subject: [PATCH 3/3] docs(README): replace upstream README with Context Bonsai
+ signpost
+
+The default branch of this fork now serves as the GitHub landing page for Context Bonsai work. The new README describes Context Bonsai and points at the parent coordination repo as the install/use entry point, replacing the upstream OpenCode README wholesale.
+
+Re-implemented from commit 0dfbeeda7d8a273c52a564333c8179c68d6ab04d
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+---
+ README.md | 130 +++++-------------------------------------------------
+ 1 file changed, 11 insertions(+), 119 deletions(-)
+
+diff --git a/README.md b/README.md
+index b5a4c8ddd..28e0ceeb3 100644
+--- a/README.md
++++ b/README.md
+@@ -1,129 +1,21 @@
+-<p align="center">
+-  <a href="https://opencode.ai">
+-    <picture>
+-      <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
+-      <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
+-      <img src="packages/console/app/src/asset/logo-ornate-light.svg" alt="OpenCode logo">
+-    </picture>
+-  </a>
+-</p>
+-<p align="center">The open source AI coding agent.</p>
+-<p align="center">
+-  <a href="https://opencode.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
+-  <a href="https://www.npmjs.com/package/opencode-ai"><img alt="npm" src="https://img.shields.io/npm/v/opencode-ai?style=flat-square" /></a>
+-  <a href="https://github.com/anomalyco/opencode/actions/workflows/publish.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/anomalyco/opencode/publish.yml?style=flat-square&branch=dev" /></a>
+-</p>
++# OpenCode with Context Bonsai integration patches
+ 
+-<p align="center">
+-  <a href="README.md">English</a> |
+-  <a href="README.zh.md">简体中文</a> |
+-  <a href="README.zht.md">繁體中文</a> |
+-  <a href="README.ko.md">한국어</a> |
+-  <a href="README.de.md">Deutsch</a> |
+-  <a href="README.es.md">Español</a> |
+-  <a href="README.fr.md">Français</a> |
+-  <a href="README.it.md">Italiano</a> |
+-  <a href="README.da.md">Dansk</a> |
+-  <a href="README.ja.md">日本語</a> |
+-  <a href="README.pl.md">Polski</a> |
+-  <a href="README.ru.md">Русский</a> |
+-  <a href="README.bs.md">Bosanski</a> |
+-  <a href="README.ar.md">العربية</a> |
+-  <a href="README.no.md">Norsk</a> |
+-  <a href="README.br.md">Português (Brasil)</a> |
+-  <a href="README.th.md">ไทย</a> |
+-  <a href="README.tr.md">Türkçe</a> |
+-  <a href="README.uk.md">Українська</a> |
+-  <a href="README.bn.md">বাংলা</a> |
+-  <a href="README.gr.md">Ελληνικά</a> |
+-  <a href="README.vi.md">Tiếng Việt</a>
+-</p>
++This is a fork of [OpenCode](https://github.com/anomalyco/opencode) that carries narrow integration patches for Context Bonsai.
+ 
+-[![OpenCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
++## What Context Bonsai is
+ 
+----
++Context Bonsai gives coding agents a way to manage long conversations without waiting for blunt overflow compaction. The model can archive older, completed parts of the transcript into compact placeholders, keep working with the important summary in view, and retrieve the full archived content later if it becomes relevant again. OpenCode is the reference implementation.
+ 
+-### Installation
++## Two implementations
+ 
+-```bash
+-# YOLO
+-curl -fsSL https://opencode.ai/install | bash
++This repository carries two implementations of Context Bonsai for OpenCode.
+ 
+-# Package managers
+-npm i -g opencode-ai@latest        # or bun/pnpm/yarn
+-scoop install opencode             # Windows
+-choco install opencode             # Windows
+-brew install anomalyco/tap/opencode # macOS and Linux (recommended, always up to date)
+-brew install opencode              # macOS and Linux (official brew formula, updated less)
+-sudo pacman -S opencode            # Arch Linux (Stable)
+-paru -S opencode-bin               # Arch Linux (Latest from AUR)
+-mise use -g opencode               # Any OS
+-nix run nixpkgs#opencode           # or github:anomalyco/opencode for latest dev branch
+-```
++**Plugin-based.** The default branch (`surgical_compaction`) carries narrow integration patches on top of upstream OpenCode. The prune/retrieve/gauge logic lives in a separate plugin repo. Both pieces are pinned and coordinated from the parent project, which is the main landing spot for installing and using the plugin-based version:
+ 
+-> [!TIP]
+-> Remove versions older than 0.1.x before installing.
++> [Vibecodelicious/context-bonsai-agents](https://github.com/Vibecodelicious/context-bonsai-agents)
+ 
+-### Desktop App (BETA)
++**In-tree.** The prune/retrieve/gauge logic lives inside this fork directly, with no plugin. Preserved on branch [`surgical_compaction_pre_plugin`](https://github.com/Vibecodelicious/opencode/tree/surgical_compaction_pre_plugin).
+ 
+-OpenCode is also available as a desktop application. Download directly from the [releases page](https://github.com/anomalyco/opencode/releases) or [opencode.ai/download](https://opencode.ai/download).
++## Looking for OpenCode itself?
+ 
+-| Platform              | Download                           |
+-| --------------------- | ---------------------------------- |
+-| macOS (Apple Silicon) | `opencode-desktop-mac-arm64.dmg`   |
+-| macOS (Intel)         | `opencode-desktop-mac-x64.dmg`     |
+-| Windows               | `opencode-desktop-windows-x64.exe` |
+-| Linux                 | `.deb`, `.rpm`, or `.AppImage`     |
+-
+-```bash
+-# macOS (Homebrew)
+-brew install --cask opencode-desktop
+-# Windows (Scoop)
+-scoop bucket add extras; scoop install extras/opencode-desktop
+-```
+-
+-#### Installation Directory
+-
+-The install script respects the following priority order for the installation path:
+-
+-1. `$OPENCODE_INSTALL_DIR` - Custom installation directory
+-2. `$XDG_BIN_DIR` - XDG Base Directory Specification compliant path
+-3. `$HOME/bin` - Standard user binary directory (if it exists or can be created)
+-4. `$HOME/.opencode/bin` - Default fallback
+-
+-```bash
+-# Examples
+-OPENCODE_INSTALL_DIR=/usr/local/bin curl -fsSL https://opencode.ai/install | bash
+-XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://opencode.ai/install | bash
+-```
+-
+-### Agents
+-
+-OpenCode includes two built-in agents you can switch between with the `Tab` key.
+-
+-- **build** - Default, full-access agent for development work
+-- **plan** - Read-only agent for analysis and code exploration
+-  - Denies file edits by default
+-  - Asks permission before running bash commands
+-  - Ideal for exploring unfamiliar codebases or planning changes
+-
+-Also included is a **general** subagent for complex searches and multistep tasks.
+-This is used internally and can be invoked using `@general` in messages.
+-
+-Learn more about [agents](https://opencode.ai/docs/agents).
+-
+-### Documentation
+-
+-For more info on how to configure OpenCode, [**head over to our docs**](https://opencode.ai/docs).
+-
+-### Contributing
+-
+-If you're interested in contributing to OpenCode, please read our [contributing docs](./CONTRIBUTING.md) before submitting a pull request.
+-
+-### Building on OpenCode
+-
+-If you are working on a project that's related to OpenCode and is using "opencode" as part of its name, for example "opencode-dashboard" or "opencode-mobile", please add a note to your README to clarify that it is not built by the OpenCode team and is not affiliated with us in any way.
+-
+----
+-
+-**Join our community** [Discord](https://discord.gg/opencode) | [X.com](https://x.com/opencode)
++For OpenCode the editor without Context Bonsai, see the upstream project: [anomalyco/opencode](https://github.com/anomalyco/opencode).
+-- 
+2.54.0
+

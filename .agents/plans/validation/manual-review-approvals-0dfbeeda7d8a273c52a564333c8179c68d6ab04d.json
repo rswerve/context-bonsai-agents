@@ -1,7 +1,7 @@
 [
   {
     "source_sha": "0dfbeeda7d8a273c52a564333c8179c68d6ab04d",
-    "approved_action": "cherry-pick README.md signpost; on conflict replace README.md wholesale from the source commit and verify it contains Context Bonsai",
+    "approved_action": "apply the README.md signpost via the re-implementation patch series (wholesale content copy from the source commit) and verify it contains Context Bonsai",
     "approval_refs": [
       "bonsai-reviewer-missing-details <reviewer-md@context-bonsai.local> — iteration-1 missing-details report, 2026-07-03, zero blocking findings (recorded in the plan's Validation Loop Results)",
       "bonsai-reviewer-ambiguity <reviewer-amb@context-bonsai.local> — iteration-1 ambiguity report, 2026-07-03, zero blocking findings (recorded in the plan's Validation Loop Results)",
