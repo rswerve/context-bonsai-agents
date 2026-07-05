@@ -1,0 +1,122 @@
+[
+  {
+    "row_id": "01",
+    "command": "bun install",
+    "frozen_target_package": "@anthropic-ai/claude-code@2.1.200",
+    "frozen_source_head_sha": "f92dfac9c5daecc286e03b90ef20bb930cf68818",
+    "exit_code": 0,
+    "result": "pass",
+    "artifact_path": "/tmp/cc-bonsai-e2e/baseline/01-install.log",
+    "provenance_ref": "git rev-parse HEAD = b751acef579f99f824ed98b941da77b47e0c0120"
+  },
+  {
+    "row_id": "02",
+    "command": "bun test",
+    "frozen_target_package": "@anthropic-ai/claude-code@2.1.200",
+    "frozen_source_head_sha": "f92dfac9c5daecc286e03b90ef20bb930cf68818",
+    "exit_code": 0,
+    "result": "pass-green",
+    "artifact_path": "/tmp/cc-bonsai-e2e/baseline/02-test.log",
+    "provenance_ref": "git rev-parse HEAD = b751acef579f99f824ed98b941da77b47e0c0120; 163 tests pass 0 fail"
+  },
+  {
+    "row_id": "03",
+    "command": "bun run typecheck",
+    "frozen_target_package": "@anthropic-ai/claude-code@2.1.200",
+    "frozen_source_head_sha": "f92dfac9c5daecc286e03b90ef20bb930cf68818",
+    "exit_code": 0,
+    "result": "pass-green",
+    "artifact_path": "/tmp/cc-bonsai-e2e/baseline/03-typecheck.log",
+    "provenance_ref": "package.json .scripts.typecheck = bun x tsc --noEmit && cd mcp-server && bun x tsc --noEmit"
+  },
+  {
+    "row_id": "04",
+    "command": "bun run e2e/native-e2e.ts artifact-evidence --bundle /tmp/cc-bonsai-artifacts/claude-code/2.1.200/native/extracted.js --manifest /tmp/cc-bonsai-artifacts/claude-code/2.1.200/native/manifest.json --out /tmp/cc-bonsai-e2e/2.1.200-artifact-evidence.json",
+    "frozen_target_package": "@anthropic-ai/claude-code@2.1.200",
+    "frozen_source_head_sha": "f92dfac9c5daecc286e03b90ef20bb930cf68818",
+    "exit_code": 1,
+    "result": "fail-expected-stale-harness",
+    "artifact_path": "/tmp/cc-bonsai-e2e/baseline/04-artifact-evidence.log",
+    "provenance_ref": "sha256sum extracted.js = 60e1c6cfc6d3931bf44020bfdb397d925a786365b8743a9760f2098aca9d7597; stale harness fails token-usage anchor selection (AnchorAmbiguousError) against 2.1.200 bundle"
+  },
+  {
+    "row_id": "05",
+    "command": "bun test",
+    "frozen_target_package": "@anthropic-ai/claude-code@2.1.200",
+    "frozen_source_head_sha": "f92dfac9c5daecc286e03b90ef20bb930cf68818",
+    "exit_code": 0,
+    "result": "pass-green-post-replay",
+    "artifact_path": "/tmp/cc-bonsai-e2e/baseline/05-test.log",
+    "provenance_ref": "post-replay; 165 pass 0 fail (163 baseline + 2 new E2E-05 Constraint-10 compat tests)"
+  },
+  {
+    "row_id": "06",
+    "command": "bun run typecheck",
+    "frozen_target_package": "@anthropic-ai/claude-code@2.1.200",
+    "frozen_source_head_sha": "f92dfac9c5daecc286e03b90ef20bb930cf68818",
+    "exit_code": 0,
+    "result": "pass-green-post-replay",
+    "artifact_path": "/tmp/cc-bonsai-e2e/baseline/06-typecheck.log",
+    "provenance_ref": "post-replay tsc --noEmit both roots green"
+  },
+  {
+    "row_id": "07",
+    "command": "bun run e2e/native-e2e.ts artifact-evidence --bundle /tmp/cc-bonsai-artifacts/claude-code/2.1.200/native/extracted.js --manifest /tmp/cc-bonsai-artifacts/claude-code/2.1.200/native/manifest.json --out /tmp/cc-bonsai-e2e/2.1.200-artifact-evidence.json",
+    "frozen_target_package": "@anthropic-ai/claude-code@2.1.200",
+    "frozen_source_head_sha": "f92dfac9c5daecc286e03b90ef20bb930cf68818",
+    "exit_code": 0,
+    "result": "pass-post-replay-against-frozen-bundle",
+    "artifact_path": "/tmp/cc-bonsai-e2e/baseline/07-artifact-evidence.log",
+    "provenance_ref": "artifact-evidence now passes against frozen 2.1.200 bundle sha256 60e1c6cfc6d3931bf44020bfdb397d925a786365b8743a9760f2098aca9d7597; all 8 anchors select, semantic report validates"
+  },
+  {
+    "row_id": "08",
+    "command": "bun run apply --path \"$TARGET_NATIVE_BINARY\" (live runtime binding) + mcp list + end-of-gate --restore",
+    "frozen_target_package": "@anthropic-ai/claude-code@2.1.200",
+    "frozen_source_head_sha": "f92dfac9c5daecc286e03b90ef20bb930cf68818",
+    "exit_code": 0,
+    "result": "PASS-install-procedure",
+    "artifact_path": "/tmp/cc-bonsai-e2e/2.1.200-prune-guard-live.json",
+    "provenance_ref": "E2E-00: apply exit 0 all 3 sentinels (archived-filter, message-content-ids, context-bonsai-gauge); mcp list shows context-bonsai Connected; end-of-gate restore returns binary to pristine sha256 26e42a3268979f0c5a3b6c0f375b15dd7decfaae4bb02774390d6a23f4cd51ad"
+  },
+  {
+    "row_id": "09",
+    "command": "bun run e2e/native-e2e.ts prune-guard-live --binary \"$TARGET_NATIVE_BINARY\" --cwd <scratch> --out /tmp/cc-bonsai-e2e/2.1.200-prune-guard-live.json",
+    "frozen_target_package": "@anthropic-ai/claude-code@2.1.200",
+    "frozen_source_head_sha": "f92dfac9c5daecc286e03b90ef20bb930cf68818",
+    "exit_code": 0,
+    "result": "PASS-prune-guard-live-pass",
+    "artifact_path": "/tmp/cc-bonsai-e2e/2.1.200-prune-guard-live.json",
+    "provenance_ref": "E2E-08 launch: bugShapeConfirmed true, argv0IsVersionedBinary true, hasResumeFlag false, direct versioned-path launch"
+  },
+  {
+    "row_id": "10",
+    "command": "bun run e2e/native-e2e.ts prune-effect --pre-session pre.jsonl --session post.jsonl --from-uuid <ALPHA> --to-uuid <OMEGA> --out /tmp/cc-bonsai-e2e/2.1.200-prune-effect.json",
+    "frozen_target_package": "@anthropic-ai/claude-code@2.1.200",
+    "frozen_source_head_sha": "f92dfac9c5daecc286e03b90ef20bb930cf68818",
+    "exit_code": 0,
+    "result": "PASS-content-removed-footprint-dropped",
+    "artifact_path": "/tmp/cc-bonsai-e2e/2.1.200-prune-effect.json",
+    "provenance_ref": "E2E-08 effect: rangeVisibleCharsPre 577 -> Post 0, footprintDropped true, placeholderPresentPost true, archivedRangeVisiblePost false"
+  },
+  {
+    "row_id": "11",
+    "command": "bun run e2e/native-e2e.ts protocol-a-oracle --session <session> --secret <secret> --out /tmp/cc-bonsai-e2e/2.1.200-protocol-a-oracle.json",
+    "frozen_target_package": "@anthropic-ai/claude-code@2.1.200",
+    "frozen_source_head_sha": "f92dfac9c5daecc286e03b90ef20bb930cf68818",
+    "exit_code": 0,
+    "result": "PASS-secret-oracle",
+    "artifact_path": "/tmp/cc-bonsai-e2e/2.1.200-protocol-a-oracle.json",
+    "provenance_ref": "E2E-07: occurrenceCount 1, invalidOccurrenceCount 0, verdict PASS secret appears only in archived original blocks; secret never in prune args/summary/index"
+  },
+  {
+    "row_id": "12",
+    "command": "\"$TARGET_NATIVE_BINARY\" --print --output-format json (gauge accumulator usage record)",
+    "frozen_target_package": "@anthropic-ai/claude-code@2.1.200",
+    "frozen_source_head_sha": "f92dfac9c5daecc286e03b90ef20bb930cf68818",
+    "exit_code": 0,
+    "result": "PARTIAL-gauge-live-render-not-driven",
+    "artifact_path": "/tmp/cc-bonsai-e2e/2.1.200-e2e04-modelusage.json",
+    "provenance_ref": "E2E-04 compensating evidence (b): modelUsage surfaces inputTokens/contextWindow(200000,1000000)/maxOutputTokens(32000,64000) accumulator fields, confirming re-derived token-usage seam a6p; (a) gauge patch composed with sentinel verification in Phase 4 apply; exception-covered per plan Amendment 1"
+  }
+]

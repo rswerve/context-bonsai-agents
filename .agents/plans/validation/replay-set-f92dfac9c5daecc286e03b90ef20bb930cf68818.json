@@ -1,0 +1,106 @@
+[
+  {
+    "anchor_id": "archived-filter.visibility",
+    "source_version": "2.1.156",
+    "target_version": "2.1.200",
+    "bucket": "unchanged_anchor",
+    "replay_action": "verify-unchanged",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "patches/anchors.ts"
+    ],
+    "rationale": "Structural selector still selects the provider-bound transcript map uniquely. The user converter renamed hLz (2.1.156) to mVf (2.1.200) but is captured, not hard-coded; the cache-breakpoint telemetry context (tengu_api_cache_breakpoints), the user/api_system/else converter branches, and two distinct converters are intact. Unique candidate at offset 11749461, score 105, candidateCount 1; minScore 30 / minMargin 10 unchanged. No selector or scorer edit needed.",
+    "evidence_ref": "tweakcc_context_bonsai/docs/semantic-anchor-analysis-2.1.200.md#archived-filtervisibility"
+  },
+  {
+    "anchor_id": "context-bonsai-gauge.attachment-pipeline",
+    "source_version": "2.1.156",
+    "target_version": "2.1.200",
+    "bucket": "unchanged_anchor",
+    "replay_action": "verify-unchanged",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "patches/anchors.ts"
+    ],
+    "rationale": "The two-argument attachment-assembly pipeline renamed bW4 (2.1.156) to I8a(e,t) (2.1.200) but the structural selector (.push with todo/reminder/attachment context) selects it uniquely at offset 7776901, score 50, candidateCount 17; minScore 15 / minMargin 10 unchanged. No edit needed.",
+    "evidence_ref": "tweakcc_context_bonsai/docs/semantic-anchor-analysis-2.1.200.md#context-bonsai-gaugeattachment-pipeline"
+  },
+  {
+    "anchor_id": "context-bonsai-gauge.reminder-render",
+    "source_version": "2.1.156",
+    "target_version": "2.1.200",
+    "bucket": "unchanged_anchor",
+    "replay_action": "verify-unchanged",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "patches/anchors.ts"
+    ],
+    "rationale": "The reminder/attachment render switch selects uniquely at offset 14376419, score 40, candidateCount 1; the switch(type) + todo/todo_reminder case-shape selector is unchanged and yields a single candidate; minScore 15 / minMargin 10 unchanged. No edit needed.",
+    "evidence_ref": "tweakcc_context_bonsai/docs/semantic-anchor-analysis-2.1.200.md#context-bonsai-gaugereminder-render"
+  },
+  {
+    "anchor_id": "context-bonsai-gauge.token-usage",
+    "source_version": "2.1.156",
+    "target_version": "2.1.200",
+    "bucket": "updated_anchor",
+    "replay_action": "update-scorer",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "patches/anchors.ts"
+    ],
+    "rationale": "At 2.1.200 the per-request usage accumulator a6p(e,t,n) (2.1.156 Wu5 shape: let r=<lookup>(n)??{inputTokens:0,...,contextWindow:0,maxOutputTokens:0}) tied with the zero-arg usage-DISPLAY formatter o6p() (top score 52 vs second 47, within minMargin 10), which shares the identical zero-initialized record literal, so selection fail-closed with AnchorAmbiguousError. Two behavior-grounded scorer signals were added (no threshold change): +15 for the accumulator-entry nullish-coalesce init (??{inputTokens:0) and -25 for building a \"Usage\" display string. Post-strengthening: a6p score 62, o6p 27, margin 35 at offset 7663439, candidateCount 9; minScore 15 / minMargin 10 unchanged. Semantic analysis documented with the rejected o6p formatter.",
+    "evidence_ref": "tweakcc_context_bonsai/docs/semantic-anchor-analysis-2.1.200.md#context-bonsai-gaugetoken-usage"
+  },
+  {
+    "anchor_id": "message-content-ids.converter",
+    "source_version": "2.1.156",
+    "target_version": "2.1.200",
+    "bucket": "unchanged_anchor",
+    "replay_action": "verify-unchanged",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "patches/anchors.ts"
+    ],
+    "rationale": "The provider-bound user converter renamed hLz (2.1.156) to mVf (2.1.200) but retains the 4-argument signature whose second parameter is the cache-breakpoint boolean default (mVf(e,t=!1,n,r)). The 2.1.156 scorer's 4-arg-signature discriminator selects it uniquely at offset 11690165, score 110, candidateCount 24; minScore 35 / minMargin 10 unchanged. No edit needed.",
+    "evidence_ref": "tweakcc_context_bonsai/docs/semantic-anchor-analysis-2.1.200.md#message-content-idsconverter"
+  },
+  {
+    "anchor_id": "runtime-helper.config-dir",
+    "source_version": "2.1.156",
+    "target_version": "2.1.200",
+    "bucket": "unchanged_anchor",
+    "replay_action": "verify-unchanged",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "patches/discovery.ts"
+    ],
+    "rationale": "The config-dir getter resolves uniquely to identifier rr via findConfigDirCandidates against the 2.1.200 bundle; the discovery pattern is unchanged and selectUniqueIdentifier returns a single winner. No edit needed.",
+    "evidence_ref": "tweakcc_context_bonsai/docs/semantic-anchor-analysis-2.1.200.md#runtime-helperconfig-dir"
+  },
+  {
+    "anchor_id": "runtime-helper.fs",
+    "source_version": "2.1.156",
+    "target_version": "2.1.200",
+    "bucket": "unchanged_anchor",
+    "replay_action": "verify-unchanged",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "patches/discovery.ts"
+    ],
+    "rationale": "The fs accessor resolves uniquely to identifier Xt (function Xt(){return hmu}, called as Xt().existsSync/readFileSync/writeFileSync) via the unchanged discovery pattern against the 2.1.200 bundle; selectUniqueIdentifier returns a single winner. No edit needed.",
+    "evidence_ref": "tweakcc_context_bonsai/docs/semantic-anchor-analysis-2.1.200.md#runtime-helperfs"
+  },
+  {
+    "anchor_id": "runtime-helper.session-id",
+    "source_version": "2.1.156",
+    "target_version": "2.1.200",
+    "bucket": "unchanged_anchor",
+    "replay_action": "verify-unchanged",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "patches/discovery.ts"
+    ],
+    "rationale": "The session-id getter resolves uniquely to identifier Dt (function Dt(){return $I()?.sessionId??jt.sessionId}) via findSessionIdCandidates against the 2.1.200 bundle; the discovery pattern is unchanged. No edit needed.",
+    "evidence_ref": "tweakcc_context_bonsai/docs/semantic-anchor-analysis-2.1.200.md#runtime-helpersession-id"
+  }
+]
