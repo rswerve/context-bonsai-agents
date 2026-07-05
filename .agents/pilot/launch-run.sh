@@ -20,11 +20,19 @@ cd "$(dirname "$0")/../.."
 LOG=.agents/pilot/gpt55-v1.17.13-run.log
 # Seed the append-only intent log (brief §"Run continuity"): RUN-START marks
 # the authorship boundary — cycle artifacts postdating it are this run's work.
+# Seed only if absent: relaunching with an existing intent log is a RESUME —
+# the original RUN-START must survive as the authorship boundary, and the
+# executor reconciles from the log per the brief. Run disposition (not this
+# script) deletes the log between distinct runs.
 INTENT=.agents/pilot/gpt55-v1.17.13-intent-log.md
-{
-  echo "# Intent Log — gpt55-v1.17.13 pilot run (append-only; see brief §Run continuity)"
-  echo "RUN-START $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-} > "$INTENT"
+if [ ! -f "$INTENT" ]; then
+  {
+    echo "# Intent Log — gpt55-v1.17.13 pilot run (append-only; see brief §Run continuity)"
+    echo "RUN-START $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  } > "$INTENT"
+else
+  echo "RESUME $(date -u +%Y-%m-%dT%H:%M:%SZ) (process relaunch; prior RUN-START remains the authorship boundary)" >> "$INTENT"
+fi
 {
   if [ "${PILOT_DRYRUN:-0}" = "1" ]; then
     echo "dry-run: orchestrator not launched"
