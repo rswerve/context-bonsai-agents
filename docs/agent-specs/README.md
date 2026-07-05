@@ -9,6 +9,6 @@ These documents specialize the shared Context Bonsai contract for each agent rep
 - [kilo-context-bonsai-spec.md](kilo-context-bonsai-spec.md)
 - [pi-context-bonsai-spec.md](pi-context-bonsai-spec.md)
 
-All of them derive from the shared contract in [context-bonsai-agent-spec.md](../context-bonsai-agent-spec.md).
+All of them derive from the shared contract in [context-bonsai-agent-spec.md](../context-bonsai-agent-spec.md). The procedure for deriving one — and for re-deriving a harness's forward-port bindings after a structural break — is [derivation-pipeline-spec.md](derivation-pipeline-spec.md).
 
 The intent here is not to produce implementation plans yet. These are host-specific specifications that define the acceptable integration shape, the likely extension path, the known parity gaps, and the evidence-backed constraints that future implementation plans must respect.
