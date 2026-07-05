@@ -179,14 +179,32 @@ After a cycle ends — sealed, or halted at a STOP — the executor attempts rou
 
 ## 1.17 Escalation out of the routine path
 
-The routine path fails closed. STOP the cycle and escalate (structural-break derivation, run by the owner tier) when:
+The routine path fails closed. Every STOP that ends a run or a cycle is recorded with exactly one reason code from the registry below — in the final report and the §1.16 maintenance report, and, where §1.18 is bound, in the closing intent-log entry. (In-run STOPs that resolve and continue carry no reason code: §2.5 conflict-scope STOPs resolve under §1.7/§1.8 with an exception record; §2.7 generated-artifact removal is a required in-run fix needing no exception record.) The codes are the input contract for path selection: **only `structural-*` codes enter level-2 re-derivation** — the structural-break derivation, run by the owner tier, which demotes the harness's level-2 bindings to untrusted priors that must be re-verified. Every other class resumes within the routine path by its recorded route; routing a non-structural code into re-derivation is itself an error.
 
-- Classification places a mass of inventory items in `manual_review` because evidence is indeterminate across the board — the shape's structural assumptions no longer discriminate.
-- Anchor or seam re-derivation fails or is ambiguous for most of the registry (closed-artifact shape) — the harness's internal layout has shifted under the binding.
-- Protocol A (the e2e spec's secret-prune oracle) fails on a clean build after all prior validation passed.
-- The harness has no bound slot table in Part 4.
+| Code | Emitted when (machine-checkable condition, source §) | Invalidates | Resumes by |
+|---|---|---|---|
+| `input-target-missing` | No target release supplied at cycle start (§"How a routine cycle uses this spec") | Nothing | Invoker supplies the target |
+| `input-source-identity-stale` | At generation, the supplied source identity ≠ `git rev-parse` of the tracked source's current tip (§1.1) | Nothing (nothing generated yet) | Invoker confirms historical cycle or re-keys the input |
+| `input-source-drift` | At execution preflight, tracked-branch/source HEAD ≠ frozen `SOURCE_HEAD_SHA` (§1.9, §2.1, §3.5) | The generated plan (superseded; lineage recorded per §1.9) | Fresh plan keyed to the new `SOURCE_HEAD_SHA` |
+| `input-base-sha-mismatch` | Supplied `BASE_SHA` ≠ computed `git merge-base` value (§2.1) | Nothing | Invoker corrects or withdraws the supplied value |
+| `input-credentials-missing` | A slot credentials preflight (`test -n`, §4.2) fails, or seal gate 11 cannot pass solely because required scenarios are `BLOCKED` on the harness e2e doc's credentials reason code with no approved exception (§4.3, §1.13 gate 11) | Nothing — all passed-gate evidence stands | Invoker provisions credentials; the run resumes at the failed gate (§1.18 relaunch-as-resume where bound) |
+| `input-approval-pending` | A seal gate among 2, 3, 10, 11, 13 misses: unresolved hard-blocking rows, late fixes, exception records, or missing reviewer/judge approvals (§1.5, §1.7, §1.8, §1.13) | Nothing | The §1.8 unlock token — recorded reviewer+judge approval — then re-assert the gate |
+| `input-cycle-already-generated` | Generation output path collides with this same cycle's own prior artifacts (§1.14) | Nothing (the existing cycle stands) | Invoker dispositions: resume the existing cycle or clear it as a distinct-run disposition act |
+| `env-toolchain-missing` | A §1.12 toolchain presence check fails | Nothing | Repair the environment; re-run preflight |
+| `env-workspace-dirty` | §1.10 preflight finds a non-enumerated dirty path | Nothing | Invoker dispositions the path (clean it or enumerate it); re-run preflight |
+| `env-target-version-mismatch` | The installed CLI does not report exactly the frozen target version (§3.1, §3.6) | Nothing | Correct the install; re-assert the version binding |
+| `env-upstream-regression` | A designated must-be-green baseline row fails on the clean upstream (§1.6) | The cycle — the target release is defective and not this cycle's to fix | Invoker retargets to a later release (new cycle) or upstream ships a fix |
+| `generation-nonconvergence` | §1.15 exhausts its 3 iterations with blocking findings remaining, including rehearsal failures no plan revision resolved | The candidate plan (never approved) | Owner tier — unresolved generation findings are artifact work (SPEC-GAP by construction), not executor retries |
+| `generation-plan-defect` | On a faithfully executed replay, a designated must-be-green post-replay validation row fails (§1.13 gate 8), or a required e2e scenario genuinely FAILs at gate 11 (§1.13, §2.9 step 2, §3.6) — excluding the Protocol A clean-build case, which is `structural-protocol-a-regression` — the replayed content itself is incompatible with the target | The approved plan's affected rows | Owner tier re-derives the failing rows and issues a plan revision (supersession per §1.9 semantics; evidence: the v1.17.13 Phase-4 STOP → plan revision 2) |
+| `executor-scope-violation` | Seal gate 9 finds an out-of-scope path landed without a prior exception record (§1.13) | The offending commits — STOP and revert per the gate; the plan stands | Revert, re-execute from the last in-scope state; §1.16 verdict recorded |
+| `executor-artifact-integrity` | A frozen-artifact checksum re-verification fails (§1.13 gates 4/5), or gate 12's spec-immutability assert fails | The run — evidence downstream of the mutation is untrusted | Restore the frozen artifact from git; re-execute the approved plan from baseline; §1.16 verdict recorded |
+| `structural-mass-manual-review` | After classification, a strict majority (>50%) of inventory items sit in `manual_review` via the missing/contradictory-evidence predicate — excluding rows that are `manual_review` by design (merge commits §2.2; fork-owned wholesale files §2.3) | Level-2 bindings (demoted to untrusted priors) | Owner-tier structural-break derivation |
+| `structural-anchor-derivation-failure` | A strict majority (>50%) of registry anchors classify `removed_or_ambiguous_anchor` or `manual_review` (§3.3) | Level-2 bindings | Owner-tier structural-break derivation |
+| `structural-protocol-a-regression` | Protocol A (the e2e spec's secret-prune oracle) fails on a clean build after all prior validation gates passed (§1.13 gate 11, §2.9 step 2, §3.6) | Level-2 seam assumptions | Owner-tier structural-break derivation |
+| `structural-unbound-harness` | The target harness has no bound slot table in Part 4 (§"How a routine cycle uses this spec", §4.4) | Nothing exists to invalidate — level-2 is absent | Owner-tier new-harness derivation |
+| `structural-missing-command-binding` | The slot's command-binding doc is absent or does not name a command the plan needs; generation flags instead of inventing (§4.2) | The affected slot binding only | Owner tier binds the missing command; regenerate |
 
-Never weaken a threshold, ambiguity rule, or gate to keep the routine path moving. The failure is the signal.
+The two >50% thresholds are fixed defaults this spec sets, binding the previously informal "a mass" / "most of the registry" phrasing; no executed cycle has crossed either. Never weaken a threshold, ambiguity rule, or gate to keep the routine path moving — the failure is the signal. Executor-integrity failures the run cannot itself detect (the §1.18 confabulation class) carry no self-emitted code; they surface as observer-attributed `EXECUTOR-FAIL` verdicts in the §1.16 record.
 
 ## 1.18 Run continuity for weak executors
 
