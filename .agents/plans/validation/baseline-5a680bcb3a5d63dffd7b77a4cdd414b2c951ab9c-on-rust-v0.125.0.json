@@ -1,0 +1,52 @@
+[
+  {
+    "row_id": "r01",
+    "command": "cargo build --bin codex",
+    "frozen_upstream_head_sha": "637f7dd6d737f3961e6bf32fbb3861c4953269c5",
+    "frozen_source_head_sha": "5a680bcb3a5d63dffd7b77a4cdd414b2c951ab9c",
+    "exit_code": 0,
+    "result": "green",
+    "artifact_path": "/tmp/codex-cycle-0.125.0-run/r01-baseline-build.log",
+    "provenance_ref": "WORKTREE/codex-rs @ 637f7dd6d737f3961e6bf32fbb3861c4953269c5; Finished dev profile in 2m18s"
+  },
+  {
+    "row_id": "r02",
+    "command": "test ! -f codex-rs/core/src/context_bonsai.rs && echo missing-as-expected || (echo unexpected-presence && false)",
+    "frozen_upstream_head_sha": "637f7dd6d737f3961e6bf32fbb3861c4953269c5",
+    "frozen_source_head_sha": "5a680bcb3a5d63dffd7b77a4cdd414b2c951ab9c",
+    "exit_code": 0,
+    "result": "missing-as-expected",
+    "artifact_path": "/tmp/codex-cycle-0.125.0-run/intent.log",
+    "provenance_ref": "git ls-files codex-rs/core/src/context_bonsai.rs -> empty on the tag"
+  },
+  {
+    "row_id": "r03",
+    "command": "cargo test",
+    "frozen_upstream_head_sha": "637f7dd6d737f3961e6bf32fbb3861c4953269c5",
+    "frozen_source_head_sha": "5a680bcb3a5d63dffd7b77a4cdd414b2c951ab9c",
+    "exit_code": 0,
+    "result": "green",
+    "artifact_path": "/tmp/codex-cycle-0.125.0-run/r03-baseline-sidetest.log",
+    "provenance_ref": "SIDE codex_context_bonsai; 38 passed (26 lib + 2 archive_roundtrip + 3 gauge + 7 guards), 0 failed"
+  },
+  {
+    "row_id": "r04",
+    "command": "cargo fmt --check",
+    "frozen_upstream_head_sha": "637f7dd6d737f3961e6bf32fbb3861c4953269c5",
+    "frozen_source_head_sha": "5a680bcb3a5d63dffd7b77a4cdd414b2c951ab9c",
+    "exit_code": 1,
+    "result": "informational-preexisting-drift",
+    "artifact_path": "/tmp/codex-cycle-0.125.0-run/r04-baseline-fmt.log",
+    "provenance_ref": "SIDE; 233-line pre-existing drift at committed side-crate HEAD under pinned 1.93.0 (baseline data per plan/§4.5, not a failure)"
+  },
+  {
+    "row_id": "r05",
+    "command": "cargo clippy --all-targets --all-features",
+    "frozen_upstream_head_sha": "637f7dd6d737f3961e6bf32fbb3861c4953269c5",
+    "frozen_source_head_sha": "5a680bcb3a5d63dffd7b77a4cdd414b2c951ab9c",
+    "exit_code": 0,
+    "result": "green",
+    "artifact_path": "/tmp/codex-cycle-0.125.0-run/r05-baseline-clippy.log",
+    "provenance_ref": "SIDE; clippy clean, no warnings"
+  }
+]
