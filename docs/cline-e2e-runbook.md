@@ -88,9 +88,9 @@ EXECUTED 2026-07-06: follow-up `-T` turn instructing `context-bonsai-retrieve` w
 
 EXECUTED 2026-07-06: the prune landed in one process and the recall turn ran in a later `-T` process — placeholder visible, secret not, after full rehydration from disk. The VS Code **checkpoint-restore half is manual and unexecuted** (no headless drive surface; fork gate at `cline/src/integrations/checkpoints/index.ts`) — recorded as the explicit manual half per the e2e spec's automation-split rule, not part of the automated gate.
 
-### Open live scenario — E2E-04 (gauge)
+### E2E-04 (gauge)
 
-**Bound, never executed live.** The first routine cycle that reaches the live e2e gate must run it; until it passes, no full parity claim exists (procedure doc, parity-claim status). Before treating a cycle as that "first" one, grep the prior committed records — `grep -l 'E2E-04' cline_context_bonsai/docs/e2e-results-*-live.md` — for existing PASS evidence. The drive is COMPOSED: the gauge is appended to user content every `DEFAULT_GAUGE_CADENCE_TURNS = 5` API turns (SOURCE-VERIFIED, `cline_context_bonsai/src/gauge.ts:27`; injection site `cline/src/core/task/index.ts:2342`, `injectBonsaiGaugeIfDue`). Run a task past API turn 5 with repeated `-T` follow-ups; on a cadence turn, with tool use forbidden for that turn, ask the model to quote verbatim any context-pressure guidance it sees; off-cadence turns must show no gauge quote. Evidence is the follow-up model quote only, and the gauge fails silent when usage data is unavailable — apply the procedure doc's usage-availability check before counting a missing gauge as FAIL.
+**EXECUTED 2026-07-06** (first live run, v2.17.0-cli cycle; `cline_context_bonsai/docs/e2e-results-2026-07-06-cline-2.17.0-live.md`). The gauge is appended to user content every `DEFAULT_GAUGE_CADENCE_TURNS = 5` API requests (SOURCE-VERIFIED, `cline_context_bonsai/src/gauge.ts:27`; injection site `cline/src/core/task/index.ts:2342`, `injectBonsaiGaugeIfDue`, firing on `TaskState.apiRequestCount % 5 === 0`). **Drive it in a single CLI process**: `apiRequestCount` initializes to 0 in every process and `resumeTaskFromHistory` never restores it, so a cross-process `-T` follow-up drive can never reach request 5 — an earlier COMPOSED version of this section encoded that false assumption; the 2026-07-06 run corrected it. Give the first turn a task that forces ≥5 sequential API requests in one process (e.g. six single-tool steps), then ask the model to quote verbatim any context-pressure guidance it sees; the gauge lands on request 5 and off-cadence requests must show no gauge quote. Evidence is the model quote only, and the gauge fails silent when usage data is unavailable — apply the procedure doc's usage-availability check before counting a missing gauge as FAIL.
 
 E2E-05 stays non-live per its recorded justification (procedure doc); fail-closed behavior is carried by the side repo's `npm test` and the fork's `ContextBonsaiApplier` tests.
 
@@ -114,7 +114,7 @@ node cli/dist/cli.mjs version
 grep -c "context-bonsai-prune" cli/dist/cli.mjs
 ```
 
-Pre-publish runs source the parent and both submodules from local `git bundle` files via scoped `url.insteadOf` + `protocol.file.allow` (procedure doc, pre-publish sourcing; bundle URL tails `context-bonsai-agents.git`, `cline.git`, `cline_context_bonsai.git`). Push nothing.
+Pre-publish runs source the parent and both submodules from local `git bundle` files via scoped `url.insteadOf` + `protocol.file.allow` (procedure doc, pre-publish sourcing; bundle URL tails `context-bonsai-agents.git`, `cline.git`, `cline_context_bonsai.git`). Push nothing. **Run the bundles and the clone on real disk, not `/tmp`** (EXECUTED trap, 2026-07-06: the `cline` bundle is ~424MB and the full clone plus `node_modules` overflows the shared ~6GB `/tmp` tmpfs, breaking the shell mid-gate; a real-disk scratch dir, removed at gate end per forward-port-spec §1.19, resolved it to PASS).
 
 ### Phase 3 — tool registration, and Phase 4 — smoke
 
