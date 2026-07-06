@@ -1,0 +1,2271 @@
++ PARENT=/home/basil/projects/context-bonsai-agents
++ WT=/home/basil/projects/context-bonsai-agents/cline/.agent_tmp/rehearsal-v2.17.0-cli
++ cd /home/basil/projects/context-bonsai-agents/cline
++ git worktree add -B rehearsal/context-bonsai-on-cline-2.17.0 /home/basil/projects/context-bonsai-agents/cline/.agent_tmp/rehearsal-v2.17.0-cli 07593bb42ae95793c6dbf39918c8205f0fdf07bb
+Preparing worktree (new branch 'rehearsal/context-bonsai-on-cline-2.17.0')
+HEAD is now at 07593bb42 version bump and changelog (#10395)
++ mkdir -p /home/basil/projects/context-bonsai-agents/cline/.agent_tmp
++ ln -sfn ../../cline_context_bonsai /home/basil/projects/context-bonsai-agents/cline/.agent_tmp/cline_context_bonsai
++ readlink -f /home/basil/projects/context-bonsai-agents/cline/.agent_tmp/cline_context_bonsai
+/home/basil/projects/context-bonsai-agents/cline_context_bonsai
++ cd /home/basil/projects/context-bonsai-agents/cline/.agent_tmp/rehearsal-v2.17.0-cli
+++ git log --topo-order --reverse --format=%H 07593bb42ae95793c6dbf39918c8205f0fdf07bb..f97ffd26a88685763d181393c282dc775b741530
++ git cherry-pick -x fcd05e76b8ce69760550779e806a14c155162e64 4742ff6eb0933009a2448135e1f8d66106ae08a8 fed96916a9a268bea8d4e8b120fb2138dd47dfec 99f383d9bc6dfb94001654dd73192d88a0690d8c d62419c6a224353162dd19edf84bd546458ddf11 f345f39e5d94e36025d91ae811ab09dd08a5d089 4c605373c1794b1ee1bbde6a3b79ee04c6899d0c 9525b2b161f3aca4175cd99052b5575fbefbfe46 0fa435d40218cc718428c92a9c74893724431179 e0af778bd9e04ada4731686a7e1681dcb678964b 72e3f19cf197a9812d8a147ca4cab27cd15f688f f97ffd26a88685763d181393c282dc775b741530
+Auto-merging package-lock.json
+Auto-merging package.json
+[rehearsal/context-bonsai-on-cline-2.17.0 e88b918d3] [CB-cline.1] canonical prune/retrieve integration via ContextBonsaiApplier
+ Date: Thu Apr 23 20:32:16 2026 -0700
+ 13 files changed, 920 insertions(+)
+ create mode 100644 src/core/prompts/system-prompt/tools/context-bonsai-prune.ts
+ create mode 100644 src/core/prompts/system-prompt/tools/context-bonsai-retrieve.ts
+ create mode 100644 src/core/task/ContextBonsaiApplier.ts
+ create mode 100644 src/core/task/__tests__/ContextBonsaiApplier.test.ts
+ create mode 100644 src/core/task/tools/handlers/ContextBonsaiPruneHandler.ts
+ create mode 100644 src/core/task/tools/handlers/ContextBonsaiRetrieveHandler.ts
+[rehearsal/context-bonsai-on-cline-2.17.0 384c8f06d] [CB-cline.1] Surface context-bonsai tools in Generic variant
+ Date: Thu Apr 23 21:03:24 2026 -0700
+ 5 files changed, 106 insertions(+)
+[rehearsal/context-bonsai-on-cline-2.17.0 80be78c33] [CB-cline.1] Reset context-history updates on bonsai mutations
+ Date: Thu Apr 23 21:03:39 2026 -0700
+ 3 files changed, 80 insertions(+), 11 deletions(-)
+[rehearsal/context-bonsai-on-cline-2.17.0 9a5d2c2b3] [CB-cline.1] Plumb per-turn step counter into same-step retrieve guard
+ Date: Thu Apr 23 21:03:48 2026 -0700
+ 2 files changed, 10 insertions(+)
+[rehearsal/context-bonsai-on-cline-2.17.0 28cdfeb29] [CB-cline.1] Gate checkpoint restore on tasks with bonsai archives
+ Date: Thu Apr 23 21:03:57 2026 -0700
+ 1 file changed, 30 insertions(+), 1 deletion(-)
+[rehearsal/context-bonsai-on-cline-2.17.0 3b4278da5] [CB-cline.1] Remove dead idempotent-splice guard in ContextBonsaiApplier.retrieve
+ Date: Fri Apr 24 13:28:41 2026 -0700
+ 1 file changed, 7 insertions(+), 48 deletions(-)
+[rehearsal/context-bonsai-on-cline-2.17.0 2038b2c77] [CB-cline.1] Register context-bonsai tools in all production variants
+ Date: Fri Apr 24 13:31:49 2026 -0700
+ 31 files changed, 682 insertions(+), 7 deletions(-)
+[rehearsal/context-bonsai-on-cline-2.17.0 81fcd5359] [CB-cline.1] Inject bonsai system-prompt guidance on the internal path
+ Date: Fri Apr 24 13:35:36 2026 -0700
+ 51 files changed, 846 insertions(+), 50 deletions(-)
+ create mode 100644 src/core/prompts/system-prompt/components/bonsai_guidance.ts
+[rehearsal/context-bonsai-on-cline-2.17.0 a63092200] [CB-cline.1] Wire in-band Context Bonsai gauge on default 5-turn cadence
+ Date: Fri Apr 24 13:38:28 2026 -0700
+ 1 file changed, 50 insertions(+)
+[rehearsal/context-bonsai-on-cline-2.17.0 443f279dc] [Story C1] Include tool_use input in extractMessageText search corpus
+ Date: Sat Apr 25 10:21:19 2026 -0700
+ 2 files changed, 114 insertions(+), 1 deletion(-)
+[rehearsal/context-bonsai-on-cline-2.17.0 999d94b14] [Story C2] Render non-text content blocks in extractMessageText
+ Date: Sat Apr 25 10:38:50 2026 -0700
+ 2 files changed, 262 insertions(+), 4 deletions(-)
+[rehearsal/context-bonsai-on-cline-2.17.0 833dfb1be] [Story C3] Wire prune-wrapper filter into ContextBonsaiApplier resolvePattern callsites
+ Date: Sat Apr 25 14:34:03 2026 -0700
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+++ git log --format=%b 07593bb42ae95793c6dbf39918c8205f0fdf07bb..HEAD
+++ grep -cE '^\(cherry picked from commit [0-9a-f]{40}\)$'
++ echo 'trailer-count: 12'
+trailer-count: 12
++ npm install
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated rimraf@2.7.1: Rimraf versions prior to v4 are no longer supported
+npm warn deprecated lodash.isequal@4.5.0: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
+npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+npm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated gauge@5.0.2: This package is no longer supported.
+npm warn deprecated fstream@1.0.12: This package is no longer supported.
+npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+npm warn deprecated glob@11.1.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+
+> claude-dev@3.81.0 prepare
+> npx husky
+
+
+added 1609 packages, and audited 1612 packages in 11s
+
+329 packages are looking for funding
+  run `npm fund` for details
+
+67 vulnerabilities (1 low, 42 moderate, 22 high, 2 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
++ cd cli
++ npm install
+
+> claude-dev@3.81.0 prepare
+> npx husky
+
+
+changed 1 package, and audited 1711 packages in 2s
+
+330 packages are looking for funding
+  run `npm fund` for details
+
+6 vulnerabilities (2 moderate, 3 high, 1 critical)
+
+To address all issues, run:
+  npm audit fix
+
+Run `npm audit` for details.
++ npm run check-types
+
+> claude-dev@3.81.0 check-types
+> npm run protos && npx tsc --noEmit && cd webview-ui && npx tsc --noEmit && cd ../cli && npx tsc --noEmit
+
+
+> claude-dev@3.81.0 protos
+> node scripts/build-proto.mjs
+
+Compiling Protocol Buffers...
+Processing 21 proto files from /home/basil/projects/context-bonsai-agents/cline/.agent_tmp/rehearsal-v2.17.0-cli/proto
+Generated ProtoBus files at:
+- /home/basil/projects/context-bonsai-agents/cline/.agent_tmp/rehearsal-v2.17.0-cli/webview-ui/src/services/grpc-client.ts
+- /home/basil/projects/context-bonsai-agents/cline/.agent_tmp/rehearsal-v2.17.0-cli/src/generated/hosts/vscode/protobus-service-types.ts
+- /home/basil/projects/context-bonsai-agents/cline/.agent_tmp/rehearsal-v2.17.0-cli/src/generated/hosts/vscode/protobus-services.ts
+- /home/basil/projects/context-bonsai-agents/cline/.agent_tmp/rehearsal-v2.17.0-cli/src/generated/hosts/standalone/protobus-server-setup.ts
+Generated Host Bridge client files at:
+- /home/basil/projects/context-bonsai-agents/cline/.agent_tmp/rehearsal-v2.17.0-cli/src/generated/hosts/host-bridge-client-types.ts
+- /home/basil/projects/context-bonsai-agents/cline/.agent_tmp/rehearsal-v2.17.0-cli/src/generated/hosts/standalone/host-bridge-clients.ts
+- /home/basil/projects/context-bonsai-agents/cline/.agent_tmp/rehearsal-v2.17.0-cli/src/generated/hosts/vscode/hostbridge-grpc-service-config.ts
+
+> claude-dev@3.81.0 postprotos
+> biome format src/shared/proto src/core/controller src/hosts/ webview-ui/src/services src/generated --write --no-errors-on-unmatched
+
+Formatted 259 files in 20ms. No fixes applied.
++ echo 'check-types exit=0'
+check-types exit=0
++ npm run test:unit
+
+> claude-dev@3.81.0 test:unit
+> cross-env TS_NODE_PROJECT=./tsconfig.unit-test.json mocha
+
+(node:863829) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+
+  ClineEndpoint configuration
+    valid config parsing
+      ✔ should parse valid endpoints.json with all required fields
+      ✔ should work without endpoints.json (standard mode)
+      ✔ should accept URLs with ports
+      ✔ should accept URLs with paths
+    invalid JSON handling
+      ✔ should throw ClineConfigurationError for invalid JSON syntax
+      ✔ should throw ClineConfigurationError for truncated JSON
+      ✔ should throw ClineConfigurationError for empty file
+      ✔ should throw ClineConfigurationError for non-object JSON
+      ✔ should throw ClineConfigurationError for array JSON
+      ✔ should throw ClineConfigurationError for null JSON
+    missing required fields
+      ✔ should throw ClineConfigurationError when appBaseUrl is missing
+      ✔ should throw ClineConfigurationError when apiBaseUrl is missing
+      ✔ should throw ClineConfigurationError when mcpBaseUrl is missing
+      ✔ should throw ClineConfigurationError when all fields are missing
+      ✔ should throw ClineConfigurationError when field is null
+      ✔ should throw ClineConfigurationError when field is empty string
+      ✔ should throw ClineConfigurationError when field is whitespace only
+      ✔ should throw ClineConfigurationError when field is non-string
+    invalid URL detection
+      ✔ should throw ClineConfigurationError for invalid URL format
+      ✔ should throw ClineConfigurationError for URL without protocol
+      ✔ should throw ClineConfigurationError for malformed URL
+      ✔ should include the invalid URL value in error message
+    environment switching blocked in self-hosted mode
+      ✔ should throw error when trying to change environment in self-hosted mode
+      ✔ should throw error for all environment values in self-hosted mode
+      ✔ should allow environment switching in standard mode
+    self-hosted mode behavior
+      ✔ should report selfHosted environment in self-hosted mode
+      ✔ should use custom endpoints from file
+    initialization behavior
+      ✔ should only initialize once
+      ✔ should throw error when accessing config before initialization
+    isSelfHosted() method
+      ✔ should return true when not initialized (safety fallback)
+      ✔ should return true when in self-hosted mode
+      ✔ should return false when in normal mode (no endpoints.json)
+    bundled endpoints.json behavior
+      ✔ should use bundled endpoints.json when available
+      ✔ should prefer bundled endpoints.json over user file
+      ✔ should fall back to user endpoints.json when bundled is not present
+      ✔ should use standard mode when neither bundled nor user file exists
+      ✔ should throw ClineConfigurationError for invalid bundled file
+      ✔ should throw ClineConfigurationError for invalid JSON in bundled file
+      ✔ should indicate bundled source in error messages
+
+  transformToolCallMessages
+    apply_patch conversion
+      ✔ should convert apply_patch Add operation to write_to_file
+      ✔ should convert apply_patch Update operation to replace_in_file
+      ✔ should handle multiple tool_use blocks in same message
+      ✔ should preserve non-apply_patch tool calls
+      ✔ should handle apply_patch with @@ context markers
+      ✔ should handle Delete operation as replace_in_file
+      ✔ should handle malformed apply_patch by fallback to write_to_file
+      ✔ should match tool_result blocks with converted tool_use
+      ✔ should handle multiple apply_patch operations in one message
+      ✔ should handle context after @@ markers as first line of search block
+      ✔ should preserve tool_result blocks when tool_use is converted
+      ✔ should reconstruct tool_result content with final_file_content for write_to_file
+      ✔ should reconstruct tool_result content with final_file_content for replace_in_file
+      ✔ should handle tool_result without final_file_content gracefully
+      ✔ should generate valid SEARCH/REPLACE diff format
+    write_to_file/replace_in_file to apply_patch conversion
+      ✔ should convert write_to_file to apply_patch Add operation
+      ✔ should convert replace_in_file to apply_patch Update operation
+      ✔ should handle multiple write_to_file and replace_in_file in same message
+      ✔ should preserve non-write_to_file/replace_in_file tool calls
+      ✔ should convert replace_in_file with context lines to apply_patch
+      ✔ should use final_file_content to generate apply_patch for write_to_file
+      ✔ should use final_file_content to generate apply_patch with context for replace_in_file
+      ✔ should handle tool_result without final_file_content gracefully
+
+  AnthropicHandler
+    getModel
+      ✔ should return the fast mode model when configured
+      ✔ should return the 1m fast mode model when configured
+      ✔ should return the 4.7 model when configured
+      ✔ should return the 4.7 1m model when configured
+    createMessage
+      ✔ should route fast mode requests through the beta messages API
+      ✔ should include the 1m beta when routing 1m fast mode requests through the beta messages API
+      ✔ should include the 1m beta header for Claude Opus 4.7 1m requests
+      ✔ should use adaptive thinking and output_config for Claude Opus adaptive models
+
+  AwsBedrockHandler
+    withTempEnv
+      ✔ should restore original environment variables after operation
+      ✔ should handle undefined environment variables
+      ✔ should handle errors and still restore environment
+      ✔ should handle multiple environment variable changes
+      ✔ should work with AWS_PROFILE
+      ✔ should work with AWS_BEARER_TOKEN_BEDROCK
+    model metadata parity
+      ✔ should mark Bedrock Opus 4.7 variants as global-endpoint capable
+      ✔ should include Vertex Opus 4.7 variants in the derived global model list
+    executeConverseStream
+      thinking response handling (new API structure)
+        ✔ should handle thinking response in additionalModelResponseFields
+        ✔ should not parse thinking tags in text content
+        ✔ should handle thinking response with empty reasoning array
+        ✔ should handle thinking response interleaved with text chunks
+      multiple content blocks
+        ✔ should handle multiple content blocks (reasoning + text)
+        ✔ should handle real-world Japanese content
+        ✔ should handle interleaved content blocks
+      error handling
+        ✔ should handle internalServerException
+        ✔ should handle throttlingException
+      usage tracking
+        ✔ should track usage with cache tokens
+      tool use handling
+        ✔ should handle tool use content blocks
+        ✔ should handle multiple tool calls
+        ✔ should handle text and tool use interleaving
+    tool config mapping
+      ✔ should map Anthropic tools to Bedrock toolConfig
+      ✔ should return undefined when tools is undefined or empty
+      ✔ should silently drop tools without input_schema
+    formatMessagesForConverseAPI
+      ✔ should format tool_use and tool_result blocks
+      ✔ should format tool_result with array content
+      ✔ should map is_error to error status on tool_result
+    getModelId
+      ✔ should return raw model ID for custom models
+      ✔ should not encode custom model IDs with slashes
+      ✔ should apply cross-region prefix for non-custom models when enabled
+      ✔ should apply EU cross-region prefix
+      ✔ should apply JP cross-region prefix for sonnet 4.5
+      ✔ should apply JP cross-region prefix for sonnet 4.6
+      ✔ should apply global cross-region prefix for supported models
+      ✔ should NOT apply global cross-region prefix for unsupported models
+      ✔ should apply APAC cross-region prefix
+      ✔ should not apply cross-region prefix for custom models even when enabled
+      ✔ should handle UltraThink model ARN correctly
+    native tool calling integration
+      ✔ should be recognized as a next-gen provider eligible for native tool calling
+      ✔ should not use native tool calling for pre-4.0 Claude models
+      ✔ should not use native tool calling when the setting is disabled
+      ✔ should pass toolConfig to ConverseStreamCommand when tools are provided
+      ✔ should format a complete tool call round-trip correctly
+      ✔ should silently skip thinking blocks without warnings
+      ✔ should silently skip redacted_thinking blocks without warnings
+      ✔ should handle messages with only thinking blocks by producing empty content
+
+  ClaudeCodeHandler
+    token counting
+      ✔ should correctly handle token usage from assistant messages
+      ✔ should handle missing usage fields with nullish coalescing
+      ✔ should handle completely missing usage object
+    error handling
+      ✔ should not crash when assistant message has empty content array
+      ✔ should throw when result has is_error=true (e.g. rate limit with no assistant message)
+      ✔ should ignore rate_limit_event system messages without throwing
+    getModel
+      ✔ should return the correct model when specified
+      ✔ should support Opus 4.6 1m model id
+      ✔ should support Opus 4.7 model id
+      ✔ should support Opus 4.7 1m model id
+      ✔ should support Opus 1m alias model id
+      ✔ should support Sonnet 1m alias model id
+      ✔ should support Sonnet 4.5 1m model id
+      ✔ should support Sonnet 4.6 1m model id
+      ✔ should return default model when not specified
+
+  ClineHandler
+    ✔ should handle usage-only chunks when delta is missing
+    ✔ should read Anthropic-style cache creation and read tokens from usage chunks
+    ✔ should forward enableParallelToolCalling to OpenRouter payload
+
+  FireworksHandler
+    ✔ should handle usage-only chunks when delta is missing
+    ✔ should read cache hits from prompt_tokens_details when hit tokens are not present
+
+  GeminiHandler
+    ✔ caps maxOutputTokens to 8192 for Flash models
+    ✔ does not set maxOutputTokens for non-Flash models
+    ✔ should emit unique tool call IDs when multiple function calls share one responseId
+    ✔ should preserve Gemini-provided functionCall.id when present
+
+  LiteLlmHandler
+    prompt cache
+      when the model doesn't support prompt caching
+        ✔ sends the system prompt and messages with the openai format
+      when the model supports prompt caching
+        ✔ inserts the cache control in the system prompt and the last two user messages
+    getModel
+      ✔ returns sane defaults when no liteLlmModelInfo option is provided
+      ✔ returns user-configured model info when liteLlmModelInfo is provided and no cache exists
+      ✔ prefers StateManager cached model info over user-configured liteLlmModelInfo
+
+  OcaHandler.createMessage
+    ✔ routes OPENAI_RESPONSES models to createMessageResponsesApi
+    ✔ routes ANTHROPIC_CHAT models to createMessageMessagesApi
+    ✔ defaults to createMessageChatApi for OPENAI_CHAT and undefined apiFormat
+
+  OllamaHandler
+    createMessage
+      ✔ should handle successful responses
+Ollama API error: Ollama request timed out after 120 seconds
+      ✔ should handle timeout errors (102ms)
+      ✔ should retry on errors when using the withRetry decorator (1104ms)
+      ✔ should handle stream processing errors
+
+  OpenRouterHandler
+    ✔ should handle usage-only chunks when delta is missing
+    ✔ should read cache_write_tokens from prompt_tokens_details
+    ✔ should set parallel_tool_calls=true for openai/gpt-4o-mini when setting is enabled
+    ✔ should set parallel_tool_calls=false for openai/gpt-4o-mini when setting is disabled
+    ✔ should set parallel_tool_calls=true for google/gemini-3-flash-preview when setting is enabled
+
+  SapAiCoreHandler
+    image processing
+      ✔ should handle image processing for Claude 4 models
+      ✔ should create proper user readable request with images
+      ✔ should support different Claude model variants
+    getModel
+      ✔ should return default model when no apiModelId is provided
+      ✔ should return specified model when apiModelId is provided
+    createUserReadableRequest
+      ✔ should create a readable request format
+
+  VercelAIGatewayHandler
+    getModel
+      ✔ should return configured model and info when both are provided
+      ✔ should preserve configured model ID when model info is missing
+      ✔ should fall back to default model when model ID is missing
+    createMessage
+      ✔ should handle usage-only chunks when delta is missing
+      ✔ should read Anthropic-style cache creation and read tokens from usage chunks
+
+  WandbHandler
+    ✔ returns known catalog model metadata when model id is recognized
+    ✔ passes through an explicit unknown model id instead of silently falling back
+    ✔ uses the default W&B model when no model id is configured
+
+  createOpenRouterStream
+    ✔ caps Gemini Flash OpenRouter requests to 8192 max_tokens
+    ✔ keeps lower Gemini Flash max_tokens values when already below 8192
+    ✔ does not send max_tokens for non-Gemini models
+    ✔ does not send max_tokens for non-Flash Gemini models
+    ✔ uses adaptive reasoning with verbosity for Claude Opus adaptive models
+
+  Thinking Trace Preservation
+    convertToOpenAiMessages
+      ✔ should preserve reasoning_details on text blocks
+      ✔ should preserve thinking blocks with signatures
+      ✔ should consolidate multiple reasoning_details entries
+      ✔ should filter out corrupted encrypted reasoning blocks
+    sanitizeGeminiMessages
+      ✔ should drop tool_calls without reasoning_details for Gemini models
+      ✔ should preserve tool_calls with reasoning_details for Gemini models
+      ✔ should not modify messages for non-Gemini models
+    sanitizeAnthropicMessages
+      ✔ should preserve thinking blocks
+      ✔ should not add cache_control to thinking blocks
+
+  ToolCallProcessor
+    ✔ should preserve tool call id/name for interleaved parallel deltas
+    ✔ should clear accumulated state on reset
+
+  getOpenAIToolParams
+    ✔ should include parallel_tool_calls when enabled
+    ✔ should include parallel_tool_calls=false when disabled by default
+    ✔ should not include parallel_tool_calls when tools are absent
+
+  Tool Call Parsing
+    convertToOpenAiMessages - Tool Calls
+      ✔ should convert Anthropic tool_use to OpenAI tool_calls format
+      ✔ should truncate long tool IDs to 40 characters
+      ✔ should transform OpenAI Responses API tool IDs (fc_ prefix)
+      ✔ should match tool_call_id with tool_calls id for tool results
+      ✔ should handle multiple tool calls in a single message
+      ✔ should handle tool results with array content
+      ✔ should set content to null when only tool_calls present
+    convertToAnthropicMessage - OpenAI Response to Anthropic
+      ✔ should convert OpenAI completion to Anthropic message format
+      ✔ should convert OpenAI tool_calls to Anthropic tool_use blocks
+      ✔ should handle malformed tool arguments gracefully
+      ✔ should map finish_reason correctly
+
+  messages_api_support
+    convertOpenAIToolsToAnthropicTools
+      ✔ returns undefined when tools are missing
+      ✔ converts function tools and defaults schema type to object
+      ✔ filters out invalid tools
+    handleAnthropicMessagesApiStreamResponse
+      ✔ maps usage, reasoning, and text events into ApiStream chunks
+      ✔ emits tool call chunks and resets tool state on block stop
+
+  checkContextWindowExceededError
+    ✔ detects OpenRouter context errors using structured status
+    ✔ detects OpenRouter JSON-encoded status + context length errors
+    ✔ does not classify unrelated 400 errors as context window failures
+
+  ContextManager
+    getNextTruncationRange
+      ✔ first truncation with half keep
+      ✔ first truncation with quarter keep
+      ✔ sequential truncation with half keep
+      ✔ sequential truncation with quarter keep
+      ✔ ensures the last message in range is a user message
+      ✔ handles small message arrays
+      ✔ preserves the message structure when truncating
+    applyContextOptimizations
+      ✔ detects duplicate file reads across write_to_file, replace_in_file, and file mentions (normal tool calling)
+      ✔ returns false when no duplicate file reads exist
+      ✔ returns false for empty messages beyond startFromIndex
+      ✔ detects duplicate file reads with native tool calling format (tool_result blocks)
+    getTruncatedMessages
+      ✔ returns original messages when no range is provided
+      ✔ correctly removes messages in the specified range
+      ✔ works with a range that starts at the first message after task
+      ✔ correctly handles removing a range while preserving alternation pattern
+      ✔ removes orphaned tool_results after truncation
+    shouldCompactContextWindow
+      ✔ does not compact at 33K tokens with default 0.75 threshold on 200K context
+      ✔ compacts when tokens exceed 0.75 threshold on 200K context
+      ✔ compacts at only 10K tokens when threshold is accidentally set to 0.05
+      ✔ falls back to maxAllowedSize when threshold is undefined
+      ✔ falls back to maxAllowedSize when threshold is 0
+      ✔ includes cacheWrites and cacheReads in total token count
+      ✔ returns false when previousApiReqIndex is negative
+      ✔ threshold is capped at maxAllowedSize even when percentage is very high
+
+  parseYamlFrontmatter
+    ✔ returns original content when no frontmatter
+    ✔ parses valid YAML frontmatter
+    ✔ fails open on malformed YAML
+    ✔ rejects YAML custom tags (security: prevents unsafe deserialization)
+    ✔ rejects !!python/object YAML tag
+    ✔ parses JSON-compatible YAML values correctly
+
+  rule-conditionals
+    evaluateRuleConditionals(paths)
+      ✔ treats missing paths as universal
+      ✔ treats empty paths list in frontmatter as match-nothing (fail-closed)
+      ✔ does not activate path-scoped rules with empty context
+      ✔ matches when any candidate path matches any glob
+      ✔ ignores invalid paths type (fail-open)
+    extractPathLikeStrings
+      ✔ extracts basic relative paths
+      ✔ extracts simple filenames with extensions (no slashes)
+      ✔ does not extract bare words without an extension
+      ✔ ignores URLs
+      ✔ ignores fenced code blocks
+      ✔ does not extract URLs inside code fences
+      ✔ extracts paths from stack traces (outside code fences)
+
+  rule loading with paths frontmatter
+    ✔ filters rules by evaluationContext.paths
+    ✔ treats invalid YAML frontmatter as fail-open and preserves the raw frontmatter for the LLM
+    ✔ treats paths: [] as match-nothing (fail-closed)
+    ✔ keeps activatedConditionalRules order stable (matches input file order)
+
+  RuleContextBuilder
+    getRulePathContext from ask='tool' messages
+      ✔ extracts path from ask='tool' message with write_to_file
+      ✔ extracts paths from multiple sequential tool requests
+      ✔ handles malformed JSON gracefully
+      ✔ extracts paths from apply_patch tool request
+      ✔ deduplicates paths from multiple sources
+      ✔ normalizes Windows-style paths to POSIX
+      ✔ respects MAX_RULE_PATH_CANDIDATES limit
+    extractPathsFromApplyPatch
+      ✔ extracts paths from Add File headers
+      ✔ extracts paths from Update File headers
+      ✔ extracts paths from Delete File headers
+
+  Skills Utility Functions
+    discoverSkills
+      ✔ should discover skills from global directory
+      ✔ should discover skills from project .clinerules/skills directory
+      ✔ should discover skills from project .cline/skills directory
+      ✔ should discover skills from project .claude/skills directory
+      ✔ should discover skills from project .agents/skills directory
+      ✔ should handle empty skills directories gracefully
+      ✔ should skip non-directory entries in skills folder
+      ✔ should skip skill directories without SKILL.md
+    getAvailableSkills - Override Resolution
+      ✔ should override project skill with global skill of same name
+      ✔ should keep both skills when names are different
+    Metadata Validation
+      ✔ should reject skill with missing name field
+      ✔ should reject skill with missing description field
+      ✔ should reject skill when name doesn't match directory name
+      ✔ should handle malformed YAML frontmatter gracefully
+      ✔ should handle file without frontmatter
+    getSkillContent
+      ✔ should load full skill content with instructions
+      ✔ should return null for non-existent skill
+      ✔ should trim whitespace from instructions
+    Remote Skills
+      parseRemoteSkillEntries
+        ✔ should return validated entries when entry.name matches frontmatter.name
+        ✔ should warn but still include entries where entry.name drifts from frontmatter.name
+        ✔ should skip entries with missing frontmatter name
+        ✔ should skip entries with missing frontmatter description
+        ✔ should handle empty array
+        ✔ should include all entries with valid frontmatter even with drift
+      discoverSkills - remote skill discovery
+        ✔ should include remote skills from remote config
+        ✔ should use frontmatter.name as identity even when entry.name drifts
+        ✔ should skip remote skills with missing frontmatter name
+        ✔ should skip remote skills with missing frontmatter description
+        ✔ should handle empty and undefined entries gracefully
+      Override resolution (remote > disk-global > project)
+        ✔ remote overrides disk-global skill of same name
+        ✔ remote overrides project skill of same name
+      getSkillContent - remote skill content loading
+        ✔ should load content from provided entries for remote skills
+        ✔ should trim whitespace from remote skill instructions
+        ✔ should return null if remote skill entry not found in entries
+        ✔ should not attempt disk read for remote skills
+
+  ifFileExistsRelativePath
+    ✔ should return BooleanResponse with boolean value
+    ✔ should return false when no workspace path is available
+    ✔ should return false when path is invalid
+    ✔ should handle valid relative paths correctly
+
+  openFileRelativePath
+    ✔ should return Empty response on successful execution
+    ✔ should call openFileIntegration with absolute path when relative path is provided
+    ✔ should not call openFileIntegration when path is invalid
+    ✔ should return Empty and log error when no workspace path is available
+    ✔ should handle nested directory paths
+
+  GrpcRecorderBuilder
+    when not enabling
+      ✔ should return GrpcRecorderNoops when enableIf is false
+      ✔ should return GrpcRecorderNoops when enableIf is false even with log file handler
+    GrpcRecorderNoops functionality
+      ✔ should have no-op methods that don't throw errors
+
+  grpc-recorder
+    GrpcRecorder
+      ✔ matches multiple request, response and stats
+      ✔ using default filtering should filter out unwanted requests
+      ✔ cleanupSyntheticEntries removes synthetic entries from session log
+      ✔ recordResponse executes post-record hooks
+
+  log-file-handler
+    LogFileHandler
+      ✔ returns file name with timestamp when env var not set
+
+  test-hooks
+    ✔ should return an array of post-record hooks
+    ✔ should execute hook and call recorder methods (51ms)
+
+  refreshClineRecommendedModels
+    ✔ returns hardcoded models and skips upstream fetch when rollout flag is off
+    ✔ fetches from upstream when rollout flag is on
+    ✔ uses hardcoded models when rollout flag is turned off after upstream cache is populated
+
+  Hook System
+    NoOpRunner
+      ✔ should return success without executing anything when no hooks found
+    StdioHookRunner
+      ✔ should execute workspace hook from its respective workspace root directory (80ms)
+      ✔ should execute hook script and parse output (72ms)
+      ✔ should handle script that blocks execution (73ms)
+      ✔ should truncate large context modifications (71ms)
+      ✔ should handle script errors (62ms)
+      ✔ should handle malformed JSON output (73ms)
+      ✔ should pass hook input via stdin (84ms)
+    PostToolUse Hook
+      ✔ should receive execution results (72ms)
+    Hook Discovery
+      ✔ should generate Windows PowerShell bridge files with real newlines
+      ✔ should resolve .ps1 hook on windows
+      ✔ should ignore extensionless hook on windows and use .ps1 only
+      ✔ should ignore .ps1 hook on unix-like platforms
+      ✔ should find executable hook (76ms)
+      ✔ should not find non-executable file
+      ✔ should handle missing hooks gracefully
+    Error Handling
+      ✔ should handle expected ENOENT errors silently
+      ✔ should handle hook input with all parameters (72ms)
+    Global Hooks
+      ✔ should execute both global and workspace hooks (79ms)
+      ✔ should block execution if global hook blocks (73ms)
+      ✔ should work with only global hooks (no workspace hooks) (71ms)
+      ✔ should block if workspace hook blocks even when global allows (81ms)
+      ✔ should combine error messages from global and workspace hooks (75ms)
+      ✔ should execute global hook from primary workspace root directory (70ms)
+      ✔ should work with global PostToolUse hooks (71ms)
+
+  getHookModelContext
+    ✔ should return concrete provider and model slug for plan mode
+    ✔ should return concrete provider and model slug for act mode
+    ✔ should fall back to unknown values when provider/slug are unavailable
+
+  HookProcess
+    ✔ uses resolved PowerShell executable and expected Windows launch args
+    ✔ keeps Unix launch behavior unchanged
+    ✔ surfaces resolver failures
+    ✔ uses PowerShell on Windows
+    ✔ coalesces concurrent Windows launcher resolution into a single in-flight resolver call
+    ✔ clears failed launcher cache so later calls can recover
+    ✔ refreshes cached Windows launcher resolution after cache TTL expires
+
+  hooks-utils
+    getHooksEnabledSafe
+      ✔ returns false when user setting is false
+      ✔ returns true when user setting is true
+      ✔ is stable across repeated calls
+      ✔ returns true for undefined
+      ✔ does not depend on process.platform in current implementation
+
+  notification-hook
+    ✔ emits user-attention notifications with normalized payload
+    ✔ emits task-complete notifications with normalized payload
+    ✔ centralizes truncation and exposes truncation metadata
+    ✔ preserves backward-compatible fields while adding additive fields
+    ✔ ignores unsupported notification outputs and logs warnings
+    ✔ fails open when hook execution throws
+    ✔ does nothing when hooks are disabled
+
+  Shell Path Escaping
+    Unix/Linux/macOS path escaping
+      ✔ should handle paths without special characters
+      ✔ should handle paths with spaces
+      ✔ should handle paths with multiple spaces
+      ✔ should handle paths with single quotes
+      ✔ should handle paths with multiple single quotes
+      ✔ should handle paths with double quotes
+      ✔ should handle paths with special shell characters
+      ✔ should handle paths with backticks
+      ✔ should handle paths with parentheses
+      ✔ should handle paths with ampersands
+      ✔ should handle paths with semicolons
+      ✔ should handle paths with pipes
+      ✔ should handle global hooks directory with spaces
+      ✔ should handle workspace hooks with spaces in root
+      ✔ should handle paths with newlines (edge case)
+      ✔ should handle paths with tabs
+    Windows path escaping
+      ✔ should handle paths without special characters
+      ✔ should handle paths with spaces
+      ✔ should handle paths with multiple spaces
+      ✔ should handle paths with double quotes
+      ✔ should handle paths with backslashes before quotes
+      ✔ should handle paths with single quotes
+      ✔ should handle paths with special characters
+      ✔ should handle paths with parentheses
+      ✔ should handle paths with ampersands
+      ✔ should handle global hooks directory with spaces
+      ✔ should handle workspace hooks with spaces in root
+      ✔ should handle UNC paths with spaces
+    Real-world scenarios
+      ✔ should handle typical macOS global hooks path with space in username
+      ✔ should handle typical Windows global hooks path with space in username
+      ✔ should handle workspace with company name and spaces
+      ✔ should handle workspace with version numbers and spaces
+      ✔ should handle workspace with mixed special characters
+    Multi-root workspace scenarios
+      ✔ should handle multiple roots with spaces (macOS)
+      ✔ should handle multiple roots with spaces (Windows)
+
+  TaskCancel Hook
+    Hook Input Format
+      ✔ should receive task metadata with completionStatus (83ms)
+      ✔ should handle 'abandoned' completion status (73ms)
+      ✔ should receive all common hook input fields (67ms)
+    Fire-and-Forget Behavior
+      ✔ should ignore contextModification regardless of content (142ms)
+      ✔ should succeed regardless of hook return value (71ms)
+      ✔ should return error message when hook returns cancel: true (74ms)
+      ✔ should execute without errors for cleanup purposes (69ms)
+    Error Handling
+      ✔ should surface hook errors to the user (71ms)
+      ✔ should handle malformed JSON output from hook (74ms)
+    Global and Workspace Hooks
+      ✔ should execute both global and workspace TaskCancel hooks (74ms)
+      ✔ should execute both hooks with different completion statuses (73ms)
+    No Hook Behavior
+      ✔ should succeed when no hook exists
+    Fixture-Based Tests
+      ✔ should handle cancel: true with no error message (67ms)
+      ✔ should handle cancel: true with error message (71ms)
+      ✔ should handle cancel: false with no error message (74ms)
+      ✔ should handle cancel: false with error message (74ms)
+      ✔ should handle hook that exits with non-zero status code (71ms)
+
+  TaskComplete Hook
+    Hook Input Format
+      ✔ should receive task metadata with result and command (70ms)
+      ✔ should handle completion without command (72ms)
+      ✔ should receive all common hook input fields (75ms)
+      ✔ should receive result text for logging (73ms)
+    Hook Behavior
+      ✔ should execute successfully and capture context modification (76ms)
+      ✔ should capture contextModification for logging even though task is complete (76ms)
+      ✔ should not block task completion when hook returns cancel: true (72ms)
+    Error Handling
+      ✔ should handle hook script errors (72ms)
+      ✔ should handle malformed JSON output from hook (70ms)
+    Global and Workspace Hooks
+      ✔ should execute both global and workspace TaskComplete hooks (86ms)
+      ✔ should handle when global hook has error but workspace succeeds (72ms)
+    No Hook Behavior
+      ✔ should succeed when no hook exists
+    Fixture-Based Tests
+      ✔ should validate representative fixtures end-to-end (147ms)
+      ✔ should preserve fixture-based failure behavior (73ms)
+
+  TaskResume Hook
+    Hook Input Format
+      ✔ should receive all required taskResume fields (67ms)
+      ✔ should receive all common hook input fields (69ms)
+    Time-Based Calculations
+      ✔ should correctly calculate minutes ago for recent resumes (222ms)
+      ✔ should handle very old timestamps (days ago) (70ms)
+      ✔ should handle edge case: future timestamp (73ms)
+    Message Count Analysis
+      ✔ should analyze message count thresholds (213ms)
+      ✔ should handle zero message count (73ms)
+    State Combination Analysis
+      ✔ should analyze combination of long pause and many messages (72ms)
+      ✔ should combine context deletion with other state (75ms)
+    Error Handling
+      ✔ should handle malformed JSON output (74ms)
+      ✔ should handle invalid timestamp gracefully (75ms)
+    Global and Workspace Hooks
+      ✔ should execute both global and workspace TaskResume hooks (75ms)
+      ✔ should combine context modifications from both hooks with time analysis (73ms)
+    No Hook Behavior
+      ✔ should allow resume when no hook exists
+    Fixture-Based Tests
+      ✔ should validate representative fixtures end-to-end (431ms)
+      ✔ should preserve fixture-based failure behavior (71ms)
+
+  TaskStart Hook
+    Hook Input Format
+      ✔ should receive task metadata from startTask (70ms)
+      ✔ should receive all common hook input fields (69ms)
+      ✔ should handle empty initialTask (73ms)
+    Hook Behavior
+      ✔ should allow task to start when hook returns cancel: false (70ms)
+      ✔ should block task when hook returns cancel: true (72ms)
+      ✔ should provide context modification even when not added to conversation (75ms)
+    Error Handling
+      ✔ should handle hook script errors (72ms)
+      ✔ should handle malformed JSON output from hook (67ms)
+    Global and Workspace Hooks
+      ✔ should execute both global and workspace TaskStart hooks (73ms)
+      ✔ should block if global hook blocks (73ms)
+      ✔ should block if workspace hook blocks even when global allows (73ms)
+    No Hook Behavior
+      ✔ should allow task when no hook exists
+    Fixture-Based Tests
+      ✔ should validate representative fixtures end-to-end (139ms)
+      ✔ should preserve fixture-based failure behavior (72ms)
+
+  UserPromptSubmit Hook
+    Hook Input Format
+      ✔ should receive prompt text from user content (78ms)
+      ✔ should handle multiline prompts (70ms)
+      ✔ should handle large prompts (81ms)
+      ✔ should receive all common hook input fields (79ms)
+    Prompt Content Serialization
+      ✔ should handle empty prompt (71ms)
+      ✔ should preserve special characters in prompt (72ms)
+    Error Handling
+      ✔ should handle malformed JSON output from hook (67ms)
+      ✔ should handle hook script errors (70ms)
+    Global and Workspace Hooks
+      ✔ should execute both global and workspace UserPromptSubmit hooks (72ms)
+      ✔ should block if workspace hook blocks even when global allows (74ms)
+    No Hook Behavior
+      ✔ should allow prompt when no hook exists
+    Fixture-Based Tests
+      ✔ should validate representative fixtures end-to-end (508ms)
+      ✔ should cover malformed-json fixture path (74ms)
+      ✔ should cover failing fixture path (75ms)
+
+  formatResponse.replaceInFileMissingDiffError
+    ✔ should include the file path in the error message
+    ✔ should mention that the diff parameter was empty
+    ✔ should include the SEARCH/REPLACE block format
+    ✔ should include rules about exact matching
+    ✔ should suggest using read_file if unsure
+    ✔ should NOT include the generic toolUseInstructionsReminder
+    ✔ should work with different file paths
+
+  formatResponse.executeCommandMissingCommandError
+    ✔ should mention that the command parameter was empty
+    ✔ should include a concrete XML example
+    ✔ should include requires_approval in the example
+    ✔ should NOT include the generic toolUseInstructionsReminder
+
+  formatResponse.writeToFileMissingContentError
+    first failure (tier 1)
+      ✔ should include the file path in the error message
+      ✔ should include the base error explanation
+      ✔ should include helpful suggestions
+      ✔ should include the tool use instructions reminder
+      ✔ should mention breaking down the task into smaller steps
+      ✔ should suggest using replace_in_file for existing files
+      ✔ should not include CRITICAL language on first failure
+      ✔ should work with different file paths
+    second failure (tier 2)
+      ✔ should indicate this is the 2nd failed attempt
+      ✔ should strongly suggest alternative approaches
+      ✔ should tell model not to retry full write again
+      ✔ should not include CRITICAL language on second failure
+    third+ failure (tier 3)
+      ✔ should include CRITICAL language on third failure
+      ✔ should tell model to NOT retry write_to_file
+      ✔ should include required action strategies
+      ✔ should show correct count for higher failure counts
+    context window awareness
+      ✔ should include context warning when usage exceeds 50%
+      ✔ should not include context warning when usage is 50% or below
+      ✔ should not include context warning when percent is undefined
+      ✔ should show high context window usage correctly
+      ✔ should include context warning in tier 3 messages
+
+  Prompt System Integration Tests
+✅ SNAPSHOT TEST MODE
+    Snapshot Testing
+      generic Model Group
+        ✔ should generate consistent native tools object when enabled
+✓ Snapshot matches: openai_gpt_3-basic.snap
+        ✔ should generate consistent prompt for openai/gpt-3 with basic context
+✓ Snapshot matches: openai_gpt_3-no-browser.snap
+        ✔ should generate consistent prompt for openai/gpt-3 with no-browser context
+✓ Snapshot matches: openai_gpt_3-no-mcp.snap
+        ✔ should generate consistent prompt for openai/gpt-3 with no-mcp context
+✓ Snapshot matches: openai_gpt_3-no-focus-chain.snap
+        ✔ should generate consistent prompt for openai/gpt-3 with no-focus-chain context
+      glm Model Group
+        ✔ should generate consistent native tools object when enabled
+✓ Snapshot matches: zai_glm_4_6-basic.snap
+        ✔ should generate consistent prompt for zai/glm-4.6 with basic context
+✓ Snapshot matches: zai_glm_4_6-no-browser.snap
+        ✔ should generate consistent prompt for zai/glm-4.6 with no-browser context
+✓ Snapshot matches: zai_glm_4_6-no-mcp.snap
+        ✔ should generate consistent prompt for zai/glm-4.6 with no-mcp context
+✓ Snapshot matches: zai_glm_4_6-no-focus-chain.snap
+        ✔ should generate consistent prompt for zai/glm-4.6 with no-focus-chain context
+      hermes Model Group
+        ✔ should generate consistent native tools object when enabled
+✓ Snapshot matches: test_hermes_4-basic.snap
+        ✔ should generate consistent prompt for test/hermes-4 with basic context
+✓ Snapshot matches: test_hermes_4-no-browser.snap
+        ✔ should generate consistent prompt for test/hermes-4 with no-browser context
+✓ Snapshot matches: test_hermes_4-no-mcp.snap
+        ✔ should generate consistent prompt for test/hermes-4 with no-mcp context
+✓ Snapshot matches: test_hermes_4-no-focus-chain.snap
+        ✔ should generate consistent prompt for test/hermes-4 with no-focus-chain context
+      devstral Model Group
+        ✔ should generate consistent native tools object when enabled
+✓ Snapshot matches: cline_devstral-basic.snap
+        ✔ should generate consistent prompt for cline/devstral with basic context
+✓ Snapshot matches: cline_devstral-no-browser.snap
+        ✔ should generate consistent prompt for cline/devstral with no-browser context
+✓ Snapshot matches: cline_devstral-no-mcp.snap
+        ✔ should generate consistent prompt for cline/devstral with no-mcp context
+✓ Snapshot matches: cline_devstral-no-focus-chain.snap
+        ✔ should generate consistent prompt for cline/devstral with no-focus-chain context
+      next-gen Model Group
+        ✔ should generate consistent native tools object when enabled
+✓ Snapshot matches: anthropic_claude_sonnet_4-basic.snap
+        ✔ should generate consistent prompt for anthropic/claude-sonnet-4 with basic context
+✓ Snapshot matches: anthropic_claude_sonnet_4-no-browser.snap
+        ✔ should generate consistent prompt for anthropic/claude-sonnet-4 with no-browser context
+✓ Snapshot matches: anthropic_claude_sonnet_4-no-mcp.snap
+        ✔ should generate consistent prompt for anthropic/claude-sonnet-4 with no-mcp context
+✓ Snapshot matches: anthropic_claude_sonnet_4-no-focus-chain.snap
+        ✔ should generate consistent prompt for anthropic/claude-sonnet-4 with no-focus-chain context
+      xs Model Group
+        ✔ should generate consistent native tools object when enabled
+✓ Snapshot matches: lmstudio_qwen3_coder-basic.snap
+        ✔ should generate consistent prompt for lmstudio/qwen3_coder with basic context
+✓ Snapshot matches: lmstudio_qwen3_coder-no-browser.snap
+        ✔ should generate consistent prompt for lmstudio/qwen3_coder with no-browser context
+✓ Snapshot matches: lmstudio_qwen3_coder-no-mcp.snap
+        ✔ should generate consistent prompt for lmstudio/qwen3_coder with no-mcp context
+✓ Snapshot matches: lmstudio_qwen3_coder-no-focus-chain.snap
+        ✔ should generate consistent prompt for lmstudio/qwen3_coder with no-focus-chain context
+      native-next-gen Model Group
+✓ Snapshot matches: cline_native_next_gen.tools.snap
+        ✔ should generate consistent native tools object when enabled
+✓ Snapshot matches: cline_claude_4_5_sonnet-basic.snap
+        ✔ should generate consistent prompt for cline/claude-4-5-sonnet with basic context
+✓ Snapshot matches: cline_claude_4_5_sonnet-no-browser.snap
+        ✔ should generate consistent prompt for cline/claude-4-5-sonnet with no-browser context
+✓ Snapshot matches: cline_claude_4_5_sonnet-no-mcp.snap
+        ✔ should generate consistent prompt for cline/claude-4-5-sonnet with no-mcp context
+✓ Snapshot matches: cline_claude_4_5_sonnet-no-focus-chain.snap
+        ✔ should generate consistent prompt for cline/claude-4-5-sonnet with no-focus-chain context
+      gpt-5 Model Group
+        ✔ should generate consistent native tools object when enabled
+✓ Snapshot matches: openai_gpt_5-basic.snap
+        ✔ should generate consistent prompt for openai/gpt-5 with basic context
+✓ Snapshot matches: openai_gpt_5-no-browser.snap
+        ✔ should generate consistent prompt for openai/gpt-5 with no-browser context
+✓ Snapshot matches: openai_gpt_5-no-mcp.snap
+        ✔ should generate consistent prompt for openai/gpt-5 with no-mcp context
+✓ Snapshot matches: openai_gpt_5-no-focus-chain.snap
+        ✔ should generate consistent prompt for openai/gpt-5 with no-focus-chain context
+      gpt-5-native Model Group
+✓ Snapshot matches: openai_gpt_5_native.tools.snap
+        ✔ should generate consistent native tools object when enabled
+✓ Snapshot matches: openai_gpt_5_codex-basic.snap
+        ✔ should generate consistent prompt for openai/gpt-5-codex with basic context
+✓ Snapshot matches: openai_gpt_5_codex-no-browser.snap
+        ✔ should generate consistent prompt for openai/gpt-5-codex with no-browser context
+✓ Snapshot matches: openai_gpt_5_codex-no-mcp.snap
+        ✔ should generate consistent prompt for openai/gpt-5-codex with no-mcp context
+✓ Snapshot matches: openai_gpt_5_codex-no-focus-chain.snap
+        ✔ should generate consistent prompt for openai/gpt-5-codex with no-focus-chain context
+      gpt-5-1-native Model Group
+✓ Snapshot matches: openai_gpt_5_1_native.tools.snap
+        ✔ should generate consistent native tools object when enabled
+✓ Snapshot matches: openai_gpt_5_1-basic.snap
+        ✔ should generate consistent prompt for openai/gpt-5-1 with basic context
+✓ Snapshot matches: openai_gpt_5_1-no-browser.snap
+        ✔ should generate consistent prompt for openai/gpt-5-1 with no-browser context
+✓ Snapshot matches: openai_gpt_5_1-no-mcp.snap
+        ✔ should generate consistent prompt for openai/gpt-5-1 with no-mcp context
+✓ Snapshot matches: openai_gpt_5_1-no-focus-chain.snap
+        ✔ should generate consistent prompt for openai/gpt-5-1 with no-focus-chain context
+      gemini3 Model Group
+✓ Snapshot matches: vertex_gemini3.tools.snap
+        ✔ should generate consistent native tools object when enabled
+✓ Snapshot matches: vertex_gemini_3-basic.snap
+        ✔ should generate consistent prompt for vertex/gemini-3 with basic context
+✓ Snapshot matches: vertex_gemini_3-no-browser.snap
+        ✔ should generate consistent prompt for vertex/gemini-3 with no-browser context
+✓ Snapshot matches: vertex_gemini_3-no-mcp.snap
+        ✔ should generate consistent prompt for vertex/gemini-3 with no-mcp context
+✓ Snapshot matches: vertex_gemini_3-no-focus-chain.snap
+        ✔ should generate consistent prompt for vertex/gemini-3 with no-focus-chain context
+      trinity Model Group
+        ✔ should generate consistent native tools object when enabled
+✓ Snapshot matches: openrouter_arcee_ai_trinity_large_preview-basic.snap
+        ✔ should generate consistent prompt for openrouter/arcee-ai/trinity-large-preview with basic context
+✓ Snapshot matches: openrouter_arcee_ai_trinity_large_preview-no-browser.snap
+        ✔ should generate consistent prompt for openrouter/arcee-ai/trinity-large-preview with no-browser context
+✓ Snapshot matches: openrouter_arcee_ai_trinity_large_preview-no-mcp.snap
+        ✔ should generate consistent prompt for openrouter/arcee-ai/trinity-large-preview with no-mcp context
+✓ Snapshot matches: openrouter_arcee_ai_trinity_large_preview-no-focus-chain.snap
+        ✔ should generate consistent prompt for openrouter/arcee-ai/trinity-large-preview with no-focus-chain context
+      Gemini 3 Specific
+✓ Snapshot matches: vertex_gemini_3-parallel-tools.snap
+        ✔ should include parallel tool-calling guidance for vertex/gemini-3 when enabled
+    Context-Specific Features
+      ✔ should include browser-specific content when browser is enabled
+      ✔ should include MCP content when MCP servers are present
+      ✔ should include TODO content when focus chain is enabled
+      ✔ should include user instructions when provided
+    Error Handling
+      ✔ should handle completely invalid context gracefully
+      ✔ should handle undefined context properties
+
+  new_task tool contextRequirements
+    ✔ should have a contextRequirements function defined
+    ✔ should be enabled when yoloModeToggled is false
+    ✔ should be enabled when yoloModeToggled is undefined
+    ✔ should be disabled when yoloModeToggled is true
+    ✔ should follow the same pattern as ask_followup_question
+
+  OpenAI-compatible gpt-oss native tools smoke test
+    ✔ uses the NATIVE_GPT_5 prompt family for gpt-oss when native tools are enabled
+    ✔ exposes apply_patch for gpt-oss-120b so file editing remains native
+    ✔ control: gpt-5-codex still receives apply_patch
+
+  PromptBuilder
+    build
+      ✔ should build a complete prompt
+      ✔ should handle missing components gracefully
+      ✔ should apply component overrides
+      ✔ should resolve runtime placeholders
+      ✔ should handle component errors gracefully
+    getBuildMetadata
+      ✔ should return build metadata
+    postProcess
+      ✔ should clean up multiple empty lines
+      ✔ should ensure proper section separation
+    VariantBuilder auto-generation
+      ✔ should auto-generate baseTemplate from componentOrder when not provided
+      ✔ should use explicit baseTemplate when provided
+      ✔ should throw error when componentOrder is empty
+
+  PromptRegistry
+    getInstance
+      ✔ should return singleton instance
+    getModelFamily
+      ✔ should extract correct model families
+    get method
+      ✔ should handle fallback to generic variant
+    native tools
+      ✔ should not include focus_chain in native tools output
+    getAvailableModels
+      ✔ should return list of available model IDs
+    registerComponent
+      ✔ should register custom components
+    basic functionality
+      ✔ should be able to create registry instance
+      ✔ should have required methods
+
+  toolSpecFunctionDeclarations (Gemini)
+    ✔ includes parameter descriptions from instruction field
+    ✔ includes descriptions for all parameters
+    ✔ handles function-type instructions
+    ✔ omits description when instruction is empty
+
+  Gemini and Anthropic parameter descriptions match
+    ✔ both converters produce the same description text
+
+  native tool placeholder replacement
+    ✔ replaces CWD and MULTI_ROOT_HINT placeholders in descriptions
+
+  TemplateEngine
+    resolve
+      ✔ should resolve simple placeholders
+      ✔ should resolve multiple placeholders
+      ✔ should handle nested object placeholders
+      ✔ should preserve unmatched placeholders
+      ✔ should handle object and array values
+      ✔ should handle whitespace around placeholder names
+    extractPlaceholders
+      ✔ should extract all unique placeholders
+      ✔ should handle nested placeholders
+      ✔ should handle whitespace in placeholders
+      ✔ should return empty array for template without placeholders
+    validate
+      ✔ should return missing placeholders
+      ✔ should return empty array when all required placeholders are present
+    escape and unescape
+      ✔ should escape placeholder markers
+      ✔ should unescape placeholder markers
+      ✔ should handle round-trip escaping/unescaping
+
+  slash-commands
+    formatMcpPromptResponse
+      ✔ should format text message
+      ✔ should format assistant message
+      ✔ should include description when provided
+      ✔ should format multiple messages
+      ✔ should format image content
+      ✔ should format audio content
+      ✔ should format resource with text
+      ✔ should format resource without text
+    parseSlashCommands MCP handling
+      ✔ should process MCP prompt command in task tag
+      ✔ should process MCP prompt with additional text
+      ✔ should handle MCP prompt with colons in prompt name
+
+  disk - hooks functionality
+    getWorkspaceHooksDirs
+      ✔ should return empty array when no workspace roots exist
+      ✔ should return empty array when workspace roots is empty array
+      ✔ should return empty array when no hooks directories exist
+      ✔ should return hooks directory when it exists
+      ✔ should not return hooks directory if it's a file instead of directory
+      ✔ should return multiple hooks directories for multi-root workspace
+      ✔ should return only existing hooks directories in multi-root workspace
+      ✔ should propagate errors when checking directory fails
+      ✔ should use correct path joining for hooks directory
+      ✔ should handle workspace roots with trailing slashes
+    getAllHooksDirs
+      ✔ should include the runtime hooks directory when it exists
+      ✔ should not include the runtime hooks directory when it does not exist
+
+  disk - atomic writes
+    writeTaskHistoryToState and readTaskHistoryFromState
+      ✔ should write and read task history correctly
+      ✔ should write valid JSON that can be parsed
+      ✔ should not leave temp files after successful write
+      ✔ should handle empty array writes
+      ✔ should handle large task history arrays (284ms)
+      ✔ should handle concurrent writes without corruption
+      ✔ should preserve data integrity with special characters
+      ✔ should overwrite existing task history
+      ✔ should handle rapid successive writes
+      ✔ should preserve all HistoryItem fields
+    atomic write failure scenarios
+      ✔ should leave original file intact if temp file write fails
+      ✔ should leave original file intact if rename fails
+      ✔ should ignore temp files during read operations
+      ✔ should handle concurrent read during write without corruption (53ms)
+      ✔ should handle partial temp file from interrupted process
+
+  fetchRemoteConfig
+    ✔ switches org when not in the chosen org
+    ✔ skips switchAccount when already in the chosen org
+    ✔ uses discoveredValue inline and skips org-level config fetch
+    ✔ falls back to org-level fetch when discoveredValue fails to parse
+    ✔ does not switch org when resolve fails
+    ✔ falls back to next locally-allowed org when backend org is opted-out
+    ✔ clears remote config when all orgs are locally opted-out
+    ✔ calls clearRemoteConfig when discovery returns no qualifying org
+    ✔ clears remote config when isRemoteConfigEnabled toggled off mid-flight
+    ✔ preserves existing config on unexpected network error
+    ✔ preserves existing config when switchAccount rejects
+
+  transformRemoteConfigToStateShape - globalSkills
+    ✔ maps globalSkills to remoteGlobalSkills
+    ✔ does not set remoteGlobalSkills when globalSkills is undefined
+    ✔ sets remoteGlobalSkills to [] when globalSkills is []
+    ✔ preserves alwaysEnabled flag
+
+  synchronizeRemoteRuleToggles - remote skill toggle sync
+    ✔ adds new toggle entries defaulting to true
+    ✔ preserves existing toggle values
+    ✔ removes stale toggle entries
+    ✔ returns empty object when no skills
+    ✔ handles multiple skills
+
+  applyRemoteConfig uses parseRemoteSkillEntries
+    ✔ validates entry.name matches frontmatter.name
+    ✔ warns but includes entries where entry.name drifts from frontmatter.name
+    ✔ filters entries with missing frontmatter name
+    ✔ filters entries where frontmatter.name is not a string
+    ✔ passes through multiple valid entries
+
+  alwaysEnabled enforcement in toggle sync
+    ✔ overrides stale false toggle when admin sets alwaysEnabled
+    ✔ does not override false toggle when alwaysEnabled is false
+    ✔ keeps true toggle unchanged when alwaysEnabled is true
+    ✔ new alwaysEnabled skill defaults to true
+
+  syncRemoteMcpServersToSettings
+    adding remote servers
+      ✔ should add a new remote server with remoteConfigured marker
+      ✔ should preserve user settings and tag existing server with remoteConfigured marker
+      ✔ should add multiple remote servers
+      ✔ should not affect existing non-remote servers
+    removing remote servers
+      ✔ should remove a server marked remoteConfigured when no longer in remote config
+      ✔ should NOT remove a server without remoteConfigured marker
+      ✔ should only remove the server that was removed from remote config
+      ✔ should handle removing all remote servers at once
+    upgrade from old format (no remoteConfigured marker)
+      ✔ should add remoteConfigured marker to existing server matching remote config
+    edge cases
+      ✔ should handle empty settings file with no mcpServers key
+      ✔ should handle server with same name but different URL
+      ✔ should set McpHub isUpdatingFromRemoteConfig flag during write
+
+  ContextBonsaiApplier
+    prune
+      ✔ E2E-01: archives a contiguous range, leaves a placeholder, and persists the archive
+      ✔ E2E-02: rejects ambiguous from_pattern without mutating history
+      ✔ rejects prune with empty summary pre-resolution
+    retrieve
+      ✔ E2E-03: restores archived range and removes the placeholder
+      ✔ rejects retrieve with unknown anchor
+      ✔ rejects same-step retrieve
+    extractMessageText (tool_use rendering)
+      ✔ renders a tool_use block with name and stable-serialized input
+      ✔ yields identical output for input objects built with reversed key insertion order
+      ✔ renders empty / null / undefined input sensibly
+      ✔ renders an image block inside tool_result.content with a stable token
+      ✔ renders a top-level image block with a stable token
+      ✔ contributes thinking-block text to the search corpus
+      ✔ emits a stable token for redacted_thinking blocks
+      ✔ renders a top-level document block with its title
+      ✔ forward-compat: unknown future block types render as [block:<type>] rather than empty
+      ✔ E2E: to_pattern matching an image media_type inside tool_result resolves the boundary
+      ✔ E2E: from_pattern matching top-level thinking text resolves the boundary
+      ✔ E2E: from_pattern matching a string nested inside tool_use input resolves the boundary
+    secret prune oracle
+      ✔ E2E-07: pruned secret text is removed from active api history
+
+  latency
+    ✔ detects remote workspaces from explicit remoteName metadata
+    ✔ detects remote workspaces for dev-container and codespaces remoteName values
+    ✔ does not classify hosts as remote when remoteName is absent
+    ✔ does not classify hosts as remote when remoteName is null
+    ✔ does not false-positive on platform or version strings containing 'remote'
+    ✔ does not classify hosts as remote when no fields are provided
+
+  toolCallSignature
+    ✔ produces identical output regardless of key order
+
+  Loop Detection
+    ✔ should warn at 3 identical calls and escalate at 5
+    ✔ should reset when tool or params change
+    ✔ should NOT count different tools with same params as identical
+    ✔ should re-arm after loop detection state is reset
+    ✔ should work correctly when tool changes after reset
+    ✔ should strip task_progress from comparison
+
+  Task.ask
+    ✔ keeps resume asks waiting for a user response even when the task is aborted
+    ✔ keeps resume-completed asks waiting for a user response even when the task is aborted
+    ✔ still wakes non-resume asks when abort is triggered after the ask is shown
+    ✔ emits notification hooks for non-command_output asks
+    ✔ skips notification hooks for command_output asks
+
+  Task.processNativeToolCalls
+    ✔ finalizes a partial text row before handing off to native tool calls
+
+  TaskPresentationScheduler
+    ✔ rethrows flush errors from flushNow so callers do not hang on hidden failures
+    ✔ coalesces multiple normal-priority requests into a single timer
+    ✔ waits for an in-flight flush and runs the requested immediate flush before resolving flushNow
+    ✔ does not rethrow errors from an overlapping in-flight flush when flushNow is called
+    ✔ flushNow guarantees a flush even when the post-flush continuation consumed pendingPriority
+    ✔ runs an immediate follow-up flush requested during an in-flight flush
+    ✔ reset() cancels pending timers without marking the scheduler as disposed
+    ✔ immediate priority bypasses the timer and flushes synchronously
+    ✔ upgrades a pending normal timer to immediate when immediate is requested
+
+  ToolExecutor canonicalization
+    ✔ canonicalizes attempt_completion response into result
+    ✔ does not canonicalize when attempt_completion already has result
+    ✔ does not canonicalize non-attempt tools
+
+  ToolExecutor Hook Integration
+    addHookContextToConversation
+      ✔ should handle undefined context
+      ✔ should handle empty context
+      ✔ should handle whitespace-only context
+      ✔ should add context without type prefix
+      ✔ should extract type from WORKSPACE_RULES prefix
+      ✔ should extract type from FILE_OPERATIONS prefix
+      ✔ should handle multi-line context with type
+      ✔ should handle multi-line context with type but no content on first line
+      ✔ should preserve source parameter correctly
+      ✔ should handle type with underscores
+      ✔ should not match lowercase type prefix
+      ✔ should filter out empty lines when extracting multi-line content
+    Hook Context XML Format
+      ✔ should generate properly formatted XML
+      ✔ should handle special characters in content
+
+  AttemptCompletionHandler double-check completion
+    when disabled (default)
+      ✔ should not reject any completion attempts
+    when enabled
+      ✔ should reject the first completion attempt
+      ✔ should accept the second completion attempt and reset pending
+      ✔ should reject again after the pending flag is reset (third call)
+      ✔ should double-check every completion attempt across a full task lifecycle
+    consecutiveMistakeCount interaction
+      ✔ should not increment consecutiveMistakeCount on rejection
+    initialization and lifecycle
+      ✔ should start as false
+      ✔ should reset with new TaskState (new task)
+
+  ExecuteCommandToolHandler timeout policy
+    ✔ returns undefined when managed timeout is disabled
+    ✔ uses explicit timeout when provided
+    ✔ falls back to default timeout for short commands
+    ✔ uses extended timeout for known long-running commands
+    ✔ detects common long-running command families
+
+  ListCodeDefinitionNamesToolHandler.execute – error recovery
+    ✔ returns a tool result (not a thrown exception) for a non-existent directory
+    ✔ returns a graceful message for a file path (not a directory)
+    ✔ increments consecutiveMistakeCount when path parameter is missing
+    ✔ resets consecutiveMistakeCount to 0 after a successful operation (117ms)
+    ✔ catches a thrown exception from the core operation and returns a tool error
+    ✔ accumulates failures when the core operation throws repeatedly
+    ✔ accumulates failures for repeated non-existent directory calls
+    ✔ accumulates failures for repeated file-path (not directory) calls
+
+  ListFilesToolHandler.execute – error recovery
+    ✔ returns a tool result (not a thrown exception) for a non-existent directory
+    ✔ increments consecutiveMistakeCount when path parameter is missing
+    ✔ repeated missing-param failures accumulate
+    ✔ resets consecutiveMistakeCount to 0 after a successful list
+    ✔ catches a thrown exception from listFiles and returns a tool error
+    ✔ accumulates failures when listFiles throws repeatedly
+    ✔ increments consecutiveMistakeCount on clineignore denial
+    ✔ accumulates clineignore denials across repeated calls
+
+  SearchFilesToolHandler.execute – error recovery
+    ✔ returns a tool result (not a thrown exception) for a non-existent directory
+    ✔ increments consecutiveMistakeCount when path parameter is missing
+    ✔ increments consecutiveMistakeCount when regex parameter is missing
+    ✔ repeated missing-param failures accumulate
+    ✔ resets consecutiveMistakeCount to 0 after a successful search
+    ✔ catches a thrown exception from path resolution and returns a tool error
+    ✔ accumulates failures when path resolution throws repeatedly
+    ✔ increments consecutiveMistakeCount when regexSearchFiles throws
+    ✔ accumulates failures when regexSearchFiles throws repeatedly
+    ✔ resets consecutiveMistakeCount after regexSearchFiles failure is followed by success
+
+  ReadFileToolHandler.execute – file not found
+    ✔ returns a tool error (not a thrown exception) for a non-existent file
+    ✔ increments consecutiveMistakeCount on each failure without resetting
+    ✔ resets consecutiveMistakeCount to 0 after a successful read
+    ✔ increments consecutiveMistakeCount when path parameter is missing
+    ✔ respects requested line ranges on cached rereads
+
+  getReadToolDisplayedLineRange
+    ✔ matches the slice shown for explicit start/end
+    ✔ returns undefined for image reads
+
+  formatFileContentWithLineNumbers
+    line labels
+      ✔ adds 1-indexed line prefixes
+      ✔ does not add an extra numbered line for trailing newline
+      ✔ returns empty content unchanged
+    chunked reads
+      ✔ defaults to reading from line 1 and applies the default chunk size
+      ✔ respects start_line parameter
+      ✔ respects start_line and end_line parameters
+      ✔ normalizes inverted start_line and end_line parameters
+      ✔ clamps start_line to 1 if below
+      ✔ clamps end_line to total lines if beyond
+    continuation hints
+      ✔ shows continuation hint when more lines remain
+      ✔ shows total-lines footer when entire file is returned
+      ✔ shows total-lines footer when file fits within default limit
+    default max lines
+      ✔ limits output to DEFAULT_MAX_LINES when no end_line given
+      ✔ allows reading beyond default limit with explicit end_line
+    byte truncation interaction
+      ✔ preserves truncation notice without numbering it
+
+  SubagentToolHandler
+    ✔ returns missing parameter error when no prompts are provided
+    ✔ returns an error when subagents are disabled
+    ✔ streams partial use_subagents approval as ask when not auto-approved
+    ✔ streams partial use_subagents approval as say when auto-approved
+    ✔ uses one approval for the full batch and stops on denial
+    ✔ uses read-file auto-approve level (safe only) for approval bypass
+    ✔ fans out prompts in parallel and emits aggregated status
+    ✔ continues after per-subagent failures and reports both outcomes
+    ✔ runs configured subagent tools using the prompt parameter
+    ✔ requires prompt for configured subagent tools
+
+  WriteToFileToolHandler consecutiveMistakeCount
+    counter initialization
+      ✔ should start at 0
+    counter NOT reset at operation start
+      ✔ should preserve existing count when starting a new operation
+      ✔ should allow tooManyMistakes check to see accumulated failures
+    counter reset after successful operation
+      ✔ should reset to 0 only after successful saveChanges()
+      ✔ should NOT reset if operation fails before saveChanges()
+    counter increment on diff errors
+      ✔ should increment on diff construction error
+      ✔ should accumulate consecutive diff errors
+      ✔ should trigger mistake limit after max consecutive diff errors
+    counter increment on missing parameter errors
+      ✔ should increment when path parameter is missing
+      ✔ should increment when diff parameter is missing for replace_in_file
+      ✔ should increment when content parameter is missing for write_to_file
+    realistic retry scenarios
+      ✔ should accumulate failures across multiple retry attempts (bug fix verification)
+      ✔ should NOT accumulate if buggy reset-at-start behavior existed
+      ✔ should reset counter and allow new operations after successful operation
+      ✔ should handle mixed success and failure scenarios
+    interaction with other tool handlers
+      ✔ should accumulate across different tool error types
+      ✔ should reset from any successful tool operation
+    edge cases
+      ✔ should handle counter at max value
+      ✔ should handle counter well above max (late detection)
+      ✔ should handle max value of 1 (strict mode)
+      ✔ should handle max value of 0 (always trigger)
+    YOLO mode behavior
+      ✔ should trigger failure in YOLO mode after max mistakes
+    background edits mode
+      ✔ should increment on errors with background edits enabled
+      ✔ should increment on errors with background edits disabled
+      ✔ should reset on success regardless of background edits setting
+    partial block streaming behavior
+      ✔ should NOT increment counter when error occurs during partial block (streaming)
+      ✔ should increment counter when error occurs on final block (not streaming)
+      ✔ should not accumulate errors during streaming even with multiple partial block failures
+      ✔ should increment exactly once when streaming ends with error on final block
+      ✔ should allow successful streaming to complete without incrementing counter
+      ✔ should preserve existing counter value when partial block errors occur
+      ✔ should correctly accumulate final block errors across multiple operations
+    auto-approval mode
+      ✔ should increment on errors with auto-approval enabled
+      ✔ should increment on errors with auto-approval disabled
+      ✔ should accumulate failures regardless of approval path taken
+
+  AgentConfigLoader
+    ✔ parses an Agents.yaml frontmatter config and system prompt body
+    ✔ supports raw Cline tool ids in tools
+    ✔ throws for unknown tools
+    ✔ returns an empty config map when the agents directory does not exist
+    ✔ loads all yaml/yml files from homeDir/.cline/data/agents
+    ✔ creates dynamic subagent tool mappings after loading configs
+
+  SubagentBuilder
+    ✔ uses cached config by subagent name and applies act-mode provider model override
+    ✔ uses defaults when no cached config is provided
+    ✔ applies plan-mode openrouter model override fields
+    ✔ builds native tools by filtering allowed ids and context requirements then converting
+
+  SubagentRunner
+    ✔ emits native tool_use blocks with matching tool_result tool_use_id across turns
+    ✔ passes prior request token totals into the next-turn compaction check
+    ✔ falls back to non-native result blocks if structured tool calls appear while native mode is disabled
+    ✔ retries empty assistant turns with a no-tools-used nudge before failing
+    ✔ retries initial stream failures before failing (6012ms)
+    ✔ fails context window errors
+    ✔ uses the configured task api handler for subagent requests
+    ✔ filters available skills to configured skills when subagent skills are configured
+    ✔ uses all available skills when subagent skills are not configured
+    ✔ logs a warning when a configured skill is not available
+    ✔ includes enabled remote skills in subagent context and preserves configured remote names
+    ✔ includes workspace metadata only in the initial user message
+
+  computeLineDiffStats
+    ✔ returns zeros for identical content
+    ✔ counts all lines as added for new file
+    ✔ counts all lines as deleted for removed file
+    ✔ handles insertion in the middle without false changes
+    ✔ handles deletion in the middle without false changes
+    ✔ counts single line replacement as changed
+    ✔ handles replace with more lines (changed + added)
+    ✔ handles replace with fewer lines (changed + deleted)
+    ✔ handles empty before and empty after
+    ✔ handles append at end of file
+    ✔ handles multiple disjoint edits
+
+  ModelContentProcessor
+    applyModelContentFixes
+      Model ID detection
+        ✔ should skip all fixes for Claude models
+        ✔ should apply fixes for non-Claude models
+      File type detection
+        ✔ should detect .xml files (case-insensitive)
+        ✔ should not match .xml substring in middle of filename
+        ✔ should handle .xml file with nested paths
+        ✔ should handle edge case: just .xml filename
+      Orchestration logic
+        ✔ should apply escaped character fix to non-XML files
+        ✔ should skip escaped character fix for XML files
+        ✔ should always apply invalid character removal regardless of file type
+        ✔ should apply both fixes in correct order for non-XML files
+        ✔ should preserve escaped chars but remove invalid chars in XML
+      Optional filePath parameter
+        ✔ should apply escaped character fix when filePath not provided
+        ✔ should apply invalid character fix when filePath not provided
+        ✔ should handle undefined filePath explicitly
+        ✔ should apply fixes when modelId is not provided
+      Integration with real-world use cases
+        ✔ should handle Gemini commands with shell operators
+        ✔ should handle DeepSeek diffs with comparison operators
+        ✔ should preserve XML config files from non-Claude models
+
+  PatchParser
+    Parsing Logic
+      ✔ simple update with exact match
+      ✔ update with escaped backticks in patch, unescaped in file
+      ✔ update with escaped single quotes in patch, unescaped in file
+      ✔ update with escaped double quotes in patch, unescaped in file
+      ✔ update with @@ context marker
+      ✔ update with trailing whitespace differences
+      ✔ add new file
+      ✔ delete file
+      ✔ update with multiple chunks
+      ✔ update with EOF marker
+      ✔ error: update missing file
+      ✔ error: delete missing file
+      ✔ error: add existing file
+      ✔ graceful handling: invalid context with warning
+      ✔ error: duplicate update
+      ✔ error: unknown patch marker
+      ✔ error: duplicate delete
+      ✔ error: duplicate add
+      ✔ error: add file line missing '+'
+      ✔ update with move
+      ✔ mixed add, update, and delete
+      ✔ context lines without leading space
+      ✔ update with 3 lines of context above (V4A format)
+      ✔ update with 3 lines of context above and below (V4A format)
+      ✔ multiple changes with 3 lines context each (V4A format)
+      ✔ update with @@ class marker and 3 lines context (V4A format)
+      ✔ update with multiple @@ markers and 3 lines context (V4A format)
+      ✔ multiple changes within 3 lines without duplicate context (V4A format)
+      ✔ update with large context block (V4A format)
+    Edge Cases
+      ✔ should handle empty patch
+      ✔ should handle patch without Begin marker
+      ✔ should handle large files with many chunks
+      ✔ should handle unicode characters in content
+      ✔ should handle empty lines in context
+      ✔ should handle updating an empty file
+      ✔ should not include warnings property when there are no warnings
+      ✔ should handle add file with empty content (no lines)
+      ✔ should handle move without content changes
+      ✔ should handle unicode punctuation normalization (curly quotes match straight quotes)
+      ✔ should handle unicode dash normalization (em-dash matches hyphen)
+      ✔ should handle @@ context string not found in file (silently continues from current position)
+      ✔ should handle patch with only insertions (no deletions)
+      ✔ should handle patch with only deletions (no insertions)
+    Fuzz Scoring
+      ✔ should return fuzz=0 for exact matches
+      ✔ should return fuzz=1 for trailing whitespace differences
+      ✔ should return high fuzz for whitespace-only differences
+    Partial Matching and Warnings
+      ✔ should skip invalid chunks and add warnings
+      ✔ should handle mixed valid and invalid chunks
+
+  ToolHookUtils
+    runPreToolUseIfEnabled
+      ✔ returns early without running hooks when hooks are disabled
+      ✔ treats undefined hooksEnabled as enabled and runs hook flow
+
+  parseWorkspaceInlinePath
+    basic parsing
+      ✔ should parse path with workspace hint
+      ✔ should parse path without workspace hint
+      ✔ should handle workspace names with hyphens
+      ✔ should handle workspace names with underscores
+      ✔ should handle paths with multiple colons
+      ✔ should treat bare workspace hint as root path
+      ✔ should trim whitespace
+    edge cases
+      ✔ should handle empty string
+      ✔ should handle null/undefined
+      ✔ should handle @ without colon
+      ✔ should handle colon without @
+      ✔ should handle @ at the end
+    hasWorkspaceHint
+      ✔ should return true for paths with hints
+      ✔ should return false for paths without hints
+    addWorkspaceHint
+      ✔ should add hint to path without hint
+      ✔ should replace existing hint
+    removeWorkspaceHint
+      ✔ should remove hint from path with hint
+      ✔ should return original path if no hint
+    parseMultipleWorkspacePaths
+      ✔ should parse multiple paths
+
+  setupWorkspaceManager
+    ✔ initializes multi-root manager when multi-root is enabled and persists roots + primary index
+    ✔ uses single-root cwd when history restore is disabled (historyItem present)
+    ✔ falls back to fromLegacyCwd in single-root mode when no saved state
+    ✔ gracefully handles errors and falls back to fromLegacyCwd while warning user
+
+  WorkspacePathAdapter
+    Single-Root Mode
+      ✔ should resolve relative paths
+      ✔ should handle absolute paths
+      ✔ should get workspace for path within cwd
+      ✔ should return undefined for path outside cwd
+      ✔ should get relative path from cwd
+      ✔ should return single workspace root
+      ✔ should report multi-root as disabled
+    Multi-Root Mode
+      ✔ should resolve path with workspace hint by name
+      ✔ should resolve path with workspace hint by path
+      ✔ should default to primary workspace without hint
+      ✔ should handle absolute paths belonging to a workspace
+      ✔ should warn for absolute paths outside workspaces
+      ✔ should get all possible paths across workspaces
+      ✔ should identify workspace for path
+      ✔ should get relative path from appropriate workspace
+      ✔ should return all workspace roots
+      ✔ should get primary workspace
+      ✔ should warn for invalid workspace hint
+    Edge Cases
+      ✔ should handle empty workspace manager gracefully
+      ✔ should handle paths with special characters
+    Factory Function
+      ✔ should create adapter using factory function
+
+  WorkspaceResolver
+    resolveWorkspacePath - Single Root Mode
+      ✔ should resolve path without context
+      ✔ should resolve path with context and track usage
+      ✔ should track multiple calls to same context
+      ✔ should not log when tracing is disabled
+      ✔ should handle absolute paths correctly
+      ✔ should handle empty relative path
+      ✔ should handle relative paths with .. navigation
+    resolveWorkspacePath - Multi Root Mode
+      ✔ should handle absolute paths in multi-root mode
+      ✔ should fallback to primary root for unmatched absolute paths
+      ✔ should resolve relative paths against primary root
+      ✔ should handle empty workspace roots array
+    getBasename
+      ✔ should return basename without context
+      ✔ should return basename with context and track usage
+    Usage Statistics Management
+      ✔ should track usage statistics correctly
+    Edge Cases
+      ✔ should handle null/undefined inputs gracefully
+      ✔ should handle special characters in paths
+      ✔ should handle very long paths
+
+  commit-message-generator
+    getGitDiffStagedFirst
+      ✔ should return staged changes when they exist
+      ✔ should fall back to all changes when no staged changes exist
+      ✔ should propagate error when both staged and all changes fail
+
+  vscode-to-file-migration
+    sentinel behavior
+      ✔ should migrate on first run (no sentinel)
+      ✔ should skip everything when both sentinels are current version
+      ✔ should skip everything when both sentinels are higher version
+      ✔ should re-run migration if sentinels are lower version
+      ✔ should migrate workspace state when globals already migrated (new workspace)
+      ✔ should migrate globals when workspace already migrated
+    global state migration
+      ✔ should migrate global state keys
+      ✔ should NOT overwrite existing file store values
+      ✔ should skip undefined values
+      ✔ should skip taskHistory (it has its own file)
+    secrets migration
+      ✔ should migrate secret keys
+      ✔ should NOT overwrite existing secrets in file store
+      ✔ should skip empty string secrets
+      ✔ should continue even if a single secret read fails
+    workspace state migration
+      ✔ should migrate workspace state keys
+      ✔ should NOT overwrite existing workspace state
+    error handling
+      ✔ should NOT write sentinel if migration throws
+    idempotency
+      ✔ should produce same result when run twice
+
+  createStorageContext
+    ✔ should create all three stores
+    ✔ should create directories
+    ✔ should produce deterministic workspace hashes
+    ✔ should produce different hashes for different workspaces
+    ✔ should use explicit workspaceStorageDir when provided
+    ✔ should store and retrieve values correctly
+
+  shouldUseMultiRoot
+    ✔ returns true when feature flag is on, checkpoints enabled, and more than one root exists
+    ✔ returns false when feature flag is off
+    ✔ returns false when checkpoints are disabled
+    ✔ returns false when workspaceManager is undefined
+    ✔ returns false when only a single root exists
+    ✔ returns false when there are no roots
+
+  Diagnostics Tests
+    getNewDiagnostics
+      ✔ should return empty array when both old and new diagnostics are empty
+      ✔ should return all diagnostics when old diagnostics is empty
+      ✔ should return empty array when new diagnostics is empty
+      ✔ should return only new diagnostics not present in old diagnostics
+      ✔ should handle multiple files correctly
+      ✔ should handle diagnostics with source and code properties
+    diagnosticsToProblemsString
+      ✔ should return empty string when diagnostics array is empty
+      ✔ should return empty string when no diagnostics match the severity filter
+      ✔ should format error diagnostics correctly with line numbers
+      ✔ should handle diagnostics without range information
+      ✔ should handle diagnostics with missing start property in range
+      ✔ should include source information when available
+      ✔ should handle multiple severities
+      ✔ should handle multiple files
+      ✔ should handle absolute paths outside workspace
+      ✔ should handle all diagnostic severity types
+      ✔ should handle edge case with line number 0
+      ✔ should include all diagnostics when severities is undefined
+
+  DiffViewProvider Boundary Validation
+    ✔ should replace entire document on final update to prevent concatenation
+    ✔ safelyTruncateDocument should no-op when lineNumber >= lineCount
+    ✔ final update replaces entire document so truncation is no-op
+    ✔ update() with shorter content replaces entire document
+
+  DiffViewProvider content finalization with isFinal=true
+    ✔ should handle large file with deleted lines (1000 -> 997 lines)
+    ✔ should handle simple content reduction (4 -> 2 lines)
+    ✔ should preserve trailing newline when reducing content
+
+  DiffViewProvider Update Throttling
+    ✔ should skip empty content during streaming
+    ✔ should skip unchanged content length during streaming
+    ✔ should throttle rapid updates during streaming
+    ✔ should allow update after throttle period (110ms)
+    ✔ should always process final updates regardless of throttling
+    ✔ should process final update even with empty content
+    ✔ should process final update even with same content length
+    ✔ should reset throttle state on reset()
+    ✔ should allow first update to go through immediately
+    ✔ should handle streaming simulation with many rapid updates (112ms)
+    ✔ should throttle by time regardless of content length changes (110ms)
+
+  DiffViewProvider Newline Preservation
+    ✔ preserves trailing newline when content ends with newline
+    ✔ does not add trailing newline when content does not end with newline
+    ✔ adds trailing newline when content ends with newline but original did not
+    ✔ preserves no trailing newline when neither original nor new content has one
+    ✔ handles shortening file while preserving trailing newline
+    ✔ handles lengthening file while preserving trailing newline
+    ✔ handles single line content with trailing newline
+    ✔ handles single line content without trailing newline
+
+  notifications
+    ✔ builds a Windows toast script using single-quoted literals and DOM text assignment
+    ✔ escapes single quotes for PowerShell single-quoted strings
+    ✔ escapes single quotes in Windows subtitle and message assignments
+    ✔ escapes quotes and backslashes for macOS notifications
+    ✔ passes title and combined subtitle/message to notify-send on Linux
+    ✔ creates explicit approval marker only when required
+    ✔ normalizes whitespace in approval notification messages
+    ✔ routes approval notifications through platform dispatch only when enabled
+    ✔ abbreviates long approval notification messages while preserving the explicit approval suffix
+    ✔ encodes Windows PowerShell notifications before dispatch
+    ✔ encodes PowerShell commands as UTF-16LE base64
+
+  CommandExecutor routing
+    ✔ uses the configured terminal manager for the direct-instantiation fallback path (53ms)
+    ✔ uses the standalone manager when background execution is requested (53ms)
+
+  CommandOrchestrator command_output ask lifecycle
+    ✔ settles a pending command_output ask when the process completes (191ms)
+    ✔ settles a pending command_output ask when the process errors (141ms)
+    ✔ settles a pending command_output ask when execution transitions on timeout (352ms)
+    ✔ does not attempt to resolve the same pending ask twice across lifecycle events (191ms)
+
+  SelfHosted Mode - PostHog Disabling
+    FeatureFlagsProviderFactory
+      ✔ should return no-op config when in selfHosted mode
+      ✔ should return posthog config when NOT in selfHosted mode (if PostHog config is valid)
+      ✔ should create NoOp provider when in selfHosted mode
+    ErrorProviderFactory
+      ✔ should return no-op config when in selfHosted mode
+      ✔ should return posthog config when NOT in selfHosted mode
+      ✔ should create NoOp provider when in selfHosted mode
+    Integration - selfHosted should disable all PostHog services
+      ✔ should return no-op for all PostHog-based factories when selfHosted
+
+  BannerService
+    API Fetching
+      ✔ should fetch banners from API successfully
+      ✔ should handle API errors gracefully
+      ✔ should cache banners for the configured hours from PostHog
+      ✔ should fall back to 24 hours when payload is invalid
+    API Provider Rule Evaluation (Client-Side)
+      ✔ should show banner when user has selected the required API provider in act mode
+      ✔ should show banner when user has selected the required API provider in plan mode
+      ✔ should NOT show banner when user has selected a different API provider
+      ✔ should show banner if user has selected ANY of multiple specified providers
+      ✔ should NOT show banner when no provider is selected
+    Invalid or No Banner Rules
+      ✔ should handle malformed rules gracefully (fail open)
+      ✔ should handle banners with no rules
+    Cache Management
+      ✔ should clear cache when requested
+    OS Parameter Integration
+      ✔ should send OS parameter in API request
+    Banner to BannerCardData Conversion
+      ✔ should convert banner with valid action types
+      ✔ should drop banner with invalid action type and log error
+      ✔ should keep valid banners and drop only invalid ones
+      ✔ should convert banner with no actions
+      ✔ should convert banner with empty actions array
+      ✔ should drop banner when action has undefined action type
+      ✔ should accept all valid BannerActionType values
+    IDE Type Detection
+      ✔ should return "vscode" when ide contains "vscode"
+      ✔ should return "vscode" when ide is "VSCode Extension" (case-insensitive)
+      ✔ should return "jetbrains" when ide contains "jetbrains"
+      ✔ should return "jetbrains" when ide is "Cline for JetBrains" (case-insensitive)
+      ✔ should return "cli" when ide contains "cli"
+      ✔ should fall back to "vscode" when ide is empty but platform contains "Visual Studio"
+      ✔ should fall back to "vscode" when ide is empty but platform contains "vscode"
+      ✔ should return "unknown" when both ide and platform are unrecognized
+      ✔ should return "unknown" when both ide and platform are empty
+      ✔ should prefer ide field over platform field for detection
+    Rate Limit Backoff (429)
+      ✔ should trigger backoff on 429 response and return cached banners during backoff
+    onAuthUpdate
+      ✔ should update the user id and trigger fetch after debounce
+      ✔ should clear pending retry timeout on auth update
+      ✔ should handle auth update when service is not initialized
+      ✔ should handle null user-id (logout)
+      ✔ should debounce rapid auth updates
+
+  ClineError
+    getErrorType
+      ✔ should return QuotaExceeded when code is INFERENCE_CAP_ERROR
+
+  listFiles
+    ✔ returns empty result when cwd points to a file
+    ✔ still lists files when cwd points to a directory
+
+  listFiles gitignore handling
+    ✔ excludes files matching root .gitignore directory patterns
+    ✔ excludes files matching .gitignore file patterns (not just directories)
+    ✔ reads .gitignore from subdirectories during BFS traversal
+    ✔ does not read .gitignore from inside gitignored directories
+
+  McpOAuthRedirectResolver
+    extractLoopbackPort
+      ✔ should extract port from http://127.0.0.1:48801/path
+      ✔ should extract port from http://127.0.0.1:48811 (no path)
+      ✔ should return undefined for vscode:// URLs
+      ✔ should return undefined for https:// URLs
+      ✔ should return undefined for malformed URLs
+      ✔ should return undefined for empty string
+      ✔ should return undefined for http://localhost (not 127.0.0.1)
+      ✔ should return undefined for http://127.0.0.1 without a port
+    isLoopbackUrl
+      ✔ should return true for http://127.0.0.1:48801/...
+      ✔ should return true for http://127.0.0.1 without port
+      ✔ should return false for vscode:// URLs
+      ✔ should return false for https:// URLs
+      ✔ should return false for http://localhost (not 127.0.0.1)
+      ✔ should return false for malformed URLs
+    isRedirectCompatible
+      ✔ should return true when URLs are identical
+      ✔ should return true for identical vscode:// URLs
+      ✔ should return true for identical https:// URLs
+      ✔ should return false when saved URL is undefined (legacy state)
+      ✔ should return false when ports differ
+      ✔ should return false when schemes differ (VSCode → JetBrains migration)
+      ✔ should return false when schemes differ (JetBrains → VSCode migration)
+      ✔ should return false when paths differ (different server hash)
+      ✔ should return false when codespace domains differ
+    resolve
+      ✔ should get fresh URL and mark registration invalid when no saved URL
+      ✔ should reuse port when saved loopback URL port is available
+      ✔ should fall back to new port and mark registration invalid when preferred port is unavailable
+      ✔ should pass preferred port to getCallbackUrl for loopback URLs
+      ✔ should NOT pass preferred port for non-loopback saved URLs (vscode://)
+      ✔ should mark registration valid when VSCode URLs match
+      ✔ should mark registration invalid for VSCode → JetBrains cross-platform migration
+      ✔ should mark registration invalid for JetBrains → VSCode cross-platform migration
+      ✔ should handle VSCode Web URLs (https://)
+      ✔ should detect codespace change as registration invalid
+
+  StreamableHttpReconnectHandler
+    ✔ should export sensible defaults
+    ✔ should do nothing when findConnection returns undefined
+    ✔ should skip reconnect when server is disabled
+    ✔ should skip reconnect when server is already connecting
+    ✔ should reconnect on first error and reset attempt counter
+    ✔ should use the configured delay for each attempt
+    ✔ should mark server as disconnected after maxAttempts exhausted
+    ✔ should mark disconnected even when no connection exists after exhaustion
+    ✔ should exhaust retries when called with attempts already at max
+    ✔ should retry connectToServer on failure without relying on onerror
+    ✔ should abort reconnect if connection was replaced during delay
+    ✔ should abort reconnect if connection disappeared during delay
+    ✔ should allow manual reset of attempt counter
+    ✔ should use string coercion for non-Error objects on exhaustion
+
+  TelemetryService metrics
+    ✔ captureTokenUsage emits token counters and histograms
+    ✔ captureTokenUsage emits cache and cost metrics when options provided
+    ✔ captureTokenUsage skips cache/cost metrics when options fields are undefined
+    ✔ captureTokenUsage includes options in event properties
+    ✔ metrics include is_remote_workspace in standard attributes
+    ✔ captureConversationTurnEvent emits counters with cache and cost
+    ✔ captureWorkspaceInitialized emits gauge and retires previous series
+    ✔ captureProviderApiError increments error counter
+    ✔ captureTaskCompleted records completion payload with TTFT and duration histograms
+    ✔ captureGrpcResponseSize records histogram with correct name, value, and attributes
+    ✔ captureGrpcResponseSize includes request_id when provided
+    ✔ captureGrpcResponseSize includes standard metadata attributes
+
+  OpenTelemetryTelemetryProvider.identifyUser
+    ✔ should emit user_identified log and update distinct ID when ID changes
+    ✔ should refresh userAttributes even when distinct ID already matches (no new identify log)
+    ✔ should refresh org attributes when active org changes (same user ID)
+    ✔ should handle user with no active organization
+    ✔ should clear stale org attributes when switching from org to no-org
+    ✔ should include additional properties passed to identifyUser
+
+  parseSourceCodeForDefinitionsTopLevel
+    ✔ returns file-specific error when path points to a file
+    ✔ returns directory-not-found error for non-existent path
+
+  Mention Regex
+    Windows Path Support
+      ✔ matches simple Windows paths
+    Edge Cases
+      ✔ handles edge cases correctly
+      ✔ handles unquoted paths with spaces correctly
+    Existing Functionality
+      ✔ matches Unix paths
+      ✔ matches URLs
+      ✔ matches git hashes
+      ✔ matches special keywords
+    Invalid Patterns
+      ✔ rejects invalid patterns
+      ✔ matches only until invalid characters
+    In Context
+      ✔ matches mentions within text
+    Multiple Mentions
+      ✔ finds all mentions in a string using global regex
+    Special Characters in Paths
+      ✔ handles special characters in file paths
+    Mixed Path Types in Single String
+      ✔ correctly identifies the first path in a string with multiple path types
+    Non-Latin Character Support
+      ✔ handles international characters in paths
+    Git Hash Edge Cases
+      ✔ matches git hashes of various valid lengths
+    Punctuation at Boundaries
+      ✔ excludes all types of trailing punctuation
+      ✔ handles multiple punctuation marks
+      ✔ doesn't match trailing punctuation in context
+    URL Protocol Variations
+      ✔ matches various URL protocols
+      ✔ matches URLs with complex structures
+    End of String Handling
+      ✔ matches mentions at end of string
+    Complex Real-World Scenarios
+      ✔ handles mentions in markdown-like text
+      ✔ handles mentions in code comments
+    Quoted file paths
+      ✔ handles quoted paths correctly
+      ✔ handles quotes inside file paths correctly
+    Path Edge Cases
+      ✔ matches various path structures
+    Whitespace Handling
+      ✔ stops at various whitespace characters
+    Keyword Boundaries
+      ✔ only matches exact keywords
+      ✔ matches keywords with trailing punctuation
+
+  getApiMetrics
+    ✔ includes subagent_usage in aggregate totals
+    ✔ ignores malformed usage payloads
+
+  getLastApiReqTotalTokens
+    ✔ uses only the latest api_req_started payload
+
+  Remote Config Schema
+    EnterpriseTelemetry
+      ✔ accepts an empty object
+      ✔ accepts an empty prompt uploading object
+    S3AccessKeySettingsSchema
+      ✔ should accept valid S3 access key settings with required fields
+      ✔ should accept S3 settings with all optional fields
+      ✔ should accept S3 settings with queue configuration fields
+      ✔ should reject S3 settings with invalid intervalMs type
+      ✔ should reject S3 settings with invalid maxRetries type
+      ✔ should reject S3 settings with invalid backfillEnabled type
+      ✔ should reject S3 settings with missing bucket
+      ✔ should reject S3 settings with missing accessKeyId
+      ✔ should reject S3 settings with missing secretAccessKey
+    PromptUploadingSchema
+      ✔ should accept an empty object
+      ✔ should accept enabled field only
+      ✔ should accept enabled as false
+      ✔ should accept type field with s3_access_keys
+      ✔ should reject invalid type values
+      ✔ should accept complete prompt uploading configuration
+      ✔ should accept s3AccessSettings without optional fields
+      ✔ should reject s3AccessSettings with missing required fields
+      ✔ should reject invalid enabled type
+    OpenAiCompatibleSchema
+      ✔ should accept valid OpenAI compatible settings
+      ✔ should have undefined for models and openAiHeaders by default
+      ✔ should reject invalid field types
+      ✔ should reject models with missing id field
+      ✔ should accept models with only id field
+      ✔ should accept headers as record of strings
+    ClineSettingsSchema
+      ✔ should accept valid Cline provider settings
+      ✔ should accept empty settings object
+      ✔ should accept models with only id field
+      ✔ should reject models with missing id field
+    AwsBedrockSettingsSchema
+      ✔ should accept valid AWS Bedrock settings
+      ✔ should accept empty settings object
+      ✔ should accept models with only id field
+      ✔ should accept models with thinkingBudgetTokens
+      ✔ should accept custom models array
+      ✔ should reject invalid field types
+      ✔ should reject models with missing id field
+      ✔ should reject custom models with missing fields
+    MCPSettingsSchema
+      ✔ should reject servers with a missing id
+      ✔ should accept valid MCP settings
+    RemoteMCPServersSchema
+      ✔ should accept remoteMCPServers with alwaysEnabled true
+      ✔ should accept remoteMCPServers with alwaysEnabled false
+      ✔ should accept remoteMCPServers without alwaysEnabled (defaults to undefined)
+      ✔ should accept multiple remoteMCPServers with mixed alwaysEnabled values
+      ✔ should reject remoteMCPServers with missing name
+      ✔ should reject remoteMCPServers with missing url
+      ✔ should reject remoteMCPServers with invalid alwaysEnabled type
+      ✔ should accept headers
+    RemoteConfigSchema
+      ✔ should accept valid complete remote config
+      ✔ should require version field
+      ✔ should accept minimal valid config
+      ✔ should accept config with general settings only
+      ✔ should accept config with OpenAI compatible provider only
+      ✔ should accept config with AWS Bedrock provider only
+      ✔ should reject invalid version type
+      ✔ should reject invalid telemetry setting type
+      ✔ should allow undefined optional provider settings
+      ✔ should handle complete config with all fields
+    Type Inference
+      ✔ should properly infer RemoteConfig type
+      ✔ should allow optional fields to be undefined
+
+  Provider key mapping
+    ✔ returns Moonshot default model ID
+    ✔ uses generic model key for Moonshot
+    ✔ keeps provider-specific model key behavior for OpenRouter
+    ✔ uses provider-specific model key behavior for Cline
+
+  State Keys Type Safety
+    Type-Value Consistency
+      ✔ should have GlobalState defaults with correct runtime types
+      ✔ should have Settings defaults with correct runtime types
+      ✔ should not have undefined defaults masquerading as non-optional types
+      ✔ should have array defaults that are actually arrays
+      ✔ should have object defaults that are plain objects
+    Key Array Synchronization
+      ✔ should have SettingsKeys match SETTINGS_DEFAULTS keys
+      ✔ should have GlobalStateAndSettingKeys be a superset of SettingsKeys
+      ✔ should have no duplicate keys in exported arrays
+      ✔ should have SecretKeys as strings
+    Type Guard Functions
+      ✔ should correctly identify GlobalState keys
+      ✔ should correctly identify Settings keys
+      ✔ should not expose removed foreground terminal settings keys
+      ✔ should correctly identify Secret keys
+      ✔ should correctly identify LocalState keys
+      ✔ should have mutually exclusive key categories where expected
+    Default Value Retrieval
+      ✔ should return correct default values for known keys
+      ✔ should return undefined for keys without defaults
+    Transform Functions
+      ✔ should have transforms return the same type as input
+      ✔ should correctly identify keys without transforms
+      ✔ should apply transforms without throwing
+      ✔ should pass through values for keys without transforms
+      ✔ should merge defaults in browserSettings transform
+    Metadata Properties
+      ✔ should correctly identify async properties
+      ✔ should correctly identify computed properties
+    Type Exports
+      ✔ should export usable GlobalState type
+      ✔ should export usable Settings type
+      ✔ should export usable key types
+      ✔ should have GlobalStateAndSettings include both GlobalState and Settings
+      ✔ should have LocalState keys map to ClineRulesToggles
+    Edge Cases
+      ✔ should handle empty string keys gracefully
+      ✔ should handle keys with special characters
+      ✔ should not have keys that could cause prototype pollution
+
+  expandEnvironmentVariables
+    string expansion
+      ✔ should expand a single environment variable
+      ✔ should expand multiple environment variables in one string
+      ✔ should expand environment variables with surrounding text
+      ✔ should leave unexpanded when variable is missing
+      ✔ should handle empty string values
+      ✔ should trim whitespace from variable names
+      ✔ should handle variable names with hyphens
+      ✔ should handle variable names with underscores
+      ✔ should not expand malformed syntax
+      ✔ should return string unchanged when no variables present
+    object expansion
+      ✔ should expand variables in object values
+      ✔ should expand variables in nested objects
+      ✔ should preserve non-string values in objects
+    array expansion
+      ✔ should expand variables in array elements
+      ✔ should expand variables in arrays within objects
+      ✔ should preserve non-string values in arrays
+    complex nested structures
+      ✔ should expand variables in deeply nested structures
+    MCP config realistic scenarios
+      ✔ should expand env variables in stdio server config
+      ✔ should expand env variables in HTTP server headers
+      ✔ should expand env variables in URLs
+    primitive values
+      ✔ should return numbers unchanged
+      ✔ should return booleans unchanged
+      ✔ should return null unchanged
+      ✔ should return undefined unchanged
+
+  shouldSkipReasoningForModel
+    ✔ should return true for grok-4 models
+    ✔ should return false for non-grok-4 models
+    ✔ should return false for undefined or empty model IDs
+    ✔ should be case sensitive
+
+  isClaude4PlusModelFamily
+    ✔ should return true for Claude 4+ model IDs with version numbers
+    ✔ should return true for Claude Code short aliases (sonnet, opus)
+    ✔ should return false for Claude 3.x models
+    ✔ should return false for non-Claude models
+
+  isGPT5ModelFamily
+    ✔ should return true for GPT-5 model IDs with hyphen
+    ✔ should return true for GPT-5 model IDs without hyphen (OCA format)
+    ✔ should be case insensitive
+    ✔ should return false for non-GPT-5 models
+
+  isGptOssModelFamily
+    ✔ should return true for gpt-oss model IDs
+    ✔ should be case insensitive
+    ✔ should return false for non-gpt-oss models
+
+  isGeminiFlashModel
+    ✔ should return true for Gemini Flash model IDs
+    ✔ should return false for non-Flash Gemini model IDs
+    ✔ should return true for direct Gemini provider IDs
+    ✔ should return false for non-matching IDs
+    ✔ should be case insensitive
+
+  GEMINI_FLASH_MAX_OUTPUT_TOKENS
+    ✔ should be set to 8192
+
+  isGLMModelFamily
+    ✔ should match hyphen-separated GLM model IDs
+    ✔ should match space-separated GLM model IDs used with openai-compatible local servers
+    ✔ should return false for non-GLM models
+
+  modelDoesntSupportWebp
+    ✔ should return true for Grok models
+    ✔ should return true for GLM models (hyphen-separated)
+    ✔ should return true for GLM models with space-separated IDs (issue #8203)
+    ✔ should return true for Devstral models running through llama.cpp
+    ✔ should return false for models that support WebP
+
+  Auth Callback URL
+    AuthHandler.getCallbackUrl (standalone/CLI)
+      ✔ should include the path in the callback URL
+      ✔ should include complex paths in the callback URL
+      ✔ should work with empty path for backwards compatibility
+    callback URL encoding
+      ✔ should preserve callback_url with query params when URL-encoded via searchParams
+      ✔ should encode vscode:// callback URLs correctly
+
+  ClineAccountService.fetchUserRemoteConfig
+    ✔ returns discovery response on a successful authenticated request
+    ✔ re-throws when the request throws a network error
+    ✔ returns undefined when there is no auth token
+    ✔ returns undefined when backend returns data: null (no org has remote config)
+    ✔ returns response when backend selects fallback org
+
+  ClineAccountService.fetchFeaturebaseToken
+    ✔ returns featurebaseJwt on a successful authenticated request
+    ✔ returns undefined when the request throws a network error
+    ✔ returns undefined when the request throws due to missing auth token
+
+  File Search
+    executeRipgrepForFiles
+      ✔ should correctly process and return file and folder results
+      ✔ should handle errors from ripgrep
+    searchWorkspaceFiles
+      ✔ should return top N results for empty query
+      ✔ should apply fuzzy matching for non-empty query
+    OrderbyMatchScore
+      ✔ should prioritize results with fewer gaps between matched characters
+
+
+  1447 passing (18s)
+
++ echo 'test:unit exit=0'
+test:unit exit=0
++ npm run cli:build
+
+> claude-dev@3.81.0 cli:build
+> npm run protos && cd cli && npm run build
+
+
+> claude-dev@3.81.0 protos
+> node scripts/build-proto.mjs
+
+Compiling Protocol Buffers...
+Processing 21 proto files from /home/basil/projects/context-bonsai-agents/cline/.agent_tmp/rehearsal-v2.17.0-cli/proto
+Generated ProtoBus files at:
+- /home/basil/projects/context-bonsai-agents/cline/.agent_tmp/rehearsal-v2.17.0-cli/webview-ui/src/services/grpc-client.ts
+- /home/basil/projects/context-bonsai-agents/cline/.agent_tmp/rehearsal-v2.17.0-cli/src/generated/hosts/vscode/protobus-service-types.ts
+- /home/basil/projects/context-bonsai-agents/cline/.agent_tmp/rehearsal-v2.17.0-cli/src/generated/hosts/vscode/protobus-services.ts
+- /home/basil/projects/context-bonsai-agents/cline/.agent_tmp/rehearsal-v2.17.0-cli/src/generated/hosts/standalone/protobus-server-setup.ts
+Generated Host Bridge client files at:
+- /home/basil/projects/context-bonsai-agents/cline/.agent_tmp/rehearsal-v2.17.0-cli/src/generated/hosts/host-bridge-client-types.ts
+- /home/basil/projects/context-bonsai-agents/cline/.agent_tmp/rehearsal-v2.17.0-cli/src/generated/hosts/standalone/host-bridge-clients.ts
+- /home/basil/projects/context-bonsai-agents/cline/.agent_tmp/rehearsal-v2.17.0-cli/src/generated/hosts/vscode/hostbridge-grpc-service-config.ts
+
+> claude-dev@3.81.0 postprotos
+> biome format src/shared/proto src/core/controller src/hosts/ webview-ui/src/services src/generated --write --no-errors-on-unmatched
+
+Formatted 259 files in 19ms. No fixes applied.
+
+> cline@2.17.0 build
+> npm run typecheck && npx tsx esbuild.mts && npm run build:types
+
+
+> cline@2.17.0 typecheck
+> npx tsc --noEmit
+
+[cli esbuild] Building CLI executable...
+[cli esbuild] Build started...
+[cli esbuild] Build finished
+[cli esbuild] Building library bundle...
+[cli esbuild] Build started...
+[cli esbuild] Build finished
+
+> cline@2.17.0 build:types
+> (npx tsc -p tsconfig.lib.json || true) && cp dist/types/cli/src/exports.d.ts dist/lib.d.ts && mkdir -p dist/agent && cp dist/types/cli/src/agent/ClineAgent.d.ts dist/types/cli/src/agent/ClineSessionEmitter.d.ts dist/types/cli/src/agent/public-types.d.ts dist/agent/ && rm -rf dist/types
+
++ echo 'cli:build exit=0'
+cli:build exit=0
++ node cli/dist/cli.mjs version
+[36mCline CLI version: 2.17.0[0m
+++ grep -c context-bonsai-prune cli/dist/cli.mjs
++ echo 'bundle-grep: 25'
+bundle-grep: 25
++ git diff --name-status 07593bb42ae95793c6dbf39918c8205f0fdf07bb..HEAD
++ sort
++ awk '{print $2}'
++ echo REHEARSAL-DONE
+REHEARSAL-DONE

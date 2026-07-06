@@ -1,0 +1,235 @@
+[
+  {
+    "source_sha": "fcd05e76b8ce69760550779e806a14c155162e64",
+    "bucket": "required_runtime",
+    "replay_action": "cherry-pick",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "package.json",
+      "package-lock.json",
+      "src/core/assistant-message/index.ts",
+      "src/core/prompts/system-prompt/tools/context-bonsai-prune.ts",
+      "src/core/prompts/system-prompt/tools/context-bonsai-retrieve.ts",
+      "src/core/prompts/system-prompt/tools/init.ts",
+      "src/core/storage/disk.ts",
+      "src/core/task/ContextBonsaiApplier.ts",
+      "src/core/task/__tests__/ContextBonsaiApplier.test.ts",
+      "src/core/task/tools/handlers/ContextBonsaiPruneHandler.ts",
+      "src/core/task/tools/handlers/ContextBonsaiRetrieveHandler.ts",
+      "src/core/task/tools/ToolExecutorCoordinator.ts",
+      "src/shared/tools.ts"
+    ],
+    "rationale": "port commit: [CB-cline.1] canonical prune/retrieve integration via ContextBonsaiApplier",
+    "evidence_ref": "git cherry -v 07593bb42ae95793c6dbf39918c8205f0fdf07bb f97ffd26a88685763d181393c282dc775b741530 marks +; paths inside the runtime allowlist"
+  },
+  {
+    "source_sha": "4742ff6eb0933009a2448135e1f8d66106ae08a8",
+    "bucket": "required_runtime",
+    "replay_action": "cherry-pick",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_3-basic.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_3-no-browser.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_3-no-focus-chain.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_3-no-mcp.snap",
+      "src/core/prompts/system-prompt/variants/generic/config.ts"
+    ],
+    "rationale": "port commit: [CB-cline.1] Surface context-bonsai tools in Generic variant",
+    "evidence_ref": "git cherry -v 07593bb42ae95793c6dbf39918c8205f0fdf07bb f97ffd26a88685763d181393c282dc775b741530 marks +; paths inside the runtime allowlist"
+  },
+  {
+    "source_sha": "fed96916a9a268bea8d4e8b120fb2138dd47dfec",
+    "bucket": "required_runtime",
+    "replay_action": "cherry-pick",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "src/core/context/context-management/ContextManager.ts",
+      "src/core/task/ContextBonsaiApplier.ts",
+      "src/core/task/__tests__/ContextBonsaiApplier.test.ts"
+    ],
+    "rationale": "port commit: [CB-cline.1] Reset context-history updates on bonsai mutations",
+    "evidence_ref": "git cherry -v 07593bb42ae95793c6dbf39918c8205f0fdf07bb f97ffd26a88685763d181393c282dc775b741530 marks +; paths inside the runtime allowlist"
+  },
+  {
+    "source_sha": "99f383d9bc6dfb94001654dd73192d88a0690d8c",
+    "bucket": "required_runtime",
+    "replay_action": "cherry-pick",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "src/core/task/tools/handlers/ContextBonsaiPruneHandler.ts",
+      "src/core/task/tools/handlers/ContextBonsaiRetrieveHandler.ts"
+    ],
+    "rationale": "port commit: [CB-cline.1] Plumb per-turn step counter into same-step retrieve guard",
+    "evidence_ref": "git cherry -v 07593bb42ae95793c6dbf39918c8205f0fdf07bb f97ffd26a88685763d181393c282dc775b741530 marks +; paths inside the runtime allowlist"
+  },
+  {
+    "source_sha": "d62419c6a224353162dd19edf84bd546458ddf11",
+    "bucket": "required_runtime",
+    "replay_action": "cherry-pick",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "src/integrations/checkpoints/index.ts"
+    ],
+    "rationale": "port commit: [CB-cline.1] Gate checkpoint restore on tasks with bonsai archives",
+    "evidence_ref": "git cherry -v 07593bb42ae95793c6dbf39918c8205f0fdf07bb f97ffd26a88685763d181393c282dc775b741530 marks +; paths inside the runtime allowlist"
+  },
+  {
+    "source_sha": "f345f39e5d94e36025d91ae811ab09dd08a5d089",
+    "bucket": "required_runtime",
+    "replay_action": "cherry-pick",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "src/core/task/ContextBonsaiApplier.ts"
+    ],
+    "rationale": "port commit: [CB-cline.1] Remove dead idempotent-splice guard in ContextBonsaiApplier.retrieve",
+    "evidence_ref": "git cherry -v 07593bb42ae95793c6dbf39918c8205f0fdf07bb f97ffd26a88685763d181393c282dc775b741530 marks +; paths inside the runtime allowlist"
+  },
+  {
+    "source_sha": "4c605373c1794b1ee1bbde6a3b79ee04c6899d0c",
+    "bucket": "required_runtime",
+    "replay_action": "cherry-pick",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/anthropic_claude_sonnet_4-basic.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/anthropic_claude_sonnet_4-no-browser.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/anthropic_claude_sonnet_4-no-focus-chain.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/anthropic_claude_sonnet_4-no-mcp.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/cline_devstral-basic.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/cline_devstral-no-browser.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/cline_devstral-no-focus-chain.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/cline_devstral-no-mcp.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/cline_native_next_gen.tools.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_5_1_native.tools.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_5-basic.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_5_native.tools.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_5-no-browser.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_5-no-focus-chain.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_5-no-mcp.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openrouter_arcee_ai_trinity_large_preview-basic.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openrouter_arcee_ai_trinity_large_preview-no-browser.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openrouter_arcee_ai_trinity_large_preview-no-focus-chain.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openrouter_arcee_ai_trinity_large_preview-no-mcp.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/vertex_gemini3.tools.snap",
+      "src/core/prompts/system-prompt/variants/devstral/config.ts",
+      "src/core/prompts/system-prompt/variants/gemini-3/config.ts",
+      "src/core/prompts/system-prompt/variants/glm/config.ts",
+      "src/core/prompts/system-prompt/variants/gpt-5/config.ts",
+      "src/core/prompts/system-prompt/variants/hermes/config.ts",
+      "src/core/prompts/system-prompt/variants/native-gpt-5-1/config.ts",
+      "src/core/prompts/system-prompt/variants/native-gpt-5/config.ts",
+      "src/core/prompts/system-prompt/variants/native-next-gen/config.ts",
+      "src/core/prompts/system-prompt/variants/next-gen/config.ts",
+      "src/core/prompts/system-prompt/variants/trinity/config.ts",
+      "src/core/prompts/system-prompt/variants/xs/config.ts"
+    ],
+    "rationale": "port commit: [CB-cline.1] Register context-bonsai tools in all production variants",
+    "evidence_ref": "git cherry -v 07593bb42ae95793c6dbf39918c8205f0fdf07bb f97ffd26a88685763d181393c282dc775b741530 marks +; paths inside the runtime allowlist"
+  },
+  {
+    "source_sha": "9525b2b161f3aca4175cd99052b5575fbefbfe46",
+    "bucket": "required_runtime",
+    "replay_action": "cherry-pick",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "src/core/prompts/system-prompt/components/bonsai_guidance.ts",
+      "src/core/prompts/system-prompt/registry/PromptBuilder.ts",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/anthropic_claude_sonnet_4-basic.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/anthropic_claude_sonnet_4-no-browser.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/anthropic_claude_sonnet_4-no-focus-chain.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/anthropic_claude_sonnet_4-no-mcp.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/cline_claude_4_5_sonnet-basic.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/cline_claude_4_5_sonnet-no-browser.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/cline_claude_4_5_sonnet-no-focus-chain.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/cline_claude_4_5_sonnet-no-mcp.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/cline_devstral-basic.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/cline_devstral-no-browser.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/cline_devstral-no-focus-chain.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/cline_devstral-no-mcp.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/lmstudio_qwen3_coder-basic.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/lmstudio_qwen3_coder-no-browser.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/lmstudio_qwen3_coder-no-focus-chain.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/lmstudio_qwen3_coder-no-mcp.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_3-basic.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_3-no-browser.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_3-no-focus-chain.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_3-no-mcp.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_5_1-basic.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_5_1-no-browser.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_5_1-no-focus-chain.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_5_1-no-mcp.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_5-basic.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_5_codex-basic.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_5_codex-no-browser.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_5_codex-no-focus-chain.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_5_codex-no-mcp.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_5-no-browser.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_5-no-focus-chain.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openai_gpt_5-no-mcp.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openrouter_arcee_ai_trinity_large_preview-basic.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openrouter_arcee_ai_trinity_large_preview-no-browser.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openrouter_arcee_ai_trinity_large_preview-no-focus-chain.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/openrouter_arcee_ai_trinity_large_preview-no-mcp.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/test_hermes_4-basic.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/test_hermes_4-no-browser.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/test_hermes_4-no-focus-chain.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/test_hermes_4-no-mcp.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/vertex_gemini_3-basic.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/vertex_gemini_3-no-browser.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/vertex_gemini_3-no-focus-chain.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/vertex_gemini_3-no-mcp.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/vertex_gemini_3-parallel-tools.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/zai_glm_4_6-basic.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/zai_glm_4_6-no-browser.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/zai_glm_4_6-no-focus-chain.snap",
+      "src/core/prompts/system-prompt/__tests__/__snapshots__/zai_glm_4_6-no-mcp.snap"
+    ],
+    "rationale": "port commit: [CB-cline.1] Inject bonsai system-prompt guidance on the internal path",
+    "evidence_ref": "git cherry -v 07593bb42ae95793c6dbf39918c8205f0fdf07bb f97ffd26a88685763d181393c282dc775b741530 marks +; paths inside the runtime allowlist"
+  },
+  {
+    "source_sha": "0fa435d40218cc718428c92a9c74893724431179",
+    "bucket": "required_runtime",
+    "replay_action": "cherry-pick",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "src/core/task/index.ts"
+    ],
+    "rationale": "port commit: [CB-cline.1] Wire in-band Context Bonsai gauge on default 5-turn cadence",
+    "evidence_ref": "git cherry -v 07593bb42ae95793c6dbf39918c8205f0fdf07bb f97ffd26a88685763d181393c282dc775b741530 marks +; paths inside the runtime allowlist"
+  },
+  {
+    "source_sha": "e0af778bd9e04ada4731686a7e1681dcb678964b",
+    "bucket": "required_runtime",
+    "replay_action": "cherry-pick",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "src/core/task/ContextBonsaiApplier.ts",
+      "src/core/task/__tests__/ContextBonsaiApplier.test.ts"
+    ],
+    "rationale": "port commit: [Story C1] Include tool_use input in extractMessageText search corpus",
+    "evidence_ref": "git cherry -v 07593bb42ae95793c6dbf39918c8205f0fdf07bb f97ffd26a88685763d181393c282dc775b741530 marks +; paths inside the runtime allowlist"
+  },
+  {
+    "source_sha": "72e3f19cf197a9812d8a147ca4cab27cd15f688f",
+    "bucket": "required_runtime",
+    "replay_action": "cherry-pick",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "src/core/task/ContextBonsaiApplier.ts",
+      "src/core/task/__tests__/ContextBonsaiApplier.test.ts"
+    ],
+    "rationale": "port commit: [Story C2] Render non-text content blocks in extractMessageText",
+    "evidence_ref": "git cherry -v 07593bb42ae95793c6dbf39918c8205f0fdf07bb f97ffd26a88685763d181393c282dc775b741530 marks +; paths inside the runtime allowlist"
+  },
+  {
+    "source_sha": "f97ffd26a88685763d181393c282dc775b741530",
+    "bucket": "required_runtime",
+    "replay_action": "cherry-pick",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "src/core/task/ContextBonsaiApplier.ts"
+    ],
+    "rationale": "port commit: [Story C3] Wire prune-wrapper filter into ContextBonsaiApplier resolvePattern callsites",
+    "evidence_ref": "git cherry -v 07593bb42ae95793c6dbf39918c8205f0fdf07bb f97ffd26a88685763d181393c282dc775b741530 marks +; paths inside the runtime allowlist"
+  }
+]

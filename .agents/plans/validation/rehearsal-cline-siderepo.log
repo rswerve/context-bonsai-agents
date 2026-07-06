@@ -1,0 +1,116 @@
+
+> cline-context-bonsai@0.1.0 test
+> mocha
+
+(node:867174) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("ts-node/esm", pathToFileURL("./"));'
+(Use `node-22 --trace-warnings ...` to show where the warning was created)
+(node:867174) [DEP0180] DeprecationWarning: fs.Stats constructor is deprecated.
+(Use `node-22 --trace-deprecation ...` to show where the warning was created)
+
+
+  content
+    isPruneToolUseInContent
+      ✔ returns true for a content array containing a context-bonsai-prune tool_use block
+      ✔ returns true when the prune wrapper sits among other blocks
+      ✔ returns false for plain string content
+      ✔ returns false for a tool_use block with a different name
+      ✔ returns false for tool_result blocks
+      ✔ returns false for undefined
+      ✔ returns false for null
+      ✔ returns false for a non-array, non-string value
+      ✔ returns false for an empty array
+
+  gauge
+    severityFor
+      ✔ classifies <30% as info
+      ✔ classifies 30-60% as advisory
+      ✔ classifies 61-80% as reminder
+      ✔ classifies >80% as urgent
+      ✔ clamps out-of-range values
+    computePercent
+      ✔ computes rounded percentage
+      ✔ returns null when usableBudget <= 0
+      ✔ returns null for non-finite inputs
+      ✔ returns null when usedTokens is negative
+      ✔ clamps to 100 on overuse
+    buildGaugeReading
+      ✔ returns a full reading when signals are valid
+      ✔ returns null when signals are missing
+    renderGaugeText
+      ✔ includes PRUNE NOW exactly in urgent band
+      ✔ mentions context-bonsai-prune in advisory and reminder text
+      ✔ info band is not alarming
+    DEFAULT_GAUGE_CADENCE_TURNS
+      ✔ is 5 turns by default
+
+  guards
+    validatePruneInputs
+      ✔ accepts a valid input
+      ✔ rejects empty from_pattern after trim
+      ✔ rejects empty to_pattern
+      ✔ rejects empty summary
+      ✔ rejects missing index_terms
+      ✔ rejects all-empty index_terms
+    validateRetrieveInputs
+      ✔ accepts trimmed anchor id
+      ✔ rejects missing anchor id
+    resolvePattern
+      ✔ resolves a unique substring
+      ✔ fails ambiguously when two messages share the substring
+      ✔ fails when no match
+      ✔ fails on empty pattern
+      ✔ fails on missing pattern
+      prune-wrapper filter on ambiguity
+        ✔ filter→1: two hits, one wrapper + one real → returns the real index
+        ✔ filter→0: two hits, both wrappers → pattern_ambiguous with original count
+        ✔ filter→>1: three hits, two non-wrappers + one wrapper → pattern_ambiguous with original count
+        ✔ single-match-untouched: one hit (a wrapper) → returns the wrapper index without filtering
+        ✔ callback omitted: behavior is byte-identical to v1 on the same fixture (single match)
+        ✔ callback omitted: ambiguous path still reports pattern_ambiguous (v1 behavior)
+    validatePruneRange
+      ✔ accepts a clean range
+      ✔ rejects inverted ranges
+      ✔ rejects starting on a tool continuation
+      ✔ rejects ending on an unresolved tool call
+      ✔ rejects overlap with already-archived indices
+    checkSameStepGuard
+      ✔ passes when steps are unknown
+      ✔ passes when steps differ
+      ✔ fails when steps match
+
+  placeholder
+    renderPlaceholderText
+      ✔ renders the canonical shape with anchor, range-end, summary, and index terms
+      ✔ trims summary whitespace
+      ✔ filters empty / whitespace index terms but keeps order of valid ones
+      ✔ falls back to (none) when all index terms empty after trim
+    renderPlaceholderFromArchive
+      ✔ pulls all fields from an ArchiveRecord
+
+  stable-json
+    stableSerialize
+      ✔ sorts object keys lexicographically
+      ✔ produces identical output regardless of key insertion order at any nesting depth
+      ✔ renders nested objects deterministically
+      ✔ converts undefined slots inside arrays to null
+      ✔ converts bigint values to their string form
+      ✔ honors toJSON on objects
+      ✔ renders null as 'null'
+      ✔ renders an empty object as '{}'
+      ✔ falls back to 'null' for top-level undefined
+      ✔ falls back to 'null' for top-level function
+      ✔ falls back to 'null' for top-level symbol
+      ✔ drops undefined-valued entries from objects
+    normalizeForStableJson
+      ✔ returns the same primitive value for string/number/boolean
+      ✔ returns null for null
+      ✔ returns undefined for top-level undefined/function/symbol
+
+
+  72 passing (12ms)
+
+
+> cline-context-bonsai@0.1.0 typecheck
+> tsc --noEmit
+
