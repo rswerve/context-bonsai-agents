@@ -2,7 +2,7 @@
 
 This is the exploration-derived bindings layer for the Pi port: the structural facts about the harness and the side repo (file paths, function names, storage locations, JSON shapes) that realize the obligations in [`pi-context-bonsai-spec.md`](pi-context-bonsai-spec.md). It is the derivation pipeline's Stage 1 output (`derivation-pipeline-spec.md` §4) and the demotion target for `structural-*` escalation codes (§2.2): on a structural break, everything in this document becomes an untrusted prior and may be rewritten from fresh exploration. The sibling contract spec changes only when the product's behavior contract changes or a Stage 2/3 re-run revises the posture; it references this document by binding key, never the reverse direction for obligations.
 
-Evidence in this document was verified against the pinned Pi fork repo (`pi/`, packages under `pi/packages/`) and the side repository `pi_context_bonsai/`; this harness is not yet bound in `forward-port-spec.md` Part 4 — these bindings date from the implementation epic and must be re-verified before any cycle binds them.
+Evidence in this document was verified against the pinned Pi fork repo (`pi/`, packages under `pi/packages/`) and the side repository `pi_context_bonsai/`. This harness is bound in `forward-port-spec.md` §4.4 (derivation pipeline Stages 5–6, 2026-07-05); the Binding Sites table below is that slot's seam/anchor registry — each routine cycle's §3.2 drift scan re-verifies every row against the frozen target version.
 
 ## Capability Evidence Matrix
 

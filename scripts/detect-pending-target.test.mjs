@@ -227,20 +227,23 @@ test('unknown --harness is a usage error (exit 1)', () => {
   assert.match(r.stderr, /no bound harness named/);
 });
 
-test('--plan resolves both live-spec bindings without running any query', () => {
+test('--plan resolves all live-spec bindings without running any query', () => {
   // Uses the real spec; --plan must not touch npm or the network. An empty
   // PATH-stub dir is still prepended, but --plan never invokes npm/git.
   const r = run(['--plan', '--json'], { spec: realSpec });
   assert.equal(r.status, 0, r.stderr);
   const plan = JSON.parse(r.stdout);
   const names = plan.map((p) => p.harness).sort();
-  assert.deepEqual(names, ['Claude Code', 'OpenCode']);
+  assert.deepEqual(names, ['Claude Code', 'OpenCode', 'Pi']);
   const cc = plan.find((p) => p.harness === 'Claude Code');
   assert.match(cc.upstream, /^npm @anthropic-ai\/claude-code$/);
   assert.match(cc.ported, /^doc-file tweakcc_context_bonsai\/docs semantic-anchor-analysis-$/);
   const oc = plan.find((p) => p.harness === 'OpenCode');
   assert.match(oc.upstream, /^git-remote-tag opencode upstream v$/);
   assert.match(oc.ported, /^git-tag opencode bonsai\/v1-on-opencode-$/);
+  const pi = plan.find((p) => p.harness === 'Pi');
+  assert.match(pi.upstream, /^npm @mariozechner\/pi-coding-agent$/);
+  assert.match(pi.ported, /^doc-file pi_context_bonsai\/docs binding-verification-$/);
 });
 
 test('live spec: Claude Code ported evidence resolves against the real side repo', () => {

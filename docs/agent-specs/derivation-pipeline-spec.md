@@ -2,7 +2,7 @@
 
 This is the contract for the meta-loop's expensive path: deriving (or re-deriving) a harness's **level-2 update loop** — the routine forward-port machinery — from the **level-1 behavior contract** plus fresh exploration of the harness. The routine path (`forward-port-spec.md`) executes level 2 against one release at a time (level 3); this pipeline is what runs when level 2 does not exist yet (a new harness) or has been invalidated (a structural break). Layer vocabulary throughout is `docs/meta-loop-direction.md` §"End Goal": level 1 = behavior contract, level 2 = per-harness update loop, level 3 = per-release cycle.
 
-**Status: specified, not yet executed as a pipeline.** Both historical derivations predate it and ran bespoke; §8 traces how each would have flowed through the stages, which is this document's acceptance evidence.
+**Status: specified; Stages 5–6 executed live once** (Pi, 2026-07-05 — the pipeline's tail run against an already-implemented port). Both full historical derivations predate it and ran bespoke; §11 traces how each would have flowed through the stages, which is this document's acceptance evidence.
 
 ## Relationship to the other documents
 
@@ -140,7 +140,7 @@ Acceptance evidence for this specification: how each prior derivation maps onto 
 - *Stage 3* produced the six `docs/agent-specs/*-context-bonsai-spec.md` documents (authored as single files; since split into the contract + bindings pairs that are §6's output contract).
 - *Stage 4* ran as the four story + judgement chains, with the undeclared iteration budget, prose-re-derived baselines, and simulated-seam test masking that §7's bindings make explicit.
 - *Stage 5* did not exist as a stage: real-request-path evidence was caught reactively in review (the Gemini iteration-1 finding), and no installation/runtime e2e docs were bound as story deliverables.
-- *Stage 6* never ran: `cline`, `codex`, `gemini-cli`, `kilo`, and `pi` remain unbound in Part 4 (`forward-port-spec.md` §4.4) — the derivations stopped after implementation, which is exactly the missing tail this pipeline adds. OpenCode's own Part 4 binding was emitted later, by the forward-port spec work, from the executed cycles' evidence.
+- *Stage 6* never ran at derivation time: `cline`, `codex`, `gemini-cli`, and `kilo` remain unbound in Part 4 (`forward-port-spec.md` §4.5) — the derivations stopped after implementation, which is exactly the missing tail this pipeline adds. OpenCode's own Part 4 binding was emitted later, by the forward-port spec work, from the executed cycles' evidence; Pi's was emitted by this pipeline's first live Stage 5–6 run (2026-07-05), closing that harness's tail.
 
 **The Claude Code closed-artifact port** (side repo `tweakcc_context_bonsai/`; implementation epic `.agents/plans/epic-cc-bonsai-tweakcc4/`):
 
