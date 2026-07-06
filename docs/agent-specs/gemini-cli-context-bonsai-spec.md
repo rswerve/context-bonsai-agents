@@ -5,6 +5,8 @@
 This document specializes the shared Context Bonsai contract for Gemini CLI.
 Gemini CLI is the strongest non-OpenCode host in this workspace for a hook-led bonsai design, but the spec must treat hooks, extensions, MCP, and core compression as distinct layers rather than collapsing everything into MCP.
 
+This is the **contract half** of the per-harness spec: the obligations and posture decisions that change only when the product's behavior contract changes or an integration-posture re-run revises them. The structural facts that realize these obligations — harness file paths, function names, storage locations, JSON shapes — live in the sibling [`gemini-cli-context-bonsai-bindings.md`](gemini-cli-context-bonsai-bindings.md) and are referenced here by `binding key`; the bindings document is the derivation pipeline's rewritable layer (`derivation-pipeline-spec.md` §2.2) and may change without an edit here so long as each referenced obligation still holds.
+
 ## User Model
 
 ### User Gamut
@@ -25,31 +27,6 @@ Gemini CLI is the strongest non-OpenCode host in this workspace for a hook-led b
 
 - Whether full bonsai parity can be achieved through hook request mutation alone, or whether a narrow core touch is still needed for full-fidelity non-text transcript behavior.
 
-## Capability Evidence Matrix
-
-| Area | Status | Notes |
-|---|---|---|
-| Persistent transcript | Verified | JSONL session chat records exist |
-| Tool execution layer | Verified | Registry, discovered tools, and MCP tools are first-class |
-| Hook system | Verified | Hooks can modify LLM requests and responses |
-| Extension layer | Verified | Config/extensions participate in runtime behavior |
-| Transcript fidelity through hooks | Partial | Stable hook translator is text-oriented |
-| Token/context tracking | Verified | Prompt token counts and model limits are already computed |
-
-## Verified Host Primitives
-
-- Session recording and replay-relevant artifacts live in [chatRecordingService.ts](/home/basil/projects/context-bonsai-agents/gemini-cli/packages/core/src/services/chatRecordingService.ts).
-- Chat history assembly lives in [geminiChat.ts](/home/basil/projects/context-bonsai-agents/gemini-cli/packages/core/src/core/geminiChat.ts).
-- Tools are provided through [tool-registry.ts](/home/basil/projects/context-bonsai-agents/gemini-cli/packages/core/src/tools/tool-registry.ts) and MCP integration in [mcp-client.ts](/home/basil/projects/context-bonsai-agents/gemini-cli/packages/core/src/tools/mcp-client.ts).
-- Hook mutation surfaces are defined in [hooks/types.ts](/home/basil/projects/context-bonsai-agents/gemini-cli/packages/core/src/hooks/types.ts) and [hookSystem.ts](/home/basil/projects/context-bonsai-agents/gemini-cli/packages/core/src/hooks/hookSystem.ts).
-- Token limit logic exists in [tokenLimits.ts](/home/basil/projects/context-bonsai-agents/gemini-cli/packages/core/src/core/tokenLimits.ts).
-
-## Unverified Or Weak Areas
-
-- Hook translators simplify message content, which may limit perfect transcript-fidelity transforms.
-- System instruction construction is centralized in core; replacing it cleanly through external hooks is not yet fully proven.
-- Existing core compression behavior must be treated as a separate concern from bonsai.
-
 ## Integration Posture
 
 ### Required architecture stance
@@ -63,8 +40,8 @@ Gemini CLI is the strongest non-OpenCode host in this workspace for a hook-led b
 
 - `context-bonsai-prune` and `context-bonsai-retrieve` SHOULD be surfaced through the native tool registry, either directly or through extension/MCP registration.
 - Archive metadata SHOULD persist in a host-owned durable store correlated with session chat records.
-- Per shared spec Pattern Matching Contract, the prune-wrapper filter on the ambiguity path MUST be implemented inside the side-repo pattern resolver in `gemini-cli_context_bonsai/src/guards.ts` (`resolveBoundary`), operating on the agent-side transcript snapshot the bootstrap obtains from `chatRecordingService` before the MCP tool is invoked.
-- Per shared spec Pattern Matching Contract, `snapshotTranscriptForResolution` in `gemini-cli/packages/cli/src/utils/contextBonsaiBootstrap.ts` MUST include each tool call's name, args, and result/output in the `searchText` it produces for each `TranscriptMessage`. The v1 implementation reads only `MessageRecord.content` through `flattenMessageText` (which walks `.text` properties only) and never touches `MessageRecord.toolCalls[]` or `functionResponse` parts — that is a spec violation. The snapshot builder MUST also serialize `toolCalls[].name`, `toolCalls[].args`, and `toolCalls[].result` (when present) into the searchable text, plus extract content from `functionResponse` parts in user messages.
+- Per shared spec Pattern Matching Contract, the prune-wrapper filter on the ambiguity path MUST be implemented in the side-repo pattern resolver (binding: `prune-wrapper-filter`), operating on the agent-side transcript snapshot the bootstrap obtains before the MCP tool is invoked.
+- Per shared spec Pattern Matching Contract bullet 1, the searchable-text layer MUST include each tool call's name, args, and result/output so pattern matching can target tool-call payloads (binding: `searchable-text`).
 
 ### Transcript mutation path
 
@@ -77,7 +54,7 @@ Gemini CLI is the strongest non-OpenCode host in this workspace for a hook-led b
 
 ### Gauge path
 
-- Gauge SHOULD reuse `lastPromptTokenCount`, usage metadata, and model token-limit calculations.
+- Gauge SHOULD reuse existing prompt-token-count and model-limit signals (binding: `gauge-channel`).
 - Gauge delivery MUST be in-band in request contents, not merely logged.
 
 ## Fail-Closed Requirements
@@ -107,9 +84,4 @@ Gemini CLI is the strongest non-OpenCode host in this workspace for a hook-led b
 
 ## Key References
 
-- [chatRecordingService.ts](/home/basil/projects/context-bonsai-agents/gemini-cli/packages/core/src/services/chatRecordingService.ts)
-- [geminiChat.ts](/home/basil/projects/context-bonsai-agents/gemini-cli/packages/core/src/core/geminiChat.ts)
-- [tool-registry.ts](/home/basil/projects/context-bonsai-agents/gemini-cli/packages/core/src/tools/tool-registry.ts)
-- [mcp-client.ts](/home/basil/projects/context-bonsai-agents/gemini-cli/packages/core/src/tools/mcp-client.ts)
-- [hooks/types.ts](/home/basil/projects/context-bonsai-agents/gemini-cli/packages/core/src/hooks/types.ts)
-- [tokenLimits.ts](/home/basil/projects/context-bonsai-agents/gemini-cli/packages/core/src/core/tokenLimits.ts)
+Structural references (source files, storage locations, seam sites) live in [`gemini-cli-context-bonsai-bindings.md`](gemini-cli-context-bonsai-bindings.md) §Key References.

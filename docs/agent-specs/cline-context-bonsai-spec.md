@@ -5,6 +5,8 @@
 This document specializes the shared Context Bonsai contract for Cline.
 Cline has real hook infrastructure, but the authoritative history, truncation, and compaction behavior still live in first-party core state. The seam question is now resolved: hooks can add advisory model-visible context, but full bonsai prune/retrieve requires a small core seam because extension-side hooks do not own canonical transcript replacement or persistence.
 
+This is the **contract half** of the per-harness spec: the obligations and posture decisions that change only when the product's behavior contract changes or an integration-posture re-run revises them. The structural facts that realize these obligations — harness file paths, function names, storage locations, JSON shapes — live in the sibling [`cline-context-bonsai-bindings.md`](cline-context-bonsai-bindings.md) and are referenced here by `binding key`; the bindings document is the derivation pipeline's rewritable layer (`derivation-pipeline-spec.md` §2.2) and may change without an edit here so long as each referenced obligation still holds.
+
 ## User Model
 
 ### User Gamut
@@ -25,32 +27,6 @@ Cline has real hook infrastructure, but the authoritative history, truncation, a
 
 - The remaining design choice is not whether a core seam is needed, but how narrowly bonsai can extend the existing checkpoint/history-overwrite machinery while leaving guidance and tool ergonomics extension-side.
 
-## Capability Evidence Matrix
-
-| Area | Status | Notes |
-|---|---|---|
-| Persistent transcript | Verified | API and UI histories are both stored on disk |
-| Tool execution layer | Verified | Centralized coordinator and handlers exist |
-| Hook system | Verified | Lifecycle hooks can inject additional context |
-| Full transcript rewrite via hooks | Missing | Hooks can append context but do not replace canonical transcript history |
-| System prompt assembly | Verified | Prompt assembly is internal and direct |
-| Token/context tracking | Verified | Context window and truncation utilities already exist |
-| Canonical history overwrite path | Verified | Core already persists and reloads overwritten conversation history |
-
-## Verified Host Primitives
-
-- Canonical task history lives in [message-state.ts](/home/basil/projects/context-bonsai-agents/cline/src/core/task/message-state.ts) and [disk.ts](/home/basil/projects/context-bonsai-agents/cline/src/core/storage/disk.ts).
-- Tools are centralized through [ToolExecutor.ts](/home/basil/projects/context-bonsai-agents/cline/src/core/task/ToolExecutor.ts) and [ToolExecutorCoordinator.ts](/home/basil/projects/context-bonsai-agents/cline/src/core/task/tools/ToolExecutorCoordinator.ts).
-- Hooks exist and can append context through [hook-factory.ts](/home/basil/projects/context-bonsai-agents/cline/src/core/hooks/hook-factory.ts) and task-side hook handling in [index.ts](/home/basil/projects/context-bonsai-agents/cline/src/core/task/index.ts).
-- Context sizing and truncation logic already exists in [ContextManager.ts](/home/basil/projects/context-bonsai-agents/cline/src/core/context/context-management/ContextManager.ts).
-- Core already exposes canonical overwrite and restore mechanisms through [overwriteApiConversationHistory](/home/basil/projects/context-bonsai-agents/cline/src/core/task/message-state.ts#L186) and checkpoint restore flows in [checkpoints/index.ts](/home/basil/projects/context-bonsai-agents/cline/src/integrations/checkpoints/index.ts#L661).
-
-## Unverified Or Weak Areas
-
-- Hook APIs do not own canonical full-history replacement before every model call.
-- Bonsai cannot safely rely on UI transcript state alone because API conversation history is the authoritative model-facing source.
-- Existing `conversationHistoryDeletedRange` and context-history updates are optimized for cumulative truncation, not arbitrary bonsai archive placeholders, so a narrow extension is still needed.
-
 ## Integration Posture
 
 ### Required architecture stance
@@ -65,15 +41,15 @@ Cline has real hook infrastructure, but the authoritative history, truncation, a
 - The model-facing tool contract remains `context-bonsai-prune` and `context-bonsai-retrieve`.
 - Archive metadata SHOULD be stored alongside or in a structure directly correlated with API conversation history.
 - Retrieval MUST restore visibility in the same history layer used for actual request construction.
-- The narrowest implementation path is to extend the existing message-state/checkpoint/context-manager overwrite flow rather than inventing a separate transcript store.
-- Per shared spec Pattern Matching Contract, the prune-wrapper filter on the ambiguity path MUST be implemented inside the side-repo pattern resolver in `cline_context_bonsai/src/guards.ts`, operating on the conversation-history snapshot the applier feeds into pattern resolution.
-- Per shared spec Pattern Matching Contract, `extractMessageText` in `cline/src/core/task/ContextBonsaiApplier.ts` MUST include each `tool_use` block's name AND a stable representation of its `input` arguments in the searchable text. The v1 implementation renders `tool_use` as `[tool_use:${name}]` and drops `input` entirely; that is a spec violation. `tool_result` block extraction (which already includes inner text) is compliant for the output side.
+- The narrowest implementation path is to extend the existing core history-overwrite flow rather than inventing a separate transcript store (binding: `history-overwrite-seam`).
+- Per shared spec Pattern Matching Contract, the prune-wrapper filter on the ambiguity path MUST be implemented inside the side-repo pattern resolver, operating on the conversation-history snapshot the applier feeds into pattern resolution (binding: `prune-wrapper-filter`).
+- Per shared spec Pattern Matching Contract bullet 1, the tool_use searchable-text representation MUST include each tool call's name AND a stable representation of its `input` arguments in the searchable text (binding: `searchable-text`); `tool_result` block extraction is compliant for the output side.
 
 ### Transcript mutation path
 
 - Hook-side and extension-side paths are insufficient for authoritative history replacement; they can only append advisory context.
-- Placeholder rendering must occur in the same transcript path that reaches `api.createMessage(...)`.
-- The preferred core seam is an extension of the existing `overwriteApiConversationHistory` plus `ContextManager` persistence/update path.
+- Placeholder rendering must occur in the same transcript path that reaches actual request construction (binding: `history-overwrite-seam`).
+- The preferred core seam is an extension of the existing core history-overwrite and persistence path (binding: `history-overwrite-seam`).
 
 ### System guidance path
 
@@ -88,7 +64,7 @@ Cline has real hook infrastructure, but the authoritative history, truncation, a
 
 ## Fail-Closed Requirements
 
-- If the canonical history overwrite seam is unavailable, prune/retrieve MUST fail closed.
+- If the canonical history overwrite seam is unavailable, prune/retrieve MUST fail closed (binding: `history-overwrite-seam`).
 - If archive state and checkpoint restore could diverge, the implementation must reject the mutation rather than risk split-brain task history.
 - Gauge remains silent when context data is unavailable.
 
@@ -100,7 +76,7 @@ Cline has real hook infrastructure, but the authoritative history, truncation, a
 
 ## Specified Implementation Direction
 
-- Preferred: hybrid design where hooks own guidance and gauge delivery while a minimal core seam extends checkpoint/message-state/context-manager overwrite behavior for prune/retrieve.
+- Preferred: hybrid design where hooks own guidance and gauge delivery while a minimal core seam extends the existing history-overwrite behavior for prune/retrieve (binding: `history-overwrite-seam`).
 - Acceptable: precompact integration if it preserves deterministic prune/retrieve semantics.
 - Not acceptable: a hook-only implementation that leaves canonical API history unchanged.
 
@@ -113,9 +89,4 @@ Cline has real hook infrastructure, but the authoritative history, truncation, a
 
 ## Key References
 
-- [message-state.ts](/home/basil/projects/context-bonsai-agents/cline/src/core/task/message-state.ts)
-- [disk.ts](/home/basil/projects/context-bonsai-agents/cline/src/core/storage/disk.ts)
-- [ToolExecutor.ts](/home/basil/projects/context-bonsai-agents/cline/src/core/task/ToolExecutor.ts)
-- [ToolExecutorCoordinator.ts](/home/basil/projects/context-bonsai-agents/cline/src/core/task/tools/ToolExecutorCoordinator.ts)
-- [ContextManager.ts](/home/basil/projects/context-bonsai-agents/cline/src/core/context/context-management/ContextManager.ts)
-- [index.ts](/home/basil/projects/context-bonsai-agents/cline/src/core/task/index.ts)
+Structural references (source files, storage locations, seam sites) live in [`cline-context-bonsai-bindings.md`](cline-context-bonsai-bindings.md) §Key References.

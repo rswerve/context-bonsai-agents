@@ -5,6 +5,8 @@
 This document specializes the shared Context Bonsai contract for Kilo CLI, the OpenCode-derived runtime under `kilo`.
 Kilo is the strongest native-fit host in this workspace because it already exposes the core transform hooks bonsai needs. The main constraint is fork discipline: plugin-first, shared-core-touch only as a last resort.
 
+This is the **contract half** of the per-harness spec: the obligations and posture decisions that change only when the product's behavior contract changes or an integration-posture re-run revises them. The structural facts that realize these obligations — harness file paths, function names, storage locations, JSON shapes — live in the sibling [`kilo-context-bonsai-bindings.md`](kilo-context-bonsai-bindings.md) and are referenced here by `binding key`; the bindings document is the derivation pipeline's rewritable layer (`derivation-pipeline-spec.md` §2.2) and may change without an edit here so long as each referenced obligation still holds.
+
 ## User Model
 
 ### User Gamut
@@ -25,30 +27,6 @@ Kilo is the strongest native-fit host in this workspace because it already expos
 
 - Whether any Kilo-specific persistence or multi-session UX needs should diverge from upstream OpenCode behavior. This spec says no unless a concrete Kilo-only requirement forces it.
 
-## Capability Evidence Matrix
-
-| Area | Status | Notes |
-|---|---|---|
-| Persistent transcript | Verified | Session/message/part tables and session entries exist |
-| Tool execution layer | Verified | Registry and execution wrapping exist |
-| Message transform hook | Verified | `experimental.chat.messages.transform` exists |
-| System transform hook | Verified | `experimental.chat.system.transform` exists |
-| Token/context tracking | Verified | Usage and overflow checks exist |
-| Upstream compatibility pressure | Verified | Repo explicitly minimizes divergence from OpenCode |
-
-## Verified Host Primitives
-
-- Session persistence is in [session.sql.ts](/home/basil/projects/context-bonsai-agents/kilo/packages/opencode/src/session/session.sql.ts) and [message-v2.ts](/home/basil/projects/context-bonsai-agents/kilo/packages/opencode/src/session/message-v2.ts).
-- Tool registry and execution are in [tool/registry.ts](/home/basil/projects/context-bonsai-agents/kilo/packages/opencode/src/tool/registry.ts) and [tool/tool.ts](/home/basil/projects/context-bonsai-agents/kilo/packages/opencode/src/tool/tool.ts).
-- Plugin hooks are declared in [packages/plugin/src/index.ts](/home/basil/projects/context-bonsai-agents/kilo/packages/plugin/src/index.ts).
-- System transform is applied in [session/llm.ts](/home/basil/projects/context-bonsai-agents/kilo/packages/opencode/src/session/llm.ts).
-- Message transform is applied in [session/prompt.ts](/home/basil/projects/context-bonsai-agents/kilo/packages/opencode/src/session/prompt.ts).
-
-## Unverified Or Weak Areas
-
-- The main uncertainty is not host capability; it is how to keep the Kilo fork aligned with upstream OpenCode while adding bonsai behavior.
-- Kilo-specific products on top of the CLI may introduce extra UX expectations, but that should not force CLI-core divergence unless necessary.
-
 ## Integration Posture
 
 ### Required architecture stance
@@ -62,16 +40,16 @@ Kilo is the strongest native-fit host in this workspace because it already expos
 
 - The model-facing tools MUST remain `context-bonsai-prune` and `context-bonsai-retrieve`.
 - Archive state SHOULD be implemented in the same style as the OpenCode reference unless Kilo session differences require a narrow adaptation.
-- Per shared spec Pattern Matching Contract, the prune-wrapper filter on the ambiguity path MUST be implemented inside the plugin's pattern resolver in `kilo_context_bonsai/src/guards.ts` (or the side-repo equivalent), operating on the message-transform input the plugin already receives.
-- Per shared spec Pattern Matching Contract, the side-repo text-extraction layer (currently `getText` in `kilo_context_bonsai/src/factory.ts`) MUST include each tool part's name, input arguments, and completed output in the searchable text it produces for `MessageText`. Skipping non-text parts, as the v1 implementation does, is a spec violation. Tool-call messages MUST be reachable by pattern.
+- Per shared spec Pattern Matching Contract, the prune-wrapper filter on the ambiguity path MUST be implemented inside the plugin's pattern resolver (binding: `prune-wrapper-filter`), operating on the message-transform input the plugin already receives.
+- Per shared spec Pattern Matching Contract, the side-repo text-extraction layer MUST include each tool part's name, input arguments, and completed output in the searchable text it produces for `MessageText` (binding: `searchable-text`). Skipping non-text parts is a spec violation. Tool-call messages MUST be reachable by pattern.
 
 ### Transcript mutation path
 
-- Placeholder rendering and archived-range elision SHOULD be implemented entirely through `experimental.chat.messages.transform`.
+- Placeholder rendering and archived-range elision SHOULD be implemented entirely through the message-transform hook (binding: `message-transform-hook`).
 
 ### System guidance path
 
-- Bonsai guidance SHOULD be injected through `experimental.chat.system.transform`.
+- Bonsai guidance SHOULD be injected through the system-transform hook (binding: `system-transform-hook`).
 
 ### Gauge path
 
@@ -101,9 +79,4 @@ Kilo is the strongest native-fit host in this workspace because it already expos
 
 ## Key References
 
-- [session.sql.ts](/home/basil/projects/context-bonsai-agents/kilo/packages/opencode/src/session/session.sql.ts)
-- [message-v2.ts](/home/basil/projects/context-bonsai-agents/kilo/packages/opencode/src/session/message-v2.ts)
-- [registry.ts](/home/basil/projects/context-bonsai-agents/kilo/packages/opencode/src/tool/registry.ts)
-- [tool.ts](/home/basil/projects/context-bonsai-agents/kilo/packages/opencode/src/tool/tool.ts)
-- [packages/plugin/src/index.ts](/home/basil/projects/context-bonsai-agents/kilo/packages/plugin/src/index.ts)
-- [AGENTS.md](/home/basil/projects/context-bonsai-agents/kilo/AGENTS.md)
+Structural references (source files, storage locations, seam sites) live in [`kilo-context-bonsai-bindings.md`](kilo-context-bonsai-bindings.md) §Key References.

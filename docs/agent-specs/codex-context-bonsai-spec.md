@@ -5,6 +5,8 @@
 This document specializes the shared Context Bonsai contract for Codex.
 Codex has durable thread state, usage tracking, tools, hooks, and app-server surfaces. The core seam question is now resolved: hook-side and plugin-side paths can inject model-visible guidance, but authoritative prune/retrieve transcript replacement requires a small core seam built on the existing replacement-history compaction machinery.
 
+This is the **contract half** of the per-harness spec: the obligations and posture decisions that change only when the product's behavior contract changes or an integration-posture re-run revises them. The structural facts that realize these obligations — harness file paths, function names, storage locations, JSON shapes — live in the sibling [`codex-context-bonsai-bindings.md`](codex-context-bonsai-bindings.md) and are referenced here by `binding key`; the bindings document is the derivation pipeline's rewritable layer (`derivation-pipeline-spec.md` §2.2) and may change without an edit here so long as each referenced obligation still holds.
+
 ## User Model
 
 ### User Gamut
@@ -25,34 +27,6 @@ Codex has durable thread state, usage tracking, tools, hooks, and app-server sur
 
 - The remaining design choice is not whether a core seam is needed, but how narrow that seam can be while keeping most bonsai logic outside core.
 
-## Capability Evidence Matrix
-
-| Area | Status | Notes |
-|---|---|---|
-| Persistent thread history | Verified | Thread store and rollout-backed persistence exist |
-| Tool execution layer | Verified | Tool registry and handler pipeline are strong |
-| Hook system | Verified | Hooks can inject additional context/messages |
-| Authoritative transcript rewrite outside core | Missing | No verified non-core path can replace arbitrary existing prompt history |
-| System guidance path | Verified | Existing hook-added context provides a model-visible guidance path |
-| Token/context tracking | Verified | Context manager and session state track usage and windows |
-| Replacement-history checkpoint machinery | Verified | Core already has atomic history replacement plus persisted compaction snapshots |
-
-## Verified Host Primitives
-
-- Thread and history persistence exist in [thread-store](/home/basil/projects/context-bonsai-agents/codex/codex-rs/thread-store/src/store.rs) and [types.rs](/home/basil/projects/context-bonsai-agents/codex/codex-rs/thread-store/src/types.rs).
-- Prompt-ready history is produced by [history.rs](/home/basil/projects/context-bonsai-agents/codex/codex-rs/core/src/context_manager/history.rs) and sent from [turn.rs](/home/basil/projects/context-bonsai-agents/codex/codex-rs/core/src/session/turn.rs).
-- Tool handling is centralized in [registry.rs](/home/basil/projects/context-bonsai-agents/codex/codex-rs/core/src/tools/registry.rs).
-- Initial system and developer context assembly is in [session/mod.rs](/home/basil/projects/context-bonsai-agents/codex/codex-rs/core/src/session/mod.rs).
-- Hook runtime exists in [hook_runtime.rs](/home/basil/projects/context-bonsai-agents/codex/codex-rs/core/src/hook_runtime.rs).
-- Core exposes authoritative history replacement through [replace_history](/home/basil/projects/context-bonsai-agents/codex/codex-rs/core/src/session/mod.rs#L2402) and [replace_compacted_history](/home/basil/projects/context-bonsai-agents/codex/codex-rs/core/src/session/mod.rs#L2411).
-- Existing compaction persists replacement-history checkpoints in [compact.rs](/home/basil/projects/context-bonsai-agents/codex/codex-rs/core/src/compact.rs#L279) and rebuilds them on resume in [rollout_reconstruction.rs](/home/basil/projects/context-bonsai-agents/codex/codex-rs/core/src/session/rollout_reconstruction.rs#L234).
-
-## Unverified Or Weak Areas
-
-- Hooks clearly support additive context and guidance injection, but not transcript replacement.
-- App-server surfaces can append items and trigger rollback or compaction, but they do not provide arbitrary contiguous-range replacement for an existing thread.
-- The remaining open question is API shape, not whether a core replacement seam is required.
-
 ## Integration Posture
 
 ### Required architecture stance
@@ -67,15 +41,15 @@ Codex has durable thread state, usage tracking, tools, hooks, and app-server sur
 - The target model-facing contract is still `context-bonsai-prune` and `context-bonsai-retrieve`.
 - Tool definitions SHOULD live in the existing tool registry.
 - Tool execution SHOULD delegate to a minimal core capability that installs a new replacement-history snapshot for the live thread and persists the corresponding rollout item.
-- Per shared spec Pattern Matching Contract, the prune-wrapper filter on the ambiguity path MUST be implemented inside the side crate's pattern resolver in `codex_context_bonsai/src/guards.rs`, operating on the projected `MessageForMatching` slice produced by `project_message_for_matching`.
-- Per shared spec Pattern Matching Contract, `project_message_for_matching` (in `codex/codex-rs/core/src/context_bonsai.rs`) MUST emit non-empty searchable text for every `ResponseItem` variant that represents a completed tool call or tool-call output the model can see. The v1 implementation extracts only `FunctionCall.arguments` and `CustomToolCall.input`, returning empty string for `FunctionCallOutput`, `CustomToolCallOutput`, `ToolSearchCall`/`Output`, `LocalShellCall`, `WebSearchCall`, `ImageGenerationCall`, and other variants — that is a spec violation. The projection MUST include the tool-call name AND output for each variant, in addition to the input.
+- Per shared spec Pattern Matching Contract, the prune-wrapper filter on the ambiguity path MUST be implemented inside the side crate's pattern resolver (binding: `prune-wrapper-filter`), operating on the projected message-for-matching slice produced by the message-projection function (binding: `searchable-text`).
+- Per shared spec Pattern Matching Contract, the message-projection function (binding: `searchable-text`) MUST emit non-empty searchable text for every `ResponseItem` variant that represents a completed tool call or tool-call output the model can see. The projection MUST include the tool-call name AND output for each variant, in addition to the input.
 
 ### Transcript mutation path
 
-- The canonical source of prompt history appears to be `ContextManager` plus session turn assembly.
-- Any implementation MUST mutate or transform the same history path used by `for_prompt(...)`, not a parallel shadow log only.
+- The canonical source of prompt history appears to be the context manager plus session turn assembly (binding: `prompt-history-path`).
+- Any implementation MUST mutate or transform the same history path used to build the prompt (binding: `prompt-history-path`), not a parallel shadow log only.
 - The preferred mutation mechanism is to reuse the existing replacement-history install path already used by compaction.
-- App-server `thread/inject_items` and `thread/rollback` are insufficient for bonsai parity because they only append items or drop suffix turns.
+- App-server mutation APIs (binding: `app-server-mutation-apis`) are insufficient for bonsai parity because they only append items or drop suffix turns.
 
 ### System guidance path
 
@@ -114,9 +88,4 @@ Codex has durable thread state, usage tracking, tools, hooks, and app-server sur
 
 ## Key References
 
-- [history.rs](/home/basil/projects/context-bonsai-agents/codex/codex-rs/core/src/context_manager/history.rs)
-- [turn.rs](/home/basil/projects/context-bonsai-agents/codex/codex-rs/core/src/session/turn.rs)
-- [session/mod.rs](/home/basil/projects/context-bonsai-agents/codex/codex-rs/core/src/session/mod.rs)
-- [registry.rs](/home/basil/projects/context-bonsai-agents/codex/codex-rs/core/src/tools/registry.rs)
-- [hook_runtime.rs](/home/basil/projects/context-bonsai-agents/codex/codex-rs/core/src/hook_runtime.rs)
-- [thread-store/src/store.rs](/home/basil/projects/context-bonsai-agents/codex/codex-rs/thread-store/src/store.rs)
+Structural references (source files, storage locations, seam sites) live in [`codex-context-bonsai-bindings.md`](codex-context-bonsai-bindings.md) §Key References.

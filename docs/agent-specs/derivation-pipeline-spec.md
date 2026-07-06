@@ -29,7 +29,7 @@ Entered on any other `structural-*` code from `forward-port-spec.md` §1.17. The
 
 | §1.17 code | Invalidation scope (per §1.17) | Entry stage | Demotion set |
 |---|---|---|---|
-| `structural-mass-manual-review` | Level-2 bindings | Stage 1 | The harness's Part 4 slot table and its per-harness spec's exploration-derived sections (§5's split): Capability Evidence Matrix, Verified Host Primitives, allowlists, naming, command sets |
+| `structural-mass-manual-review` | Level-2 bindings | Stage 1 | The harness's Part 4 slot table and its entire bindings document (`<harness>-context-bonsai-bindings.md`, §6's split): Capability Evidence Matrix, Verified Host Primitives, Binding Sites, allowlists, naming, command sets |
 | `structural-anchor-derivation-failure` | Level-2 bindings | Stage 1 | As above, plus the seam/anchor registry's documented reasoning — every anchor rationale is re-derived, not just the failing majority |
 | `structural-protocol-a-regression` | Level-2 seam assumptions | Stage 1, scoped | The capability rows behind the failing oracle — transcript-rewrite/history-replacement, tool transport, hook/guidance paths — and every downstream output that cites them (posture record, seam bindings, affected slots). Rows and outputs not citing the demoted capability rows stay trusted |
 | `structural-missing-command-binding` | The affected slot binding only | Stage 6, scoped | The named slot's command binding. If Stage 6 cannot bind the command because the harness surface itself changed, that is new structural evidence: record it and re-enter at Stage 1 with the surface's capability row demoted |
@@ -47,7 +47,7 @@ A scoped entry that discovers its scope was too narrow (evidence contradicting a
 ## 4. Stage 1 — Capability discovery
 
 *Consumes:* behavior contract; frozen harness source; on structural-break entry, the demotion set as untrusted priors.
-*Produces:* the evidence layer of the per-harness spec — **Capability Evidence Matrix**, **Verified Host Primitives**, **Unverified Or Weak Areas** (§5's headings 4–6).
+*Produces:* the evidence layer of the harness's **bindings document** (`docs/agent-specs/<harness>-context-bonsai-bindings.md`) — **Capability Evidence Matrix**, **Verified Host Primitives**, **Unverified Or Weak Areas**. (The bindings document's **Binding Sites** table is completed later: Stage 3 names the binding keys the contract half references, and Stage 4 records the realized sites.)
 
 Discovery is a fixed probe list, not freehand reading. The matrix must contain one row per behavior-contract capability the port depends on; the normalized set below generalizes the rows the existing per-harness specs carry (their exact row names and granularity vary per host), mapping to the contract's Runtime Capability Matrix and Planning Checklist:
 
@@ -80,11 +80,14 @@ Every stance and every `Not acceptable` line cites the matrix row(s) that force 
 ## 6. Stage 3 — Per-harness spec generation
 
 *Consumes:* Stages 1–2 outputs; the behavior contract.
-*Produces:* `docs/agent-specs/<harness>-context-bonsai-spec.md` on the shared skeleton — the eleven section headings (twelve counting the title) every existing per-harness spec carries, in order:
+*Produces:* the harness's document pair on the shared skeleton — the eleven shared section headings, physically split by provenance class:
 
-1. Purpose · 2. User Model (User Gamut / User-Needs Gamut / Ambiguities From User Model) · 3. Capability Evidence Matrix · 4. Verified Host Primitives · 5. Unverified Or Weak Areas · 6. Integration Posture (Required architecture stance / Prune and retrieve contract / Transcript mutation path / System guidance path / Gauge path) · 7. Fail-Closed Requirements · 8. Parity Gaps Against Shared Spec · 9. Specified Implementation Direction · 10. E2E Priorities · 11. Key References — with heading 3–5 content lifted from Stage 1 and heading 6/9 content from Stage 2. (The Pi and Claude Code specs demonstrate the one permitted extension: an additional section for a genuinely harness-unique concern, explicitly marked as such.)
+- **Contract half** — `docs/agent-specs/<harness>-context-bonsai-spec.md`: 1. Purpose · 2. User Model (User Gamut / User-Needs Gamut / Ambiguities From User Model) · 6. Integration Posture (Required architecture stance / Prune and retrieve contract / Transcript mutation path / System guidance path / Gauge path) · 7. Fail-Closed Requirements · 8. Parity Gaps Against Shared Spec · 9. Specified Implementation Direction · 10. E2E Priorities · a Key References pointer to the bindings half — with heading 6/9 content from Stage 2.
+- **Bindings half** — `docs/agent-specs/<harness>-context-bonsai-bindings.md`: 3. Capability Evidence Matrix · 4. Verified Host Primitives · 5. Unverified Or Weak Areas · a **Binding Sites** table (`Binding key | Current site | Realizes`) · 11. Key References — headings 3–5 lifted from Stage 1.
 
-The document carries two provenance classes and must keep them distinguishable: **contract-traceable content** (tool names and input schemas, Pattern Matching Contract obligations, gauge bands and cadence, fail-closed semantics, minimum validation scenarios — cited to contract sections, quoted or pointed to, never paraphrased into drift) and **exploration-derived content** (everything citing Stage 1 evidence). This split is what §2.2's demotion sets operate on, and what the planned contract-vs-bindings document split (`../meta-loop-direction.md` §"Provisional Future Steps") will eventually separate physically.
+(The Pi and Claude Code specs demonstrate the one permitted extension: an additional section for a genuinely harness-unique concern, explicitly marked as such — procedural or evidence *rules* go in the contract half; discovered structural *facts* go in the bindings half.)
+
+The two provenance classes are separated physically by the pair: **contract-traceable content** (tool names and input schemas, Pattern Matching Contract obligations, gauge bands and cadence, fail-closed semantics, minimum validation scenarios — cited to contract sections, quoted or pointed to, never paraphrased into drift) lives in the contract half; **exploration-derived content** (everything citing Stage 1 evidence: harness file paths, function names, hook names, storage locations, schema shapes) lives in the bindings half. Where a contract obligation must name its current realization, the contract half references a named key (`binding: <key>`) whose row in the bindings half's Binding Sites table carries the concrete site — so rewriting a site is a bindings-half change that leaves the contract half untouched as long as the obligation holds. The bindings half is what §2.2's demotion sets operate on; the litmus for placement is whether a sentence names *where or how in the harness or side repo* an obligation is realized today (bindings) or would survive a harness release that reshuffles the codebase (contract).
 
 *Gate:* the writing-guidance review loop with a source-truth reviewer verifying both provenance classes.
 
@@ -100,6 +103,7 @@ Bindings the historical record showed must be explicit rather than conventional:
 - **Scope discipline.** Judges diff the realized change set against the plan's touch-list (`git diff --name-only`) each iteration.
 - **Real-entry-point rule.** A finding may be closed only by evidence driven through the production entry path. Tests that simulate the seam — manually advanced counters, hand-built in-memory state, structural type checks in place of runtime loader behavior — are not closure evidence. (This is where the historical ports concentrated their genuine bugs: integration-glue defects masked by tests that bypassed the real path — an unloadable plugin path, a retrieve guard dead after one prune, archive state never rehydrated on resume, an "idempotent guard fix" that was unreachable code.)
 - **Posture re-checkpoint** per §5.
+- **Binding Sites completion.** Realized side-repo sites (the functions, files, and storage locations that end up carrying each contract obligation) are recorded in the bindings document's Binding Sites table as they land, so the contract half's `binding:` references resolve before the stage gate.
 
 *Gate:* terminal `APPROVED` judgement with an item-by-item acceptance-criteria walk and the judge's independent regression re-run.
 
@@ -133,7 +137,7 @@ Acceptance evidence for this specification: how each prior derivation maps onto 
 
 - *Stage 1* ran as the per-harness specs' Capability Evidence Matrix / Verified Host Primitives sections plus each story's must-read Context References — freehand per target, no fixed probe list (the gap §4 closes).
 - *Stage 2* ran once, at epic level, as the epic's "Architecture Stance (epic-level)" section; each story's "Architecture Split" section restated it without re-validation (the gap §5's re-checkpoint closes — Codex and Cline both reworked at the integration boundary).
-- *Stage 3* produced the six `docs/agent-specs/*-context-bonsai-spec.md` documents, whose shared skeleton is §6's output contract.
+- *Stage 3* produced the six `docs/agent-specs/*-context-bonsai-spec.md` documents (authored as single files; since split into the contract + bindings pairs that are §6's output contract).
 - *Stage 4* ran as the four story + judgement chains, with the undeclared iteration budget, prose-re-derived baselines, and simulated-seam test masking that §7's bindings make explicit.
 - *Stage 5* did not exist as a stage: real-request-path evidence was caught reactively in review (the Gemini iteration-1 finding), and no installation/runtime e2e docs were bound as story deliverables.
 - *Stage 6* never ran: `cline`, `codex`, `gemini-cli`, `kilo`, and `pi` remain unbound in Part 4 (`forward-port-spec.md` §4.4) — the derivations stopped after implementation, which is exactly the missing tail this pipeline adds. OpenCode's own Part 4 binding was emitted later, by the forward-port spec work, from the executed cycles' evidence.

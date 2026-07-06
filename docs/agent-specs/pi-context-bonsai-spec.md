@@ -5,6 +5,8 @@
 This document specializes the shared Context Bonsai contract for Pi.
 Pi is an unusually strong fit for a first-party extension implementation because its `ExtensionAPI` already exposes model-facing tools, context transforms, system-prompt mutation, custom session entries, usage data, and session lifecycle events. The main implementation constraint is not host capability; it is preserving Pi's in-tree extension architecture and accounting for the fact that LLM messages do not carry stable message ids.
 
+This is the **contract half** of the per-harness spec: the obligations and posture decisions that change only when the product's behavior contract changes or an integration-posture re-run revises them. The structural facts that realize these obligations — harness file paths, function names, storage locations, JSON shapes — live in the sibling [`pi-context-bonsai-bindings.md`](pi-context-bonsai-bindings.md) and are referenced here by `binding key`; the bindings document is the derivation pipeline's rewritable layer (`derivation-pipeline-spec.md` §2.2) and may change without an edit here so long as each referenced obligation still holds.
+
 ## User Model
 
 ### User Gamut
@@ -27,80 +29,49 @@ Pi is an unusually strong fit for a first-party extension implementation because
 - Whether Pi should intentionally diverge from the shared same-step retrieve guard. Pi intentionally keeps the simpler same-turn prune+retrieve no-op behavior.
 - Whether bonsai should integrate with Pi's built-in compaction strategy. This spec leaves that out of scope; bonsai remains an opt-in surgical pruning extension.
 
-## Capability Evidence Matrix
-
-| Area | Status | Notes |
-|---|---|---|
-| Persistent transcript | Verified | SessionManager stores append-only JSONL/tree entries with custom entries |
-| Tool execution layer | Verified | `ExtensionAPI.registerTool` supports TypeBox parameters and per-tool execution mode |
-| Context transform hook | Verified | The `context` event rewrites outgoing `AgentMessage[]` before model invocation |
-| System guidance path | Verified | `before_agent_start` can replace or extend the effective system prompt |
-| Archive persistence | Verified | `pi.appendEntry(customType, data)` persists extension-owned custom session state |
-| Token/context tracking | Verified | `ctx.getContextUsage()` exposes tokens, context window, and percent when available |
-| Stable message ids | Partial | LLM messages have timestamps but no ids; archive ids must use `SessionEntry.id` plus correlation metadata |
-
-## Verified Host Primitives
-
-- Extension factories and `ExtensionAPI` are defined in [types.ts](/home/basil/projects/context-bonsai-agents/pi/packages/coding-agent/src/core/extensions/types.ts).
-- Tool registration is exposed through `registerTool` in [types.ts](/home/basil/projects/context-bonsai-agents/pi/packages/coding-agent/src/core/extensions/types.ts) and wired by [loader.ts](/home/basil/projects/context-bonsai-agents/pi/packages/coding-agent/src/core/extensions/loader.ts).
-- Tool execution can be forced sequential through `executionMode`, with default parallel execution in [agent.ts](/home/basil/projects/context-bonsai-agents/pi/packages/agent/src/agent.ts) and selection logic in [agent-loop.ts](/home/basil/projects/context-bonsai-agents/pi/packages/agent/src/agent-loop.ts).
-- The outgoing transcript transform path is `transformContext` in [agent-loop.ts](/home/basil/projects/context-bonsai-agents/pi/packages/agent/src/agent-loop.ts), surfaced to extensions as the `context` event in [runner.ts](/home/basil/projects/context-bonsai-agents/pi/packages/coding-agent/src/core/extensions/runner.ts).
-- System guidance can be appended through `before_agent_start`, defined in [types.ts](/home/basil/projects/context-bonsai-agents/pi/packages/coding-agent/src/core/extensions/types.ts) and chained in [runner.ts](/home/basil/projects/context-bonsai-agents/pi/packages/coding-agent/src/core/extensions/runner.ts).
-- Archive state can persist through `pi.appendEntry`, backed by `SessionManager.appendCustomEntry` and append-only session persistence in [session-manager.ts](/home/basil/projects/context-bonsai-agents/pi/packages/coding-agent/src/core/session-manager.ts).
-- Session lifecycle includes startup, reload, resume, new, and fork reasons in [types.ts](/home/basil/projects/context-bonsai-agents/pi/packages/coding-agent/src/core/extensions/types.ts), with reload/resume paths in [agent-session.ts](/home/basil/projects/context-bonsai-agents/pi/packages/coding-agent/src/core/agent-session.ts) and [agent-session-runtime.ts](/home/basil/projects/context-bonsai-agents/pi/packages/coding-agent/src/core/agent-session-runtime.ts).
-- Usage data for the gauge is exposed by `ctx.getContextUsage()` in [types.ts](/home/basil/projects/context-bonsai-agents/pi/packages/coding-agent/src/core/extensions/types.ts) and implemented in [agent-session.ts](/home/basil/projects/context-bonsai-agents/pi/packages/coding-agent/src/core/agent-session.ts).
-- Pi LLM messages carry role/content/timestamp but no stable message id in [types.ts](/home/basil/projects/context-bonsai-agents/pi/packages/ai/src/types.ts). Session entries provide ids in [session-manager.ts](/home/basil/projects/context-bonsai-agents/pi/packages/coding-agent/src/core/session-manager.ts).
-
-## Unverified Or Weak Areas
-
-- Message correlation must bridge two shapes: durable `SessionEntry.id` in session state and id-less `AgentMessage[]` in the context transform. The plan resolves this by storing entry ids plus `(role, timestamp)` for anchor and range end.
-- `buildSessionContext` can inject synthetic compaction summaries, branch summaries, and custom messages, and can drop entries before `firstKeptEntryId`. Positional zipping between branch entries and outgoing messages is unsafe.
-- `getContextUsage()` may be unavailable or may return null token/percent values after compaction until new assistant usage is recorded. Gauge injection must remain silent in those states.
-- Tool execution defaults to parallel. Bonsai prune and retrieve tools must opt into sequential execution to avoid overlapping archive mutations.
-
 ## Integration Posture
 
 ### Required architecture stance
 
 - Pi Context Bonsai MUST be implemented as a standalone extension package in the `pi_context_bonsai` side repository. It MUST NOT live in-tree inside pi-mono.
-- The extension is loaded through Pi's extension discovery — a user-global entry under `~/.pi/agent/extensions/`, a project-local `.pi/extensions/` entry, or an explicit extension path. The wiring MUST work regardless of the directory Pi is launched from.
-- Pi requires no fork. The extension integrates entirely through Pi's public `ExtensionAPI` and makes no modification to pi-mono source. A pinned pi-mono reference MAY be kept for testing, but it carries no Context Bonsai code.
+- The extension is loaded through Pi's extension discovery (binding: `extension-discovery`). The wiring MUST work regardless of the directory Pi is launched from.
+- Pi requires no fork. The extension integrates entirely through Pi's public extension API (binding: `extension-api`) and makes no modification to pi-mono source. A pinned pi-mono reference MAY be kept for testing, but it carries no Context Bonsai code.
 - Pi core changes are not required and none are present. If a future capability genuinely cannot be delivered through the extension API, a narrow core change is the last resort per the shared spec, and the missing primitive MUST be identified before implementation.
-- The implementation MUST use Pi-native session custom entries for archive records and tombstones rather than an external shadow store as the authority.
+- The implementation MUST use Pi-native session custom entries for archive records and tombstones (binding: `archive-store`) rather than an external shadow store as the authority.
 
 ### Prune and retrieve contract
 
 - The model-facing tools MUST be `context-bonsai-prune` and `context-bonsai-retrieve`.
 - The prune tool MUST use pattern boundaries with required `from_pattern`, `to_pattern`, `summary`, and `index_terms`, plus optional `reason`.
-- Pattern matching MUST include stable searchable representations of normal message text, completed assistant `toolCall` names and input arguments, and corresponding `toolResult` names and output content/details.
+- Pattern matching MUST include stable searchable representations of normal message text and tool-call structures (binding: `searchable-text`).
 - Per shared spec Pattern Matching Contract, ambiguous pattern handling MUST apply the prior prune-wrapper filter before returning ambiguity, so retry attempts are not poisoned by echoed `from_pattern` / `to_pattern` text.
-- Archive records MUST include anchor/range-end `SessionEntry.id`, summary, index terms, optional reason, and enough correlation metadata to find those messages in later outgoing `AgentMessage[]` transforms. For Pi, that means at least role and message timestamp for both boundaries.
+- Archive records MUST include anchor/range-end identifiers, summary, index terms, optional reason, and enough correlation metadata to find those messages in later outgoing transcript transforms (binding: `message-correlation`).
 - Retrieve in Pi intentionally supports same-turn prune+retrieve as a no-op: prune writes archive state, retrieve writes tombstone state, and tombstone precedence makes the range visible again immediately.
-- Prune and retrieve tools MUST set `executionMode: "sequential"`.
+- Prune and retrieve tools MUST set sequential tool execution (binding: `sequential-execution`).
 
 ### Transcript mutation path
 
-- Placeholder rendering and follower-message elision MUST happen through the extension `context` event.
-- The transform MUST correlate archive anchors by `(role, timestamp)` inside the outgoing `AgentMessage[]`, not by positional zip with `getBranch()`.
+- Placeholder rendering and follower-message elision MUST happen through the extension's context-transform hook (binding: `transcript-mutation`).
+- The transform MUST correlate archive anchors using the bound correlation strategy, not by positional zip against the branch entry list (binding: `message-correlation`).
 - If an archive's anchor or range end cannot be located in a given outgoing transcript, the transform SHOULD skip that archive for the turn without deleting persisted state.
 - The placeholder MUST retain the canonical information: anchor id, range-end id, summary, and index terms.
 
 ### System guidance path
 
-- Bonsai guidance SHOULD be appended through `before_agent_start` by extending the effective system prompt.
+- Bonsai guidance SHOULD be appended by extending the effective system prompt (binding: `guidance-channel`).
 - Guidance semantics MUST remain aligned with the shared spec: protected context, ranking, drift, non-destructive pruning, and retrieval rules must be model-visible.
 
 ### Gauge path
 
-- Gauge delivery MUST be in-band, appended to the last user message in a `<system-reminder>` style wrapper during the context transform.
+- Gauge delivery MUST be in-band (binding: `gauge-channel`).
 - The gauge MUST use the shared spec's four locked bands: `<30%`, `30-60%`, `61-80%`, and `>80%` with `PRUNE NOW` in the urgent band.
 - Gauge cadence SHOULD be every 5 turns by default.
-- If `ctx.getContextUsage()` is unavailable, or token/percent data is null, the gauge MUST remain silent.
+- If usage data is unavailable or null, the gauge MUST remain silent (binding: `usage-api`).
 - Human-visible TUI status may be added but cannot substitute for the model-visible gauge.
 
 ## Fail-Closed Requirements
 
-- If `sessionManager.getBranch`, `sessionManager.getEntries`, `pi.appendEntry`, or the `context` transform path is unavailable or incompatible, prune/retrieve MUST fail closed with explicit deterministic compatibility errors.
+- If required host primitives are unavailable or incompatible (binding: `host-compat-surface`), prune/retrieve MUST fail closed with explicit deterministic compatibility errors.
 - Failed prune or retrieve calls MUST leave archive state and model-visible transcript state unchanged.
 - Runtime hook or shape changes MUST not silently no-op while reporting success.
 - Gauge capability gaps may degrade to partial parity, but prune/retrieve capability gaps must be explicit errors.
@@ -108,7 +79,7 @@ Pi is an unusually strong fit for a first-party extension implementation because
 ## Parity Gaps Against Shared Spec
 
 - Host capability gaps are minimal; Pi exposes the required primitives through first-party extension APIs.
-- The main parity risk is message identity: Pi requires archive records to bridge `SessionEntry.id` and id-less outgoing messages through role/timestamp correlation.
+- The main parity risk is message identity: Pi requires archive records to bridge durable session-entry ids and id-less outgoing messages through correlation (binding: `message-correlation`).
 - The second risk is transcript shape fidelity: tool calls and tool results must be included in pattern-matching text extraction, not just visible text blocks.
 - The third risk is interaction with built-in compaction and branch summaries; transform tests must cover synthetic context entries.
 
@@ -121,35 +92,13 @@ Pi is an unusually strong fit for a first-party extension implementation because
 ## E2E Priorities
 
 - extension load and tool registration through Pi's extension discovery
-- prune success with persisted `context-bonsai:archive` custom entry and model-visible placeholder on the next turn
-- retrieve success with persisted `context-bonsai:archive-clear` tombstone and restored visible transcript
+- prune success with a persisted archive record (binding: `archive-store`) and model-visible placeholder on the next turn
+- retrieve success with a persisted tombstone record (binding: `archive-store`) and restored visible transcript
 - reload/resume persistence across a new Pi process
 - gauge cadence and four-band severity text in the outgoing model-visible transcript
 - same-turn prune+retrieve no-op behavior
 - secret/sensitive-content prune oracle proving active context no longer contains pruned content
 
-## E2E Credential Discovery
-
-The Pi e2e harness MUST defer to Pi's documented credential resolution rather than implement its own. Pi exposes the unified credential surface as `AuthStorage` in [auth-storage.ts](/home/basil/projects/context-bonsai-agents/pi/packages/coding-agent/src/core/auth-storage.ts); the auth file path is resolved by `getAuthPath()` / `getAgentDir()` in [config.ts](/home/basil/projects/context-bonsai-agents/pi/packages/coding-agent/src/config.ts) and defaults to `~/.pi/agent/auth.json` (mode 600), overridable via `$PI_CODING_AGENT_DIR`. The store accepts both `ApiKeyCredential` and `OAuthCredential` shapes, populated by `pi login`, manual edits, or migration from earlier credential formats. `AuthStorage.hasAuth(provider)` (auth-storage.ts:324) is true iff any credential source — runtime override, auth.json entry, `getEnvApiKey(provider)` env-var lookup, or `models.json` fallback resolver — yields a credential, in the priority order `getApiKey()` documents (auth-storage.ts:415-422). An env-var-only credential gate is wrong for Pi: it produces false negatives for `pi login`-authenticated operators, hand-edited `api_key` entries, `$PI_CODING_AGENT_DIR` overrides, OAuth-token env vars (`ANTHROPIC_OAUTH_TOKEN`, `COPILOT_GITHUB_TOKEN`, etc. — see [env-api-keys.ts](/home/basil/projects/context-bonsai-agents/pi/packages/ai/src/env-api-keys.ts)), and `models.json` custom-provider configurations.
-
-- The harness MUST gate scenario execution on `AuthStorage.hasAuth(provider)` rather than implement its own env-var or file-parsing logic. A returned `true` is sufficient credential evidence; OAuth refresh, expiry handling, and fallback resolution are delegated to Pi at invocation time.
-- The harness-specific override `BONSAI_E2E_API_KEY`, when set, MUST be applied via `setRuntimeApiKey(provider, $BONSAI_E2E_API_KEY)` before the `hasAuth(provider)` check. This makes the override participate in Pi's documented priority order (runtime override is highest priority per auth-storage.ts:418).
-- Provider-specific env vars consumed by Pi (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_OAUTH_TOKEN`, AWS Bedrock variables, GCP Vertex variables, GitHub Copilot tokens, etc.) MUST NOT be re-enumerated by the harness; relying on `getEnvApiKey()` via `hasAuth()` ensures the harness automatically tracks Pi's evolving env-var surface.
-- The harness MUST fail closed with a deterministic error only when `hasAuth(provider)` returns false. The error message MUST name (i) the auth-store path (`getAuthPath()` resolution, including the `$PI_CODING_AGENT_DIR` override hint), (ii) the harness override `BONSAI_E2E_API_KEY`, and (iii) the operator-actionable next step (run `pi login <provider>` or set the override env var) so operators can self-diagnose.
-- The harness MUST NOT invoke `pi login` automatically; that flow is interactive and out of scope for a non-interactive validation run.
-- Credential-discovery logic MUST be covered by deterministic unit tests using `AuthStorage.inMemory(...)` (auth-storage.ts:203) and fixture data — no live LLM call required. Fixtures MUST cover at minimum: (i) `api_key`-shape entry for the configured provider, (ii) `oauth`-shape entry, (iii) entry-for-different-provider-only (gate must reject), (iv) `BONSAI_E2E_API_KEY` runtime override only, (v) no source present (gate must produce the deterministic error).
-- Other per-agent specs in this repo do not document credential-discovery conventions because their hosts have different auth primitives. This section is intentionally pi-only; future per-agent specs may need their own analogues.
-
 ## Key References
 
-- [epic-port-context-bonsai.md](/home/basil/projects/context-bonsai-agents/.agents/plans/epic-pi-port/epic-port-context-bonsai.md)
-- [story-port-context-bonsai.1-package-scaffold.md](/home/basil/projects/context-bonsai-agents/.agents/plans/epic-pi-port/story-port-context-bonsai.1-package-scaffold.md)
-- [story-port-context-bonsai.2-prune-and-context-transform.md](/home/basil/projects/context-bonsai-agents/.agents/plans/epic-pi-port/story-port-context-bonsai.2-prune-and-context-transform.md)
-- [story-port-context-bonsai.3-retrieve.md](/home/basil/projects/context-bonsai-agents/.agents/plans/epic-pi-port/story-port-context-bonsai.3-retrieve.md)
-- [story-port-context-bonsai.4-context-gauge.md](/home/basil/projects/context-bonsai-agents/.agents/plans/epic-pi-port/story-port-context-bonsai.4-context-gauge.md)
-- [story-port-context-bonsai.5-e2e-test-fix-loop.md](/home/basil/projects/context-bonsai-agents/.agents/plans/epic-pi-port/story-port-context-bonsai.5-e2e-test-fix-loop.md)
-- [types.ts](/home/basil/projects/context-bonsai-agents/pi/packages/coding-agent/src/core/extensions/types.ts)
-- [runner.ts](/home/basil/projects/context-bonsai-agents/pi/packages/coding-agent/src/core/extensions/runner.ts)
-- [session-manager.ts](/home/basil/projects/context-bonsai-agents/pi/packages/coding-agent/src/core/session-manager.ts)
-- [agent-loop.ts](/home/basil/projects/context-bonsai-agents/pi/packages/agent/src/agent-loop.ts)
-- [ai types.ts](/home/basil/projects/context-bonsai-agents/pi/packages/ai/src/types.ts)
+Structural references (source files, storage locations, seam sites) live in [`pi-context-bonsai-bindings.md`](pi-context-bonsai-bindings.md) §Key References.
