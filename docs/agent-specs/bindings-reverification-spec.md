@@ -1,6 +1,6 @@
 # Bindings Re-Verification Pass
 
-Bindings documents rot: they record exploration-derived structural facts (paths, function names, storage shapes) that drift as harnesses and side repos evolve. Two measured instances motivated this procedure — the contract/bindings split review corrected four stale claims carried from earlier exploration, and the Kilo Stage-5 rehearsal caught three real drifts the bindings had missed. This document specifies a repeatable pass that re-checks every bindings claim against pinned source and records the result as committed evidence, so routine cycle-plan generation (`forward-port-spec.md`) can consult binding freshness instead of trusting document age. That consultation is not yet a wired-in generation step in either spec — the pass record is committed evidence generation *should* read; wiring it in is recorded future work.
+Bindings documents rot: they record exploration-derived structural facts (paths, function names, storage shapes) that drift as harnesses and side repos evolve. Two measured instances motivated this procedure — the contract/bindings split review corrected four stale claims carried from earlier exploration, and the Kilo Stage-5 rehearsal caught three real drifts the bindings had missed. This document specifies a repeatable pass that re-checks every bindings claim against pinned source and records the result as committed evidence, so routine cycle-plan generation can consult binding freshness instead of trusting document age. That consultation is wired in as the bindings-freshness consultation step of `forward-port-spec.md` §1.15: a DEMOTED row the plan would bind blocks generation, and a pass record older than the harness's last cycle start flags the bindings as stale evidence.
 
 ## Scope
 
@@ -30,7 +30,7 @@ A pass never repairs bindings. Repair is Stage-1 re-exploration under the deriva
 
 ## Pass record
 
-Each pass commits `bindings-reverification-<YYYY-MM-DD>.md` to this directory: per harness, the probed SHAs, a per-row disposition table (binding key, disposition, one-line evidence), and a Follow-Ups section listing every demotion. Routine cycle-plan generation should consult the most recent pass record (not yet a wired-in `forward-port-spec.md` generation step — see above); a bindings document whose latest pass is older than the harness's last sealed cycle is stale evidence and generation should say so.
+Each pass commits `bindings-reverification-<YYYY-MM-DD>.md` to this directory: per harness, the probed SHAs, a per-row disposition table (binding key, disposition, one-line evidence), and a Follow-Ups section listing every demotion. Routine cycle-plan generation consults the most recent pass record per `forward-port-spec.md` §1.15 (bindings-freshness consultation); a bindings document whose latest pass is older than the harness's last cycle start (per the cadence ledger) is stale evidence and generation records it as such.
 
 ## Hygiene
 
