@@ -73,8 +73,8 @@ Each published port repo (tweakcc_context_bonsai, pi_context_bonsai, cline_conte
 
 - Approval Status: approved
 - Approval Citation: Owner reply "Approved." (2026-07-07 showrunner conversation, following validated plan presentation)
-- Plan Commit Hash: none
-- Ready-for-Orchestration: yes (pending plan commit hash below)
+- Plan Commit Hash: 8fd7e3a
+- Ready-for-Orchestration: yes
 
 ## Completion Checklist
 
