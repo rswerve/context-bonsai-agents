@@ -12,6 +12,8 @@ The port's core. `context-bonsai-prune` becomes real: pattern boundaries resolve
 
 Inherited from the epic. The sharpest design implication: the model only ever sees the request payloads, so every model-visible claim in this story (placeholder present, archived text gone) is asserted from the stub's recorded requests, not from internal state.
 
+**Story 1 finding that binds this story:** the real `hermes -z` path requests `stream: true`; the stub provider serves SSE streaming (implemented in story 1 as an in-scope SPEC-GAP fix). All of this story's scenario drives run through the streaming path — scenario assertions read the stub's recorded request JSONL, which is unaffected by response streaming.
+
 ## Design bindings (decided here, within the Stage 3 stance — implement, don't re-decide)
 
 - **Anchor identity.** The in-memory list is id-less OpenAI-format. Archive records carry synthetic anchor ids `cb-<n>` (`n` monotonic per session, persisted in the store). For each of anchor and range-end the record stores: `role`, a full content snapshot (exact string/structure as extracted for matching), a content hash, tool-call ids when the message carries `tool_calls[].id` / `tool_call_id` (these DO exist in the OpenAI-format list and in persisted rows — prefer them for re-location when present), and the occurrence index of that content among identical-content messages at prune time. Realization re-locates the range in the `compress()` input by tool-call id first, exact-content match with occurrence counting second. Positional indices are never trusted across calls.
