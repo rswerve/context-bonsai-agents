@@ -45,7 +45,7 @@ Unit tests for every state transition and error; the two drives are the closure 
 
 From the side repo root:
 
-- `HERMES_AGENT_ROOT=/tmp/hermes-bonsai-stage4/hermes-agent uv run --project /tmp/hermes-bonsai-stage4/hermes-agent pytest tests -q`
+- `HERMES_AGENT_ROOT=/home/basil/scratch/hermes-bonsai-stage4/hermes-agent uv run --project /home/basil/scratch/hermes-bonsai-stage4/hermes-agent pytest tests -q`
 - `uvx ruff@0.15.10 check .`
 - `bash scripts/smoke.sh`
 - `bash scripts/drive-prune.sh`

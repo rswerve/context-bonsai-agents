@@ -56,7 +56,7 @@ The scenario runner IS the test; unit tests only where new pure logic appears.
 
 From the side repo root:
 
-- `HERMES_AGENT_ROOT=/tmp/hermes-bonsai-stage4/hermes-agent uv run --project /tmp/hermes-bonsai-stage4/hermes-agent pytest tests -q`
+- `HERMES_AGENT_ROOT=/home/basil/scratch/hermes-bonsai-stage4/hermes-agent uv run --project /home/basil/scratch/hermes-bonsai-stage4/hermes-agent pytest tests -q`
 - `uvx ruff@0.15.10 check .`
 - `bash scripts/run-scenarios.sh`
 - `bash scripts/run-scenarios.sh` (second consecutive run — flake check)

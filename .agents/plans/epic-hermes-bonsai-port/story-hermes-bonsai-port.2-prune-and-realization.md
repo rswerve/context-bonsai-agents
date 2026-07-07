@@ -56,7 +56,7 @@ Under the side repo: `context-bonsai/archive_store.py`, `context-bonsai/extract.
 
 From the side repo root:
 
-- `HERMES_AGENT_ROOT=/tmp/hermes-bonsai-stage4/hermes-agent uv run --project /tmp/hermes-bonsai-stage4/hermes-agent pytest tests -q`
+- `HERMES_AGENT_ROOT=/home/basil/scratch/hermes-bonsai-stage4/hermes-agent uv run --project /home/basil/scratch/hermes-bonsai-stage4/hermes-agent pytest tests -q`
 - `uvx ruff@0.15.10 check .`
 - `bash scripts/smoke.sh`
 - `bash scripts/drive-prune.sh` (runs the prune, ambiguity, and in-place-off drives; exits 0 only when all assertions hold)

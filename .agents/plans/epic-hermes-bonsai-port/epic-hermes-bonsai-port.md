@@ -14,16 +14,16 @@
 
 ## Execution environment (all stories)
 
-Work root: `/tmp/hermes-bonsai-stage4/`. The executor never touches the real repositories under `/home/basil/projects/context-bonsai-agents/`; landing the result there is a separate owner-tier act at epic seal.
+Work root: `/home/basil/scratch/hermes-bonsai-stage4/` — deliberately on disk, NOT under `/tmp`: `/tmp` is a small per-user tmpfs quota and the harness venv exhausted it on the first Story 1 run (2026-07-07, run STOPped on `EDQUOT`). Preflight at every story start: `df --output=avail -BG /home/basil/scratch | tail -1` must show ≥5G free; STOP if not. The executor never touches the real repositories under `/home/basil/projects/context-bonsai-agents/`; landing the result there is a separate owner-tier act at epic seal.
 
-- `/tmp/hermes-bonsai-stage4/hermes-agent/` — fresh clone of the harness at the frozen SHA. Provision (idempotent, run at every story start):
-  `git clone https://github.com/NousResearch/hermes-agent /tmp/hermes-bonsai-stage4/hermes-agent 2>/dev/null; cd /tmp/hermes-bonsai-stage4/hermes-agent && git checkout 7c1a029553d87c43ecff8a3821336bc95872213b && git rev-parse HEAD`
+- `/home/basil/scratch/hermes-bonsai-stage4/hermes-agent/` — fresh clone of the harness at the frozen SHA. Provision (idempotent, run at every story start):
+  `git clone https://github.com/NousResearch/hermes-agent /home/basil/scratch/hermes-bonsai-stage4/hermes-agent 2>/dev/null; cd /home/basil/scratch/hermes-bonsai-stage4/hermes-agent && git checkout 7c1a029553d87c43ecff8a3821336bc95872213b && git rev-parse HEAD`
   The printed SHA MUST equal the frozen SHA; STOP if not. Then hydrate: `uv sync` (uv is on PATH; the repo pins `requires-python >=3.11,<3.14`, uv fetches an interpreter as needed). Do NOT use the preserved derivation clone at `/tmp/hermes-bonsai-derivation/` — it is another procedure's state.
-- `/tmp/hermes-bonsai-stage4/hermes_context_bonsai/` — the side repo being built. Story 1 runs `git init` here; later stories continue in it and commit their own work (subject + body commit messages). This scratch repo persists across the epic's stories (it is the work product, not per-run scratch) and is removed only after the owner-tier re-home at epic seal (`forward-port-spec.md` §1.19).
-- `/tmp/hermes-bonsai-stage4/hermes-home/` — scratch `HERMES_HOME` for real-entry-point drives. Every `hermes` invocation in this epic sets `HERMES_HOME=/tmp/hermes-bonsai-stage4/hermes-home` so nothing reads or writes the operator's real `~/.hermes`.
-- `/tmp/hermes-bonsai-stage4/logs/` — run logs and baseline artifacts; outside both repos.
+- `/home/basil/scratch/hermes-bonsai-stage4/hermes_context_bonsai/` — the side repo being built. Story 1 runs `git init` here; later stories continue in it and commit their own work (subject + body commit messages). This scratch repo persists across the epic's stories (it is the work product, not per-run scratch) and is removed only after the owner-tier re-home at epic seal (`forward-port-spec.md` §1.19).
+- `/home/basil/scratch/hermes-bonsai-stage4/hermes-home/` — scratch `HERMES_HOME` for real-entry-point drives. Every `hermes` invocation in this epic sets `HERMES_HOME=/home/basil/scratch/hermes-bonsai-stage4/hermes-home` so nothing reads or writes the operator's real `~/.hermes`.
+- `/home/basil/scratch/hermes-bonsai-stage4/logs/` — run logs and baseline artifacts; outside both repos.
 
-Hermes is invoked from the harness clone via its console script: `cd /tmp/hermes-bonsai-stage4/hermes-agent && HERMES_HOME=/tmp/hermes-bonsai-stage4/hermes-home uv run hermes -z "<prompt>"` (`pyproject.toml` `[project.scripts] hermes = "hermes_cli.main:main"`; `-z/--oneshot` is the non-interactive one-shot mode, `hermes_cli/_parser.py:99-112`).
+Hermes is invoked from the harness clone via its console script: `cd /home/basil/scratch/hermes-bonsai-stage4/hermes-agent && HERMES_HOME=/home/basil/scratch/hermes-bonsai-stage4/hermes-home uv run hermes -z "<prompt>"` (`pyproject.toml` `[project.scripts] hermes = "hermes_cli.main:main"`; `-z/--oneshot` is the non-interactive one-shot mode, `hermes_cli/_parser.py:99-112`).
 
 ## Architecture stance (fixed by the Stage 2/3 record — do not re-decide)
 
@@ -40,7 +40,7 @@ The contract half's Integration Posture section governs. Summary for executors, 
 ## Stage 4 obligations from the pipeline spec (§7) — how this epic realizes them
 
 - **Declared iteration budget:** 5 dev/review/judge iterations per story. Exhaustion is a recorded STOP escalated to the owner tier, not a silent retry.
-- **Persisted regression baseline:** at each story's start, the executor runs the story's Validation Commands once against the starting state and writes the results (command, exit code, last 50 lines of output) to `/tmp/hermes-bonsai-stage4/logs/baseline-story<N>.json`. Every iteration's judge compares against that artifact, not prose memory. Story 1's baseline is the empty-repo trivial case (recorded as such).
+- **Persisted regression baseline:** at each story's start, the executor runs the story's Validation Commands once against the starting state and writes the results (command, exit code, last 50 lines of output) to `/home/basil/scratch/hermes-bonsai-stage4/logs/baseline-story<N>.json`. Every iteration's judge compares against that artifact, not prose memory. Story 1's baseline is the empty-repo trivial case (recorded as such).
 - **Scope discipline:** each iteration's judge runs `git diff --name-only` in the side repo against the story's planned-target list; out-of-list paths require a recorded justification or the iteration fails.
 - **Real-entry-point rule:** a finding closes only on evidence driven through `uv run hermes` against the stub provider (or, for pure library units, pytest — but every story's acceptance includes at least one real-CLI drive). Tests that hand-build engine state, manually advance counters, or bypass the plugin loader are not closure evidence.
 - **Posture re-checkpoint:** Story 1 verifies engine selection liveness through the real loader/selector; Story 2 verifies the compaction-check timing claim. A seam the spec called usable that implementation cannot use is a posture defect: STOP and report (the owner tier reopens the Stage 2/3 record); do not route around it.
@@ -120,4 +120,4 @@ Stories are executed by an Opus-4.8-low subagent per the calibration loop (`twea
 1. Verify executor claims against reality (frozen clone pristine at the SHA; no writes outside the work root; scenario evidence reproducible).
 2. Re-home: clone the scratch side repo to `/home/basil/projects/context-bonsai-agents/hermes_context_bonsai`, add as parent submodule, commit (local only — standing order: local landings are routine; push is owner-gated).
 3. Fold realized Binding Sites rows into `docs/agent-specs/hermes-agent-context-bonsai-bindings.md`; commit.
-4. Remove `/tmp/hermes-bonsai-stage4/` (§1.19). The derivation clone at `/tmp/hermes-bonsai-derivation/` stays until Stage 6 seals.
+4. Remove `/home/basil/scratch/hermes-bonsai-stage4/` (§1.19). The derivation clone at `/tmp/hermes-bonsai-derivation/` stays until Stage 6 seals.
