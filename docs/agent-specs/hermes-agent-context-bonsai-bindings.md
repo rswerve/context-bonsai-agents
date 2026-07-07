@@ -4,7 +4,7 @@ This is the exploration-derived bindings layer for the Hermes Agent port: the st
 
 **Frozen harness identity**: git upstream `https://github.com/NousResearch/hermes-agent`, tag `v2026.7.1`, SHA `7c1a029553d87c43ecff8a3821336bc95872213b`. All file:line citations below resolve against this SHA. Hermes Agent is a Python CLI agent (MIT, Nous Research); the exploration clone lives at `/tmp/hermes-bonsai-derivation/hermes-agent` during the derivation and is disposable — the identity above, not the clone, is the evidence root.
 
-This harness is not yet bound in `forward-port-spec.md` Part 4 (§4.8 unbound set). The Binding Sites table below carries the Stage 4 state (epic `epic-hermes-bonsai-port` sealed 2026-07-07): each key's current site pairs the verified harness surface with its realized side-repo site; every key is realized except `presentation-middleware`, deliberately unrealized (its row records why). The side repo lives at the parent submodule `hermes_context_bonsai` (re-homed at epic seal, HEAD `f5ecfbe`).
+This harness is bound in `forward-port-spec.md` Part 4 as §4.8 (pipeline Stage 6, 2026-07-07); that slot table names this document as the seam/anchor registry. The Binding Sites table below carries the Stage 4 state (epic `epic-hermes-bonsai-port` sealed 2026-07-07): each key's current site pairs the verified harness surface with its realized side-repo site; every key is realized except `presentation-middleware`, deliberately unrealized (its row records why). The side repo lives at the parent submodule `hermes_context_bonsai` (re-homed at epic seal, HEAD `f5ecfbe`).
 
 ## Capability Evidence Matrix
 

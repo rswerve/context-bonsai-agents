@@ -271,7 +271,13 @@ test('--plan resolves all live-spec bindings without running any query', () => {
   assert.equal(r.status, 0, r.stderr);
   const plan = JSON.parse(r.stdout);
   const names = plan.map((p) => p.harness).sort();
-  assert.deepEqual(names, ['Claude Code', 'Cline', 'Codex', 'Kilo', 'OpenCode', 'Pi']);
+  assert.deepEqual(names, ['Claude Code', 'Cline', 'Codex', 'Hermes Agent', 'Kilo', 'OpenCode', 'Pi']);
+  const he = plan.find((p) => p.harness === 'Hermes Agent');
+  assert.match(
+    he.upstream,
+    /^git-remote-tag hermes_context_bonsai https:\/\/github\.com\/NousResearch\/hermes-agent v$/
+  );
+  assert.match(he.ported, /^doc-file hermes_context_bonsai\/docs binding-verification-$/);
   const ki = plan.find((p) => p.harness === 'Kilo');
   assert.match(ki.upstream, /^git-remote-tag kilo upstream v$/);
   assert.match(ki.ported, /^git-tag kilo bonsai\/v1-on-kilo-$/);
