@@ -37,3 +37,6 @@
 [submodule "pi"]
 	path = pi
 	url = https://github.com/Vibecodelicious/pi-mono.git
+[submodule "hermes_context_bonsai"]
+	path = hermes_context_bonsai
+	url = https://github.com/Vibecodelicious/hermes_context_bonsai.git
