@@ -1,0 +1,11 @@
+[
+  {
+    "source_sha": "3d26252cded4c110f525e1082ee591b4963cba5f",
+    "approved_action": "cherry-pick",
+    "approval_refs": [
+      "bonsai-reviewer generation-validation review (see Validation Loop Results)",
+      "bonsai-judge generation-validation judgement (see plan .judgement.1.md)"
+    ],
+    "resolution_state": "approved"
+  }
+]

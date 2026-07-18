@@ -1,0 +1,49 @@
+[
+  {
+    "source_sha": "10c894bdeef3618f5666fb506ef7f9491bb964d8",
+    "bucket": "already_in_upstream",
+    "replay_action": "drop",
+    "mapping_type": "drop",
+    "target_paths": [],
+    "rationale": "Upstream release version-bump commit for v1.17.13. `git cherry -v 127bdb30784d508cc556c71a0f32b508a3061517 3d26252cded4c110f525e1082ee591b4963cba5f` marks it `-` (patch-equivalent with upstream's release commit), so it is not replayed onto the v1.18.3 target.",
+    "evidence_ref": "git cherry -v 127bdb30784d508cc556c71a0f32b508a3061517 3d26252cded4c110f525e1082ee591b4963cba5f -> '-' for 10c894bdeef3618f5666fb506ef7f9491bb964d8"
+  },
+  {
+    "source_sha": "00ebeb266b9cfcd19cff9891d49690c3b427b49f",
+    "bucket": "required_runtime",
+    "replay_action": "cherry-pick",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "packages/opencode/src/session/message-v2.ts",
+      "packages/opencode/test/session/context-bonsai.test.ts",
+      "packages/opencode/test/session/message-v2.test.ts",
+      "packages/schema/src/v1/session.ts"
+    ],
+    "rationale": "Integration patch that persists Context Bonsai message metadata through parsing and storage. Touches the runtime allowlist (`packages/opencode/**`) and the shared schema (`packages/schema/src/v1/session.ts`) to add `metadata` to the `User` and `Assistant` message schemas. `git cherry -v` marks it `+` (not upstream). Required for prune/retrieve continuity.",
+    "evidence_ref": "git cherry -v 127bdb30784d508cc556c71a0f32b508a3061517 3d26252cded4c110f525e1082ee591b4963cba5f -> '+' for 00ebeb266b9cfcd19cff9891d49690c3b427b49f; name-status shows packages/opencode/** and packages/schema/src/v1/session.ts"
+  },
+  {
+    "source_sha": "9187ca39f25b71e747080763a539c376f06b2bcb",
+    "bucket": "required_runtime",
+    "replay_action": "cherry-pick",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "packages/opencode/src/tool/registry.ts",
+      "packages/opencode/test/tool/registry.test.ts",
+      "packages/plugin/src/tool.ts"
+    ],
+    "rationale": "Integration patch that exposes safe message-metadata updates to plugin tools. All touched paths are inside the runtime allowlists (`packages/opencode/**` and `packages/plugin/**`). `git cherry -v` marks it `+`. Required by the side-repo plugin tools.",
+    "evidence_ref": "git cherry -v 127bdb30784d508cc556c71a0f32b508a3061517 3d26252cded4c110f525e1082ee591b4963cba5f -> '+' for 9187ca39f25b71e747080763a539c376f06b2bcb; name-status shows only allowlisted paths"
+  },
+  {
+    "source_sha": "3d26252cded4c110f525e1082ee591b4963cba5f",
+    "bucket": "manual_review",
+    "replay_action": "cherry-pick",
+    "mapping_type": "1:1",
+    "target_paths": [
+      "README.md"
+    ],
+    "rationale": "Root `README.md` fork-only signpost replacing the upstream README with a Context Bonsai pointer. The path is outside both runtime and docs allowlists by design; per forward-port-spec §2.3 fork-owned wholesale files are classified `manual_review` and resolved through the approvals artifact. Wholesale-replacement on conflict.",
+    "evidence_ref": "forward-port-spec §2.3 / §4.2 Fork-owned wholesale files; name-status shows only README.md; manual-review-approvals artifact records approval"
+  }
+]
