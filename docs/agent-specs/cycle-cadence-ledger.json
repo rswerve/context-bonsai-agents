@@ -1,8 +1,8 @@
 {
   "_comment": "Update-cadence ledger per forward-port-spec.md §1.20. Keys are Part 4 harness section names, lowercased. last_cycle_start is UTC, command-sourced at the moment the invoker supplies a cycle-start target. Seeded 2026-07-06 from each harness's most recent cycle's committed evidence (starts were unrecorded before the rule; plan/landing commit author dates stand in).",
   "opencode": {
-    "last_cycle_start": "2026-07-05T18:29:14Z",
-    "evidence": "plan commit 8d8af58 (v1.17.13 plan revision 2)"
+    "last_cycle_start": "2026-07-18T19:52:55Z",
+    "evidence": "invoke-routine-cycle.mjs start vs v1.18.3 (this ledger commit is the start record)"
   },
   "claude code": {
     "last_cycle_start": "2026-07-09T15:43:18Z",
