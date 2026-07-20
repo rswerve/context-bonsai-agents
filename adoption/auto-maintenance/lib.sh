@@ -15,6 +15,7 @@ CB_STATE="${CB_STATE:-$HOME/.local/state/context-bonsai/auto-maintenance}"
 CB_LOG="$CB_STATE/maintenance.log"
 CB_STATUS="$CB_STATE/last-run.md"                                # human-readable latest status
 CB_LOCK="$CB_STATE/.lock"
+CB_CLAUDE_MODE_FILE="${CB_CLAUDE_MODE_FILE:-$CB_STATE/claude-mode}"
 CB_CLAUDE_LAUNCHER="${CB_CLAUDE_LAUNCHER:-$HOME/.local/bin/claude}"   # override in fixtures
 CB_CODEX_SYMLINK="${CB_CODEX_SYMLINK:-$HOME/.local/bin/codex}"
 CB_CLAUDE_JSON="${CB_CLAUDE_JSON:-$HOME/.claude.json}"                # override in fixtures
@@ -53,6 +54,21 @@ cb_acquire_lock() {
   echo "$$" > "$CB_LOCK"; return 0
 }
 cb_release_lock() { rm -f "$CB_LOCK" 2>/dev/null || true; }
+
+# --- Persistent operator intent ---
+# Missing mode files mean "enabled" for compatibility with installations that
+# predate this control.  Explicit disable survives daily runs, WatchPaths fires,
+# runtime upgrades, and source reconciliations because CB_STATE is durable.
+cb_claude_disabled() {
+  [ -f "$CB_CLAUDE_MODE_FILE" ] && [ "$(sed -n '1p' "$CB_CLAUDE_MODE_FILE" 2>/dev/null)" = "disabled" ]
+}
+cb_set_claude_mode() { # enabled | disabled; atomic within the durable state directory
+  local mode="$1" tmp
+  case "$mode" in enabled|disabled) ;; *) return 2;; esac
+  mkdir -p "$(dirname "$CB_CLAUDE_MODE_FILE")" || return 1
+  tmp="$(dirname "$CB_CLAUDE_MODE_FILE")/.claude-mode.$$"
+  printf '%s\n' "$mode" > "$tmp" && mv "$tmp" "$CB_CLAUDE_MODE_FILE"
+}
 
 # --- Version helpers ---
 cb_claude_version() { "$CB_CLAUDE_LAUNCHER" --version 2>/dev/null | grep -oE '2\.1\.[0-9]+' | head -1; }

@@ -17,6 +17,20 @@ Every path is **fail-safe**: the system only ever leaves your install in a *work
 4. **Codex proactive stable updates** (`codex/reconcile.sh`): query the official latest stable release, forward-port in a scratch checkout → build → test against the checksummed same-version official binary → **compare-and-swap the symlink** only if green. Homebrew does not need to be updated first. Offline/rate-limited checks are benign no-ops.
 5. Writes a status file (`state/last-run.md`) and posts a notification after a successful maintenance change or whenever attention is needed.
 
+## Persistent Claude controls
+
+The manual Claude controls and unattended maintenance share one implementation:
+
+```sh
+adoption/claude/rollback.sh  # verified stock + MCP removal; stays disabled
+adoption/claude/enable.sh    # clear disabled intent + safe reconciliation
+```
+
+The operator mode is stored in the durable maintenance state directory. A
+disabled Claude lane is reported as a healthy no-op by both the daily job and
+the WatchPaths job; source and Codex maintenance continue normally. The old
+fixed-2.1.215 direct patch path has been retired.
+
 ## Source-update transaction
 The source lane trusts the configured GitHub upstream repositories, but never
 blindly runs `git pull` in a working checkout. It discovers immutable ref IDs,
@@ -64,7 +78,7 @@ failure leaves the current certified fork selected and retries the next day.
 ./test-combined.sh             # both reconcilers + orchestrator, fully isolated
 ./codex/test-simulated-bumps.sh # Codex conflict/CAS/rollback simulations
 ./source/test-source-reconcile.sh # local fake-remotes; source CAS/rollback simulations
-./uninstall-schedule.sh        # disable + remove both jobs (Bonsai itself stays as-is)
+./uninstall-schedule.sh        # stop + remove both jobs (Bonsai itself stays as-is)
 launchctl kickstart gui/$(id -u)/com.atighi.context-bonsai-maintenance   # trigger a run
 ```
 Status: `~/.local/state/context-bonsai/auto-maintenance/last-run.md` · Log:

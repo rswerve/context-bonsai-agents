@@ -1,19 +1,10 @@
 #!/usr/bin/env bash
-# Context Bonsai — Claude Code ROLLBACK (off-ramp).
-# Restores the stock Claude Code bundle + removes the MCP server. Non-destructive.
-# After running, restart Claude Code sessions; any pruned history reappears in full.
-set -euo pipefail
-
+# Context Bonsai — persistent Claude off-ramp.
+# Restores verified stock, removes the MCP entry, and suppresses auto-reapply.
+set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-PORT="${CB_PORT:-$REPO_ROOT/tweakcc_context_bonsai}"
-CFG="$HOME/.claude.json"
-
-echo "[1/2] Restoring the original Claude Code bundle from backup ..."
-( cd "$PORT" && bun run apply:restore )
-
-echo "[2/2] Removing the context-bonsai MCP server from $CFG ..."
-tmp="$(mktemp)"
-jq 'if .mcpServers then .mcpServers |= del(.["context-bonsai"]) else . end' "$CFG" > "$tmp" && mv "$tmp" "$CFG"
-
-echo "DONE. Restart Claude Code sessions. (Non-destructive: nothing was lost — archived ranges are inert once the patch is gone.)"
+LOCAL_CONTROL="$SCRIPT_DIR/../auto-maintenance/claude-control.sh"
+RUNTIME_CONTROL="${CB_RUNTIME_CURRENT:-$HOME/.local/share/context-bonsai/runtime/current}/adoption/auto-maintenance/claude-control.sh"
+CONTROL="${CB_CLAUDE_CONTROL:-$RUNTIME_CONTROL}"
+[ -x "$CONTROL" ] || CONTROL="$LOCAL_CONTROL"
+exec "$CONTROL" disable

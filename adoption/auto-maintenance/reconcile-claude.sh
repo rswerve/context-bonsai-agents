@@ -6,6 +6,12 @@
 set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; source "$DIR/lib.sh"
 
+if cb_claude_disabled; then
+  cb_log "claude: intentionally disabled — automatic reapply suppressed"
+  echo "claude: disabled by user (no action)"
+  exit 0
+fi
+
 ver="$(cb_claude_version)"; bundle="$(cb_claude_live_bundle)"
 if [ -z "$ver" ] || [ -z "$bundle" ] || [ ! -e "$bundle" ]; then
   cb_log "claude: cannot resolve version/bundle — install untouched"; echo "claude: SKIP (could not resolve install)"; exit 20

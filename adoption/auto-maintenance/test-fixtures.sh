@@ -17,6 +17,7 @@ check() { if [ "$2" = "$3" ]; then echo "  PASS: $1"; pass=$((pass+1)); else ech
 echo "=== FIXTURE 1: unpatched stock bundle → reconcile RE-APPLIES + verifies (scratch only) ==="
 if [ -f "$STOCK_BACKUP" ]; then
   b1="$SANDBOX/bundle1"; cp "$STOCK_BACKUP" "$b1"; chmod +x "$b1"
+  b1_stock="$(shasum -a256 "$b1" | cut -d' ' -f1)"
   ln -sf "$b1" "$SANDBOX/claude1"; echo '{}' > "$SANDBOX/c1.json"
   out=$(CB_CLAUDE_LAUNCHER="$SANDBOX/claude1" CB_CLAUDE_JSON="$SANDBOX/c1.json" \
         CB_BACKUP_DIR="$SANDBOX/backups" CB_STATE="$SANDBOX/state" \
@@ -25,13 +26,57 @@ if [ -f "$STOCK_BACKUP" ]; then
   check "exit 0 (applied via isolate-verify-swap)" "$rc" "0"
   check "scratch bundle patched (candidate swapped in)" "$(grep -ca 'cb:archived-filter' "$b1")" "1"
   check "scratch bundle has five-user-turn autonomy cadence" "$(grep -ca '__cbTurns%5===0' "$b1")" "1"
-  check "scratch bundle injects gauge at the provider seam" "$(grep -ca '__cbContextBonsaiInjectGauge' "$b1")" "1"
+  if grep -qa '__cbContextBonsaiInjectGauge' "$b1"; then gauge_present=yes; else gauge_present=no; fi
+  check "scratch bundle injects gauge at the provider seam" "$gauge_present" "yes"
   check "scratch bundle has no obsolete 20-turn gate" "$(grep -ca '__cbTurns>20' "$b1")" "0"
   check "scratch bundle has no one-shot serialization gate" "$(grep -ca '__cbTurns!==__cbState.lastTurn' "$b1")" "0"
   check "scratch bundle still runs" "$("$b1" --version 2>/dev/null | grep -c 'Claude Code')" "1"
   check "scratch MCP registered" "$(jq -c '.mcpServers["context-bonsai"] != null' "$SANDBOX/c1.json")" "true"
   check "rollback backup written to SCRATCH (not real)" "$(ls -1 "$SANDBOX/backups"/*.backup 2>/dev/null | wc -l | tr -d ' ')" "1"
   check "no leftover candidate temp" "$(ls -1 "$SANDBOX"/.cb-candidate.* 2>/dev/null | wc -l | tr -d ' ')" "0"
+else
+  echo "  SKIP: stock backup fixture not found ($STOCK_BACKUP)"
+fi
+
+echo "=== FIXTURE 1B: persistent disable → verified stock; maintenance cannot re-enable it ==="
+if [ -f "$STOCK_BACKUP" ]; then
+  out1b=$(CB_CLAUDE_CONTROL="$DIR/claude-control.sh" \
+         CB_CLAUDE_LAUNCHER="$SANDBOX/claude1" CB_CLAUDE_JSON="$SANDBOX/c1.json" \
+         CB_BACKUP_DIR="$SANDBOX/backups" CB_STATE="$SANDBOX/state" \
+         bash "$CB_ADOPT/claude/rollback.sh" 2>/dev/null); rc1b=$?
+  echo "  -> $out1b (rc=$rc1b)"
+  check "manual rollback exits 0" "$rc1b" "0"
+  check "manual rollback restores byte-exact stock" "$(shasum -a256 "$b1" | cut -d' ' -f1)" "$b1_stock"
+  check "manual rollback removes MCP entry" "$(jq -c '.mcpServers["context-bonsai"] == null' "$SANDBOX/c1.json")" "true"
+  check "manual rollback persists disabled intent" "$(cat "$SANDBOX/state/claude-mode")" "disabled"
+
+  disabled_before="$(shasum -a256 "$b1" | cut -d' ' -f1)"
+  disabled_out=$(CB_CLAUDE_LAUNCHER="$SANDBOX/claude1" CB_CLAUDE_JSON="$SANDBOX/c1.json" \
+                 CB_BACKUP_DIR="$SANDBOX/backups" CB_STATE="$SANDBOX/state" \
+                 bash "$DIR/reconcile-claude.sh" 2>/dev/null); disabled_rc=$?
+  check "scheduled reconcile treats disabled as clean" "$disabled_rc" "0"
+  check "scheduled reconcile reports intentional disable" "$disabled_out" "claude: disabled by user (no action)"
+  check "scheduled reconcile leaves stock byte-identical" "$(shasum -a256 "$b1" | cut -d' ' -f1)" "$disabled_before"
+
+  out1c=$(CB_CLAUDE_CONTROL="$DIR/claude-control.sh" \
+         CB_CLAUDE_LAUNCHER="$SANDBOX/claude1" CB_CLAUDE_JSON="$SANDBOX/c1.json" \
+         CB_BACKUP_DIR="$SANDBOX/backups" CB_STATE="$SANDBOX/state" \
+         bash "$CB_ADOPT/claude/enable.sh" 2>/dev/null); rc1c=$?
+  echo "  -> $out1c (rc=$rc1c)"
+  check "manual enable exits 0 through safe reconciler" "$rc1c" "0"
+  check "manual enable persists enabled intent" "$(cat "$SANDBOX/state/claude-mode")" "enabled"
+  check "manual enable restores all Bonsai patches" "$(grep -ca 'cb:context-bonsai-gauge' "$b1")" "1"
+  check "manual enable restores MCP entry" "$(jq -c '.mcpServers["context-bonsai"] != null' "$SANDBOX/c1.json")" "true"
+
+  patched_before="$(shasum -a256 "$b1" | cut -d' ' -f1)"
+  out1d=$(CB_CLAUDE_CONTROL="$DIR/claude-control.sh" \
+         CB_CLAUDE_LAUNCHER="$SANDBOX/claude1" CB_CLAUDE_JSON="$SANDBOX/c1.json" \
+         CB_BACKUP_DIR="$SANDBOX/no-backup-here" CB_STATE="$SANDBOX/state" \
+         bash "$CB_ADOPT/claude/rollback.sh" 2>/dev/null); rc1d=$?
+  check "disable without a verified stock backup fails closed" "$rc1d" "10"
+  check "failed disable leaves working patched bundle byte-identical" "$(shasum -a256 "$b1" | cut -d' ' -f1)" "$patched_before"
+  check "failed disable preserves enabled intent" "$(cat "$SANDBOX/state/claude-mode")" "enabled"
+  check "failed disable preserves MCP registration" "$(jq -c '.mcpServers["context-bonsai"] != null' "$SANDBOX/c1.json")" "true"
 else
   echo "  SKIP: stock backup fixture not found ($STOCK_BACKUP)"
 fi

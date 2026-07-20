@@ -7,5 +7,5 @@ for LABEL in com.atighi.context-bonsai-maintenance com.atighi.context-bonsai-mai
   rm -f "$HOME/Library/LaunchAgents/$LABEL.plist"
   echo "Removed $LABEL"
 done
-echo "Auto-maintenance disabled. Bonsai itself is untouched."
+echo "Auto-maintenance stopped. Bonsai itself is untouched."
 echo "To remove Bonsai entirely: adoption/codex/rollback.sh + adoption/claude/rollback.sh."
