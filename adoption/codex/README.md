@@ -1,5 +1,9 @@
 # Codex Context Bonsai staged adoption
 
+> Historical bootstrap package: the installed system now uses the
+> content-addressed 0.144.x artifacts managed by `adoption/auto-maintenance/`.
+> Do not run this directory's legacy `enable.sh` over the active newer fork.
+
 This directory is the **unexecuted** Codex half of the global adoption switch.
 It targets upstream Codex `rust-v0.144.5` / commit
 `87db9bc18ba5bc82c1cb4e4381b44f693ee35623` on Apple Silicon macOS.
@@ -11,6 +15,8 @@ the model calls `context-bonsai-prune`.
 ## Staged artifacts
 
 - `codex-0.144.5-bonsai.patch`: source patch against the exact upstream commit.
+  The patch now includes the autonomous startup-guidance and five-user-turn
+  gauge wiring used as the forward-port baseline.
 - `build-staged.sh`: rebuilds the release binary from an exact clean source
   checkout supplied by the operator.
 - `verify-staged.sh`: checks version, checksum, architecture, and tool strings.

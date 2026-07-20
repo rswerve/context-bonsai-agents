@@ -1,5 +1,5 @@
 diff --git a/codex-rs/core/Cargo.toml b/codex-rs/core/Cargo.toml
-index a575f32..34cfb18 100644
+index a575f32df5347f462492492edbb5127f4e7e3273..34cfb18777424a655b9ae7c4bb5a304d290a6c92 100644
 --- a/codex-rs/core/Cargo.toml
 +++ b/codex-rs/core/Cargo.toml
 @@ -33,6 +33,7 @@ codex-code-mode = { workspace = true }
@@ -10,166 +10,9 @@ index a575f32..34cfb18 100644
  codex-core-plugins = { workspace = true }
  codex-core-skills = { workspace = true }
  codex-exec-server = { workspace = true }
-diff --git a/codex-rs/core/src/lib.rs b/codex-rs/core/src/lib.rs
-index cfc26c5..cb51047 100644
---- a/codex-rs/core/src/lib.rs
-+++ b/codex-rs/core/src/lib.rs
-@@ -40,6 +40,7 @@ pub mod config;
- pub mod connectors;
- pub mod context;
- mod context_manager;
-+mod context_bonsai;
- mod current_time;
- mod elicitation;
- mod environment_selection;
-diff --git a/codex-rs/core/src/session/mod.rs b/codex-rs/core/src/session/mod.rs
-index 9339413..90395a3 100644
---- a/codex-rs/core/src/session/mod.rs
-+++ b/codex-rs/core/src/session/mod.rs
-@@ -3073,6 +3073,77 @@ impl Session {
-         }
-     }
- 
-+    pub(crate) async fn apply_bonsai_prune(
-+        &self,
-+        turn_context: &TurnContext,
-+        install: crate::context_bonsai::PruneInstall,
-+    ) -> Result<(), crate::context_bonsai::ArchiveStoreError> {
-+        let (codex_home, thread_id) = {
-+            let state = self.state.lock().await;
-+            (
-+                state.session_configuration.codex_home().to_path_buf(),
-+                self.thread_id().to_string(),
-+            )
-+        };
-+        crate::context_bonsai::persist_archive(
-+            codex_home,
-+            thread_id,
-+            install.archive_payload.clone(),
-+        )
-+        .await?;
-+        let (window_number, window_ids) = self.advance_auto_compact_window().await;
-+        let compacted_item = CompactedItem {
-+            message: install.placeholder_text,
-+            replacement_history: Some(install.replacement_history.clone()),
-+            window_number: Some(window_number),
-+            first_window_id: Some(window_ids.first_window_id.to_string()),
-+            previous_window_id: window_ids.previous_window_id.map(|id| id.to_string()),
-+            window_id: Some(window_ids.window_id.to_string()),
-+        };
-+        self.replace_compacted_history(
-+            turn_context,
-+            install.replacement_history,
-+            None,
-+            None,
-+            compacted_item,
-+        )
-+        .await;
-+        self.recompute_token_usage(turn_context).await;
-+        Ok(())
-+    }
-+
-+    pub(crate) async fn apply_bonsai_retrieve(
-+        &self,
-+        turn_context: &TurnContext,
-+        anchor_id: &str,
-+    ) -> Result<(), crate::context_bonsai::ApplyRetrieveError> {
-+        let (codex_home, thread_id, history) = {
-+            let state = self.state.lock().await;
-+            (
-+                state.session_configuration.codex_home().to_path_buf(),
-+                self.thread_id().to_string(),
-+                state.clone_history().into_raw_items(),
-+            )
-+        };
-+        let archive =
-+            crate::context_bonsai::load_archive(codex_home, thread_id, anchor_id.to_string())
-+                .await?;
-+        let restored = crate::context_bonsai::build_retrieve_install(&history, &archive, false)?;
-+        let (window_number, window_ids) = self.advance_auto_compact_window().await;
-+        let compacted_item = CompactedItem {
-+            message: format!("[RETRIEVED: {anchor_id}]"),
-+            replacement_history: Some(restored.clone()),
-+            window_number: Some(window_number),
-+            first_window_id: Some(window_ids.first_window_id.to_string()),
-+            previous_window_id: window_ids.previous_window_id.map(|id| id.to_string()),
-+            window_id: Some(window_ids.window_id.to_string()),
-+        };
-+        self.replace_compacted_history(turn_context, restored, None, None, compacted_item)
-+            .await;
-+        self.recompute_token_usage(turn_context).await;
-+        Ok(())
-+    }
-+
-     async fn persist_rollout_response_items(&self, items: &[ResponseItem]) {
-         let rollout_items: Vec<RolloutItem> = items
-             .iter()
-diff --git a/codex-rs/core/src/tools/handlers/mod.rs b/codex-rs/core/src/tools/handlers/mod.rs
-index 29ad172..9a19c38 100644
---- a/codex-rs/core/src/tools/handlers/mod.rs
-+++ b/codex-rs/core/src/tools/handlers/mod.rs
-@@ -2,6 +2,7 @@ pub(crate) mod agent_jobs;
- pub(crate) mod agent_jobs_spec;
- pub(crate) mod apply_patch;
- pub(crate) mod apply_patch_spec;
-+mod bonsai;
- mod current_time;
- mod dynamic;
- pub(crate) mod extension_tools;
-@@ -55,6 +56,8 @@ use crate::session::turn_context::TurnEnvironment;
- pub(crate) use crate::tools::code_mode::CodeModeExecuteHandler;
- pub(crate) use crate::tools::code_mode::CodeModeWaitHandler;
- pub use apply_patch::ApplyPatchHandler;
-+pub use bonsai::ContextBonsaiPruneHandler;
-+pub use bonsai::ContextBonsaiRetrieveHandler;
- use codex_protocol::models::AdditionalPermissionProfile;
- use codex_protocol::protocol::AskForApproval;
- pub use current_time::CurrentTimeHandler;
-diff --git a/codex-rs/core/src/tools/spec_plan.rs b/codex-rs/core/src/tools/spec_plan.rs
-index 9d9b762..04ac641 100644
---- a/codex-rs/core/src/tools/spec_plan.rs
-+++ b/codex-rs/core/src/tools/spec_plan.rs
-@@ -8,6 +8,8 @@ use crate::tools::effective_tool_mode;
- use crate::tools::handlers::ApplyPatchHandler;
- use crate::tools::handlers::CodeModeExecuteHandler;
- use crate::tools::handlers::CodeModeWaitHandler;
-+use crate::tools::handlers::ContextBonsaiPruneHandler;
-+use crate::tools::handlers::ContextBonsaiRetrieveHandler;
- use crate::tools::handlers::CurrentTimeHandler;
- use crate::tools::handlers::DynamicToolHandler;
- use crate::tools::handlers::ExecCommandHandler;
-@@ -681,6 +683,8 @@ fn add_core_utility_tools(context: &CoreToolPlanContext<'_>, planned_tools: &mut
-     let environment_mode = tool_environment_mode(context.step_context);
- 
-     planned_tools.add(PlanHandler);
-+    planned_tools.add(ContextBonsaiPruneHandler);
-+    planned_tools.add(ContextBonsaiRetrieveHandler);
- 
-     if features.enabled(Feature::DeferredExecutor) {
-         planned_tools.add(WaitForEnvironmentHandler);
-diff --git a/codex-rs/core/src/tools/spec_plan_tests.rs b/codex-rs/core/src/tools/spec_plan_tests.rs
-index 7fd4c69..2fe4748 100644
---- a/codex-rs/core/src/tools/spec_plan_tests.rs
-+++ b/codex-rs/core/src/tools/spec_plan_tests.rs
-@@ -273,6 +273,14 @@ fn use_bedrock_provider(turn: &mut TurnContext) {
-     turn.provider = create_model_provider(provider_info, turn.auth_manager.clone());
- }
- 
-+#[tokio::test]
-+async fn context_bonsai_tools_are_model_visible_and_registered() {
-+    let plan = probe(|_| {}).await;
-+    let names = ["context-bonsai-prune", "context-bonsai-retrieve"];
-+    plan.assert_visible_contains(&names);
-+    plan.assert_registered_contains(&names);
-+}
-+
- struct TestNamespaceExtensionTool {
-     namespace: &'static str,
-     tool_name: &'static str,
-
 diff --git a/codex-rs/core/src/context_bonsai.rs b/codex-rs/core/src/context_bonsai.rs
 new file mode 100644
-index 0000000..1b312de
+index 0000000000000000000000000000000000000000..bb2366d36a3d7b35ff23fd10d8f085a58697e15f
 --- /dev/null
 +++ b/codex-rs/core/src/context_bonsai.rs
 @@ -0,0 +1,1209 @@
@@ -1382,10 +1225,304 @@ index 0000000..1b312de
 +        assert!(matches!(error, ArchiveStoreError::Missing { .. }));
 +    }
 +}
-
+diff --git a/codex-rs/core/src/hook_runtime.rs b/codex-rs/core/src/hook_runtime.rs
+index 342e4d4b8f443deab989c2528da909aaf542e9e8..922f17b089b1f0683d919299306c69328d3d4ad1 100644
+--- a/codex-rs/core/src/hook_runtime.rs
++++ b/codex-rs/core/src/hook_runtime.rs
+@@ -127,6 +127,8 @@ pub(crate) async fn run_pending_session_start_hooks(
+                 source: session_start_source,
+             },
+         };
++        let bonsai_guidance =
++            bonsai_guidance_for_start_target(&target, history_contains_bonsai_guidance(sess).await);
+         let request = codex_hooks::SessionStartRequest {
+             session_id: sess.session_id().into(),
+             #[allow(deprecated)]
+@@ -138,16 +140,17 @@ pub(crate) async fn run_pending_session_start_hooks(
+         };
+         let hooks = sess.hooks();
+         let preview_runs = hooks.preview_session_start(&request);
+-        if run_context_injecting_hook(
++        let mut outcome = run_context_injecting_hook(
+             sess,
+             turn_context,
+             preview_runs,
+             hooks.run_session_start(request, Some(turn_context.sub_id.clone())),
+         )
+-        .await
+-        .record_additional_contexts(sess, turn_context)
+-        .await
+-        {
++        .await;
++        if let Some(guidance) = bonsai_guidance {
++            outcome.additional_contexts.insert(0, guidance);
++        }
++        if outcome.record_additional_contexts(sess, turn_context).await {
+             return true;
+         }
+     }
+@@ -504,6 +507,7 @@ pub(crate) async fn inspect_pending_input(
+ ) -> HookRuntimeOutcome {
+     match pending_input_item {
+         TurnInput::UserInput { content, .. } => {
++            let bonsai_gauge = bonsai_gauge_context_for_turn(sess, turn_context).await;
+             let request = UserPromptSubmitRequest {
+                 session_id: sess.session_id().into(),
+                 turn_id: turn_context.sub_id.clone(),
+@@ -517,13 +521,17 @@ pub(crate) async fn inspect_pending_input(
+             };
+             let hooks = sess.hooks();
+             let preview_runs = hooks.preview_user_prompt_submit(&request);
+-            run_context_injecting_hook(
++            let mut outcome = run_context_injecting_hook(
+                 sess,
+                 turn_context,
+                 preview_runs,
+                 hooks.run_user_prompt_submit(request),
+             )
+-            .await
++            .await;
++            if let Some(gauge) = bonsai_gauge {
++                outcome.additional_contexts.insert(0, gauge);
++            }
++            outcome
+         }
+         TurnInput::ResponseItem(_) => HookRuntimeOutcome {
+             should_stop: false,
+@@ -746,6 +754,75 @@ fn hook_permission_mode(turn_context: &TurnContext) -> String {
+     .to_string()
+ }
+ 
++/// Return the canonical Context Bonsai guidance for a newly-created context.
++/// Resume replays the original guidance, so injecting it again would add one
++/// duplicate developer row per resume. Compact starts a fresh model context
++/// and therefore needs the guidance again.
++fn bonsai_guidance_for_start_target(
++    target: &StartHookTarget,
++    guidance_already_present: bool,
++) -> Option<String> {
++    if guidance_already_present {
++        return None;
++    }
++    match target {
++        StartHookTarget::SessionStart {
++            source: codex_hooks::SessionStartSource::Resume,
++        } => None,
++        StartHookTarget::SessionStart { .. } => {
++            Some(codex_context_bonsai::BONSAI_GUIDANCE.to_string())
++        }
++        StartHookTarget::SubagentStart { .. } => None,
++    }
++}
++
++async fn history_contains_bonsai_guidance(sess: &Session) -> bool {
++    sess.clone_history().await.raw_items().iter().any(|item| {
++        let ResponseItem::Message { role, content, .. } = item else {
++            return false;
++        };
++        role == "developer"
++            && content.iter().any(|content| {
++                matches!(
++                    content,
++                    codex_protocol::models::ContentItem::InputText { text }
++                        if text == codex_context_bonsai::BONSAI_GUIDANCE
++                )
++            })
++    })
++}
++
++/// Render the canonical gauge on the cadence owned by the shared Bonsai core.
++/// Keeping this pure makes the parity contract independently testable.
++fn bonsai_gauge_context(user_turn_number: u32, context_pressure_ratio: f64) -> Option<String> {
++    let cadence = codex_context_bonsai::GAUGE_CADENCE_TURNS;
++    if cadence == 0 || user_turn_number == 0 || !user_turn_number.is_multiple_of(cadence) {
++        return None;
++    }
++    codex_context_bonsai::gauge_text_for_ratio(context_pressure_ratio).map(|reading| reading.text)
++}
++
++/// Compute the inputs from Codex's live history and token accounting, then
++/// delegate cadence and wording to the shared Context Bonsai core.
++async fn bonsai_gauge_context_for_turn(
++    sess: &Session,
++    turn_context: &TurnContext,
++) -> Option<String> {
++    let history = sess.clone_history().await;
++    let previous_turns = history
++        .raw_items()
++        .iter()
++        .filter(|item| crate::context_manager::is_user_turn_boundary(item))
++        .count();
++    let user_turn_number = u32::try_from(previous_turns.saturating_add(1)).ok()?;
++    let context_window = turn_context
++        .model_context_window()
++        .filter(|window| *window > 0)?;
++    let used_tokens = sess.get_total_token_usage().await;
++    let ratio = used_tokens as f64 / context_window as f64;
++    bonsai_gauge_context(user_turn_number, ratio)
++}
++
+ fn thread_spawn_subagent_hook_context(
+     sess: &Arc<Session>,
+     turn_context: &TurnContext,
+@@ -786,6 +863,8 @@ mod tests {
+     use pretty_assertions::assert_eq;
+ 
+     use super::additional_context_messages;
++    use super::bonsai_gauge_context;
++    use super::bonsai_guidance_for_start_target;
+     use super::hook_run_analytics_payload;
+     use super::hook_run_metric_tags;
+     use crate::session::tests::make_session_and_context;
+@@ -794,6 +873,51 @@ mod tests {
+     use codex_utils_absolute_path::test_support::PathBufExt;
+     use codex_utils_absolute_path::test_support::test_path_buf;
+ 
++    #[test]
++    fn context_bonsai_guidance_is_present_for_new_contexts_but_not_resume() {
++        let startup = codex_hooks::StartHookTarget::SessionStart {
++            source: codex_hooks::SessionStartSource::Startup,
++        };
++        let compact = codex_hooks::StartHookTarget::SessionStart {
++            source: codex_hooks::SessionStartSource::Compact,
++        };
++        let resume = codex_hooks::StartHookTarget::SessionStart {
++            source: codex_hooks::SessionStartSource::Resume,
++        };
++        let subagent = codex_hooks::StartHookTarget::SubagentStart {
++            turn_id: "turn-1".to_string(),
++            agent_id: "agent-1".to_string(),
++            agent_type: "worker".to_string(),
++        };
++
++        assert_eq!(
++            bonsai_guidance_for_start_target(&startup, false).as_deref(),
++            Some(codex_context_bonsai::BONSAI_GUIDANCE)
++        );
++        assert_eq!(
++            bonsai_guidance_for_start_target(&compact, false).as_deref(),
++            Some(codex_context_bonsai::BONSAI_GUIDANCE)
++        );
++        assert_eq!(bonsai_guidance_for_start_target(&resume, false), None);
++        assert_eq!(bonsai_guidance_for_start_target(&subagent, false), None);
++        assert_eq!(bonsai_guidance_for_start_target(&startup, true), None);
++    }
++
++    #[test]
++    fn context_bonsai_gauge_uses_shared_five_turn_cadence_and_bands() {
++        assert_eq!(bonsai_gauge_context(4, 0.85), None);
++        let info = bonsai_gauge_context(5, 0.20).expect("turn five should emit info gauge");
++        assert!(
++            info.contains("context at 20%"),
++            "unexpected info gauge: {info}"
++        );
++        let urgent = bonsai_gauge_context(10, 0.85).expect("turn ten should emit urgent gauge");
++        assert!(
++            urgent.contains("PRUNE NOW"),
++            "unexpected urgent gauge: {urgent}"
++        );
++    }
++
+     #[test]
+     fn additional_context_messages_stay_separate_and_ordered() {
+         let messages = additional_context_messages(vec![
+diff --git a/codex-rs/core/src/lib.rs b/codex-rs/core/src/lib.rs
+index cfc26c5711646ffe41f802177e28254bec4912a1..cb51047c6e668469f7e4b8f56f63cec3a0f2520f 100644
+--- a/codex-rs/core/src/lib.rs
++++ b/codex-rs/core/src/lib.rs
+@@ -40,6 +40,7 @@ pub mod config;
+ pub mod connectors;
+ pub mod context;
+ mod context_manager;
++mod context_bonsai;
+ mod current_time;
+ mod elicitation;
+ mod environment_selection;
+diff --git a/codex-rs/core/src/session/mod.rs b/codex-rs/core/src/session/mod.rs
+index 9339413b3337f6fda665d3428d94af39192ed636..90395a37020d9e30c5a724747047ec7156c0d6e9 100644
+--- a/codex-rs/core/src/session/mod.rs
++++ b/codex-rs/core/src/session/mod.rs
+@@ -3073,6 +3073,77 @@ impl Session {
+         }
+     }
+ 
++    pub(crate) async fn apply_bonsai_prune(
++        &self,
++        turn_context: &TurnContext,
++        install: crate::context_bonsai::PruneInstall,
++    ) -> Result<(), crate::context_bonsai::ArchiveStoreError> {
++        let (codex_home, thread_id) = {
++            let state = self.state.lock().await;
++            (
++                state.session_configuration.codex_home().to_path_buf(),
++                self.thread_id().to_string(),
++            )
++        };
++        crate::context_bonsai::persist_archive(
++            codex_home,
++            thread_id,
++            install.archive_payload.clone(),
++        )
++        .await?;
++        let (window_number, window_ids) = self.advance_auto_compact_window().await;
++        let compacted_item = CompactedItem {
++            message: install.placeholder_text,
++            replacement_history: Some(install.replacement_history.clone()),
++            window_number: Some(window_number),
++            first_window_id: Some(window_ids.first_window_id.to_string()),
++            previous_window_id: window_ids.previous_window_id.map(|id| id.to_string()),
++            window_id: Some(window_ids.window_id.to_string()),
++        };
++        self.replace_compacted_history(
++            turn_context,
++            install.replacement_history,
++            None,
++            None,
++            compacted_item,
++        )
++        .await;
++        self.recompute_token_usage(turn_context).await;
++        Ok(())
++    }
++
++    pub(crate) async fn apply_bonsai_retrieve(
++        &self,
++        turn_context: &TurnContext,
++        anchor_id: &str,
++    ) -> Result<(), crate::context_bonsai::ApplyRetrieveError> {
++        let (codex_home, thread_id, history) = {
++            let state = self.state.lock().await;
++            (
++                state.session_configuration.codex_home().to_path_buf(),
++                self.thread_id().to_string(),
++                state.clone_history().into_raw_items(),
++            )
++        };
++        let archive =
++            crate::context_bonsai::load_archive(codex_home, thread_id, anchor_id.to_string())
++                .await?;
++        let restored = crate::context_bonsai::build_retrieve_install(&history, &archive, false)?;
++        let (window_number, window_ids) = self.advance_auto_compact_window().await;
++        let compacted_item = CompactedItem {
++            message: format!("[RETRIEVED: {anchor_id}]"),
++            replacement_history: Some(restored.clone()),
++            window_number: Some(window_number),
++            first_window_id: Some(window_ids.first_window_id.to_string()),
++            previous_window_id: window_ids.previous_window_id.map(|id| id.to_string()),
++            window_id: Some(window_ids.window_id.to_string()),
++        };
++        self.replace_compacted_history(turn_context, restored, None, None, compacted_item)
++            .await;
++        self.recompute_token_usage(turn_context).await;
++        Ok(())
++    }
++
+     async fn persist_rollout_response_items(&self, items: &[ResponseItem]) {
+         let rollout_items: Vec<RolloutItem> = items
+             .iter()
 diff --git a/codex-rs/core/src/tools/handlers/bonsai.rs b/codex-rs/core/src/tools/handlers/bonsai.rs
 new file mode 100644
-index 0000000..c05b3bd
+index 0000000000000000000000000000000000000000..c05b3bd7ef507a8c0a3229c051e7ff7e641d53fd
 --- /dev/null
 +++ b/codex-rs/core/src/tools/handlers/bonsai.rs
 @@ -0,0 +1,216 @@
@@ -1605,3 +1742,145 @@ index 0000000..c05b3bd
 +}
 +
 +impl CoreToolRuntime for ContextBonsaiRetrieveHandler {}
+diff --git a/codex-rs/core/src/tools/handlers/mod.rs b/codex-rs/core/src/tools/handlers/mod.rs
+index 29ad1729793f2d611f0b6a01369e6761183c2141..9a19c38366f3b553fc63cc2c6c4f5cb6a2b37549 100644
+--- a/codex-rs/core/src/tools/handlers/mod.rs
++++ b/codex-rs/core/src/tools/handlers/mod.rs
+@@ -2,6 +2,7 @@ pub(crate) mod agent_jobs;
+ pub(crate) mod agent_jobs_spec;
+ pub(crate) mod apply_patch;
+ pub(crate) mod apply_patch_spec;
++mod bonsai;
+ mod current_time;
+ mod dynamic;
+ pub(crate) mod extension_tools;
+@@ -55,6 +56,8 @@ use crate::session::turn_context::TurnEnvironment;
+ pub(crate) use crate::tools::code_mode::CodeModeExecuteHandler;
+ pub(crate) use crate::tools::code_mode::CodeModeWaitHandler;
+ pub use apply_patch::ApplyPatchHandler;
++pub use bonsai::ContextBonsaiPruneHandler;
++pub use bonsai::ContextBonsaiRetrieveHandler;
+ use codex_protocol::models::AdditionalPermissionProfile;
+ use codex_protocol::protocol::AskForApproval;
+ pub use current_time::CurrentTimeHandler;
+diff --git a/codex-rs/core/src/tools/spec_plan.rs b/codex-rs/core/src/tools/spec_plan.rs
+index 9d9b7629a18a56f93850062b4eea8b7693cf728e..04ac641208628b3be0a5340adad411a7e7c8f33b 100644
+--- a/codex-rs/core/src/tools/spec_plan.rs
++++ b/codex-rs/core/src/tools/spec_plan.rs
+@@ -8,6 +8,8 @@ use crate::tools::effective_tool_mode;
+ use crate::tools::handlers::ApplyPatchHandler;
+ use crate::tools::handlers::CodeModeExecuteHandler;
+ use crate::tools::handlers::CodeModeWaitHandler;
++use crate::tools::handlers::ContextBonsaiPruneHandler;
++use crate::tools::handlers::ContextBonsaiRetrieveHandler;
+ use crate::tools::handlers::CurrentTimeHandler;
+ use crate::tools::handlers::DynamicToolHandler;
+ use crate::tools::handlers::ExecCommandHandler;
+@@ -681,6 +683,8 @@ fn add_core_utility_tools(context: &CoreToolPlanContext<'_>, planned_tools: &mut
+     let environment_mode = tool_environment_mode(context.step_context);
+ 
+     planned_tools.add(PlanHandler);
++    planned_tools.add(ContextBonsaiPruneHandler);
++    planned_tools.add(ContextBonsaiRetrieveHandler);
+ 
+     if features.enabled(Feature::DeferredExecutor) {
+         planned_tools.add(WaitForEnvironmentHandler);
+diff --git a/codex-rs/core/src/tools/spec_plan_tests.rs b/codex-rs/core/src/tools/spec_plan_tests.rs
+index 7fd4c69cd5f54aaf37e5d8fad2979a5396dfe07a..2fe47487b1b3462d3b5cb66a2a92003bb55b4229 100644
+--- a/codex-rs/core/src/tools/spec_plan_tests.rs
++++ b/codex-rs/core/src/tools/spec_plan_tests.rs
+@@ -273,6 +273,14 @@ fn use_bedrock_provider(turn: &mut TurnContext) {
+     turn.provider = create_model_provider(provider_info, turn.auth_manager.clone());
+ }
+ 
++#[tokio::test]
++async fn context_bonsai_tools_are_model_visible_and_registered() {
++    let plan = probe(|_| {}).await;
++    let names = ["context-bonsai-prune", "context-bonsai-retrieve"];
++    plan.assert_visible_contains(&names);
++    plan.assert_registered_contains(&names);
++}
++
+ struct TestNamespaceExtensionTool {
+     namespace: &'static str,
+     tool_name: &'static str,
+diff --git a/codex-rs/core/tests/common/context_snapshot.rs b/codex-rs/core/tests/common/context_snapshot.rs
+index 1a236e1aacec36dc22336278851c241f618c08da..a8ee1ddfb454d7d1562637dc9f36b431b4a108c5 100644
+--- a/codex-rs/core/tests/common/context_snapshot.rs
++++ b/codex-rs/core/tests/common/context_snapshot.rs
+@@ -63,10 +63,14 @@ pub fn format_request_input_snapshot(
+ }
+ 
+ pub fn format_response_items_snapshot(items: &[Value], options: &ContextSnapshotOptions) -> String {
+-    items
++    let retained = items
++        .iter()
++        .filter(|item| !item_is_entirely_stripped(item, options))
++        .collect::<Vec<_>>();
++    retained
+         .iter()
+         .enumerate()
+-        .map(|(idx, item)| {
++        .map(|(idx, &item)| {
+             let Some(item_type) = item.get("type").and_then(Value::as_str) else {
+                 return format!("{idx:02}:<MISSING_TYPE>");
+             };
+@@ -429,6 +433,26 @@ fn is_capability_instruction_text(text: &str) -> bool {
+     text.starts_with(APPS_INSTRUCTIONS_OPEN_TAG)
+         || text.starts_with(SKILLS_INSTRUCTIONS_OPEN_TAG)
+         || text.starts_with(PLUGINS_INSTRUCTIONS_OPEN_TAG)
++        || text.starts_with("[context-bonsai]")
++}
++
++fn item_is_entirely_stripped(item: &Value, options: &ContextSnapshotOptions) -> bool {
++    if !options.strip_capability_instructions
++        || item.get("type").and_then(Value::as_str) != Some("message")
++        || item.get("role").and_then(Value::as_str) != Some("developer")
++    {
++        return false;
++    }
++    let Some(content) = item.get("content").and_then(Value::as_array) else {
++        return false;
++    };
++    !content.is_empty()
++        && content.iter().all(|entry| {
++            entry
++                .get("text")
++                .and_then(Value::as_str)
++                .is_some_and(is_capability_instruction_text)
++        })
+ }
+ 
+ fn normalize_dynamic_snapshot_paths(text: &str) -> String {
+@@ -589,6 +613,31 @@ mod tests {
+         assert_eq!(rendered, "00:message/developer:<PERMISSIONS_INSTRUCTIONS>");
+     }
+ 
++    #[test]
++    fn strip_capability_instructions_omits_entire_bonsai_guidance_items() {
++        let items = vec![
++            json!({
++                "type": "message",
++                "role": "developer",
++                "content": [{ "type": "input_text", "text": "[context-bonsai] guidance" }]
++            }),
++            json!({
++                "type": "message",
++                "role": "user",
++                "content": [{ "type": "input_text", "text": "keep me" }]
++            }),
++        ];
++
++        let rendered = format_response_items_snapshot(
++            &items,
++            &ContextSnapshotOptions::default()
++                .render_mode(ContextSnapshotRenderMode::RedactedText)
++                .strip_capability_instructions(),
++        );
++
++        assert_eq!(rendered, "00:message/user:keep me");
++    }
++
+     #[test]
+     fn strip_agents_md_user_context_omits_agents_fragment_from_user_messages() {
+         let items = vec![json!({

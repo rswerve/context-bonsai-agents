@@ -13,6 +13,7 @@ import { join, resolve } from "node:path";
 import { describe, expect, test } from "bun:test";
 import {
   activateCandidate,
+  missingAutonomyWiringTokens,
   parseStableReleasePayload,
   releaseAction,
   rewriteSharedCoreDependencyText,
@@ -264,5 +265,25 @@ describe("runtime portability", () => {
     expect(() => validateSharedCoreSnapshot(manifest.core, manifest.runtime, manifest.tree)).toThrow(
       "manifest checksum mismatch",
     );
+  });
+});
+
+describe("Context Bonsai autonomy certification", () => {
+  const completeWiring = [
+    "codex_context_bonsai::BONSAI_GUIDANCE",
+    "codex_context_bonsai::GAUGE_CADENCE_TURNS",
+    "codex_context_bonsai::gauge_text_for_ratio",
+    "bonsai_guidance_for_start_target",
+    "bonsai_gauge_context_for_turn",
+  ].join("\n");
+
+  test("accepts a port containing the shared guidance and gauge controller", () => {
+    expect(missingAutonomyWiringTokens(completeWiring)).toEqual([]);
+  });
+
+  test("rejects the former tools-only port", () => {
+    const missing = missingAutonomyWiringTokens("context-bonsai-prune context-bonsai-retrieve");
+    expect(missing).toContain("codex_context_bonsai::BONSAI_GUIDANCE");
+    expect(missing).toContain("bonsai_gauge_context_for_turn");
   });
 });

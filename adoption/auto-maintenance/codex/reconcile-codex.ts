@@ -22,19 +22,33 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from "node:pat
 
 const REPO_ROOT = resolve(import.meta.dir, "../../..");
 const INITIAL_PATCH = join(REPO_ROOT, "adoption/codex/codex-0.144.5-bonsai.patch");
-const INITIAL_PATCH_SHA256 = "0c99e333d5e835b8051854c27490c6a1bb13465dffac1a7c544ea74b4a0aaf4a";
+const INITIAL_PATCH_SHA256 = "8dc8413488b4382f5d9c7ef2f88387b134d1f1b365419757254b79389cdab8d5";
 const SHARED_CORE = join(REPO_ROOT, "codex_context_bonsai");
 
 const ALLOWED_PORT_FILES = [
   "codex-rs/core/Cargo.toml",
   "codex-rs/core/src/context_bonsai.rs",
+  "codex-rs/core/src/hook_runtime.rs",
   "codex-rs/core/src/lib.rs",
   "codex-rs/core/src/session/mod.rs",
   "codex-rs/core/src/tools/handlers/bonsai.rs",
   "codex-rs/core/src/tools/handlers/mod.rs",
   "codex-rs/core/src/tools/spec_plan.rs",
   "codex-rs/core/src/tools/spec_plan_tests.rs",
+  "codex-rs/core/tests/common/context_snapshot.rs",
 ] as const;
+
+const REQUIRED_AUTONOMY_WIRING = [
+  "codex_context_bonsai::BONSAI_GUIDANCE",
+  "codex_context_bonsai::GAUGE_CADENCE_TURNS",
+  "codex_context_bonsai::gauge_text_for_ratio",
+  "bonsai_guidance_for_start_target",
+  "bonsai_gauge_context_for_turn",
+] as const;
+
+export function missingAutonomyWiringTokens(hookRuntimeSource: string): string[] {
+  return REQUIRED_AUTONOMY_WIRING.filter((token) => !hookRuntimeSource.includes(token));
+}
 
 export type FinalStatus =
   | "up-to-date"
@@ -830,6 +844,15 @@ function validatePortSource(
   if (!coreManifest.includes(expectedDependency)) {
     throw new ReconcileError("certification-failed", 21, "candidate does not use the pinned runtime shared core");
   }
+  const hookRuntime = readFileSync(join(source, "codex-rs/core/src/hook_runtime.rs"), "utf8");
+  const missingAutonomy = missingAutonomyWiringTokens(hookRuntime);
+  if (missingAutonomy.length > 0) {
+    throw new ReconcileError(
+      "certification-failed",
+      21,
+      `candidate is missing Context Bonsai autonomy wiring: ${missingAutonomy.join(", ")}`,
+    );
+  }
   command(runDir, "port-diff-check", ["git", "-C", source, "diff", "--cached", "--check"]);
   const changed = command(runDir, "port-file-list", ["git", "-C", source, "diff", "--cached", "--name-only"])
     .stdout.trim()
@@ -858,8 +881,16 @@ function validatePortSource(
     "--binary",
     "--full-index",
   ]).stdout;
-  if (!patchText.includes("context-bonsai-prune") || !patchText.includes("context-bonsai-retrieve")) {
-    throw new ReconcileError("certification-failed", 21, "candidate patch does not contain both model-facing tools");
+  if (
+    !patchText.includes("context-bonsai-prune") ||
+    !patchText.includes("context-bonsai-retrieve") ||
+    missingAutonomyWiringTokens(patchText).length > 0
+  ) {
+    throw new ReconcileError(
+      "certification-failed",
+      21,
+      "candidate patch does not contain both tools plus autonomous guidance/gauge wiring",
+    );
   }
   return { sharedCoreIdentity, patchText };
 }

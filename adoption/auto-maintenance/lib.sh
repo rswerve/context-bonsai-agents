@@ -58,10 +58,15 @@ cb_release_lock() { rm -f "$CB_LOCK" 2>/dev/null || true; }
 cb_claude_version() { "$CB_CLAUDE_LAUNCHER" --version 2>/dev/null | grep -oE '2\.1\.[0-9]+' | head -1; }
 cb_claude_live_bundle() { readlink "$CB_CLAUDE_LAUNCHER" 2>/dev/null; }
 cb_bundle_patched() { grep -qa 'cb:archived-filter' "$1" 2>/dev/null; }   # $1 = bundle path (quick check)
-cb_bundle_fully_patched() {  # $1 = bundle path; true ONLY if ALL THREE patch sentinels are present
+cb_bundle_fully_patched() {  # $1 = bundle path; require all patches AND the autonomous five-user-turn controller
   grep -qa 'cb:archived-filter'      "$1" 2>/dev/null \
   && grep -qa 'cb:message-content-ids'  "$1" 2>/dev/null \
-  && grep -qa 'cb:context-bonsai-gauge' "$1" 2>/dev/null
+  && grep -qa 'cb:context-bonsai-gauge' "$1" 2>/dev/null \
+  && grep -qa '__cbTurns%5===0' "$1" 2>/dev/null \
+  && grep -qa '__cbContextBonsaiInjectGauge' "$1" 2>/dev/null \
+  && grep -qa 'cache_read_input_tokens' "$1" 2>/dev/null \
+  && ! grep -qa '__cbTurns>20' "$1" 2>/dev/null \
+  && ! grep -qa '__cbTurns!==__cbState.lastTurn' "$1" 2>/dev/null
 }
 cb_codex_symlink_target() { readlink "$CB_CODEX_SYMLINK" 2>/dev/null; }
 cb_codex_fork_version() { "$CB_CODEX_SYMLINK" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1; }

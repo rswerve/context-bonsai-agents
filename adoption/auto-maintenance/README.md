@@ -7,6 +7,7 @@ Every path is **fail-safe**: the system only ever leaves your install in a *work
 - It builds/certifies a candidate **in isolation**; the live install is touched only after checks pass.
 - `apply` is **pre-write atomic** — on any anchor mismatch it throws *before* writing, so the bundle is never partially patched (proven by `test-fixtures.sh`).
 - Post-apply it **verifies** (sentinels present + binary runs); on failure it **auto-rolls back** to stock.
+- It also certifies the autonomous controller itself: Codex must wire the canonical startup guidance and five-user-turn gauge into live context, while Claude must contain the provider-bound, multi-serialization-safe five-user-turn injector. Tool registration alone is not accepted as healthy.
 - Anything it can't do safely → it **does nothing to the live install** and **notifies** you. Claude stays clean-stock after anchor drift; Codex stays on its last certified Bonsai fork.
 
 ## What it does
@@ -43,6 +44,10 @@ background job. To catch it up after an automatic source update, use
 - **Automatic (most updates):** the patch anchors usually still match / Codex rebases are usually clean → re-applied with no action from you.
 - **Escalated (rare):** a Bonsai source merge conflicts, its certification fails, an update reshapes the Claude code enough to need intelligent re-derivation (like the one anchor hand-fixed for 2.1.215), or a Codex rebase conflicts. The prior runtime remains selected, Claude remains safely unpatched when appropriate, and Codex keeps using its prior certified fork. You get a notification rather than a silent breakage.
 - **Honest limit:** a headless run can't reproduce the deep *live behavioral* test (the model + bridge checks that caught 2 bugs during the build). So auto-apply relies on structural anchor-match + smoke checks + auto-rollback + notifying you — it stays conservative.
+
+The current ports have additionally passed a real subscription-backed model
+probe: both harnesses received their canonical Bonsai guidance/gauge in model
+context, including Claude's repeated provider-serialization path.
 
 Codex follows the official GitHub **stable release** endpoint—not raw tags,
 betas, nightlies, or `brew outdated`. It checks once daily; a temporary network

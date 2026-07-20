@@ -1,11 +1,17 @@
 # Staged artifact manifest
 
+This records the historical 0.144.5 bootstrap. The source patch below has been
+upgraded to the autonomous controller baseline; the listed release binary is
+the retained pre-upgrade bootstrap binary and is **not** a build of that newer
+patch. Production activation and verification use the content-addressed
+artifacts under the auto-maintenance system, not this legacy pair.
+
 - Built: 2026-07-19 (America/Chicago)
 - Platform: Apple Silicon macOS (`arm64`)
 - Upstream tag: `rust-v0.144.5`
 - Upstream commit: `87db9bc18ba5bc82c1cb4e4381b44f693ee35623`
 - Shared core commit: `4228054c8d137c29ae12faf97b6feba2ca4b0ef2`
-- Source patch SHA-256: `0c99e333d5e835b8051854c27490c6a1bb13465dffac1a7c544ea74b4a0aaf4a`
+- Source patch SHA-256: `8dc8413488b4382f5d9c7ef2f88387b134d1f1b365419757254b79389cdab8d5`
 - Release binary SHA-256: `2781a198fc0ada549b920b24d7c6a16098c1d79314fca777fb92c72bbc1ffc92`
 - Release binary bytes: `355151720`
 - Release binary path: `~/.local/share/context-bonsai/artifacts/codex/0.144.5/bin/codex`

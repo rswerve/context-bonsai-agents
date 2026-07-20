@@ -38,7 +38,9 @@ the next run on an older patch lineage.
 ## Required green gates
 
 - exact official stable tag and unchanged upstream `HEAD`;
-- exact eight-file Bonsai allowlist, clean diff, no source symlinks/executables,
+- exact ten-file Bonsai allowlist, including `core/src/hook_runtime.rs` for
+  autonomous guidance/gauge injection and one snapshot-normalization helper;
+  clean diff, no source symlinks/executables,
   and no app-server protocol edits;
 - clean, commit-pinned shared `codex_context_bonsai` core when running from a
   development checkout, or an exact file/mode/Git-blob match against the
@@ -51,6 +53,8 @@ the next run on an older patch lineage.
   all evidence stay in the retained run;
 - shared-core test suite;
 - focused `codex-core` Context Bonsai tests;
+- source-level certification that the canonical session guidance and shared
+  five-user-turn pressure gauge are both wired into the host context path;
 - full `codex-core --lib` suite with the required larger Rust test stack;
 - `codex-app-server-protocol` tests;
 - `cargo clippy -p codex-core --lib`;
