@@ -625,6 +625,35 @@ function prepareMechanicalPort(
     throw new ReconcileError("needs-agent", 10, "mechanical patch did not apply; isolated agentic bundle emitted");
   }
   command(runDir, "mechanical-patch-apply", ["git", "-C", source, "apply", "--index", copiedPatch]);
+  normalizeSharedCoreDependency(config, runDir, source);
+}
+
+export function rewriteSharedCoreDependencyText(before: string, sharedCore: string): string {
+  const pattern = /codex-context-bonsai = \{ path = "[^"]+" \}/g;
+  const matches = before.match(pattern) ?? [];
+  if (matches.length !== 1) {
+    throw new ReconcileError(
+      "certification-failed",
+      21,
+      `expected exactly one codex-context-bonsai path dependency, found ${matches.length}`,
+    );
+  }
+  const escaped = resolve(sharedCore).replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+  return before.replace(pattern, `codex-context-bonsai = { path = "${escaped}" }`);
+}
+
+function normalizeSharedCoreDependency(config: ReconcileConfig, runDir: string, source: string): void {
+  const manifest = join(source, "codex-rs/core/Cargo.toml");
+  const before = readFileSync(manifest, "utf8");
+  writeFileSync(manifest, rewriteSharedCoreDependencyText(before, config.sharedCore));
+  command(runDir, "stage-runtime-shared-core-path", [
+    "git",
+    "-C",
+    source,
+    "add",
+    "--",
+    "codex-rs/core/Cargo.toml",
+  ]);
 }
 
 function stageAgenticChanges(runDir: string, source: string): void {
@@ -649,6 +678,11 @@ function validatePortSource(
   const head = command(runDir, "source-head-invariant", ["git", "-C", source, "rev-parse", "HEAD"]).stdout.trim();
   if (head !== expectedCommit) {
     throw new ReconcileError("certification-failed", 21, "candidate changed upstream HEAD");
+  }
+  const coreManifest = readFileSync(join(source, "codex-rs/core/Cargo.toml"), "utf8");
+  const expectedDependency = `codex-context-bonsai = { path = "${resolve(config.sharedCore)}" }`;
+  if (!coreManifest.includes(expectedDependency)) {
+    throw new ReconcileError("certification-failed", 21, "candidate does not use the pinned runtime shared core");
   }
   command(runDir, "port-diff-check", ["git", "-C", source, "diff", "--cached", "--check"]);
   const changed = command(runDir, "port-file-list", ["git", "-C", source, "diff", "--cached", "--name-only"])
@@ -1085,8 +1119,12 @@ function defaultConfig(certifyExistingRun?: string): ReconcileConfig {
       process.env.CB_CODEX_MAINTENANCE_STATE ??
       sharedState ??
       join(process.env.HOME ?? "", ".local/state/context-bonsai/codex-maintenance"),
-    artifactRoot: process.env.CB_CODEX_ARTIFACT_ROOT ?? join(REPO_ROOT, ".artifacts/context-bonsai/codex"),
-    scratchRoot: process.env.CB_CODEX_SCRATCH_ROOT ?? join(REPO_ROOT, ".staging/auto-maintenance/codex"),
+    artifactRoot:
+      process.env.CB_CODEX_ARTIFACT_ROOT ??
+      join(process.env.HOME ?? "", ".local/share/context-bonsai/artifacts/codex"),
+    scratchRoot:
+      process.env.CB_CODEX_SCRATCH_ROOT ??
+      join(process.env.HOME ?? "", ".local/state/context-bonsai/codex-maintenance/runs"),
     upstreamUrl: process.env.CB_CODEX_UPSTREAM_URL ?? "https://github.com/openai/codex.git",
     sharedCore: process.env.CB_CODEX_SHARED_CORE ?? SHARED_CORE,
     initialPatch: process.env.CB_CODEX_INITIAL_PATCH ?? INITIAL_PATCH,
@@ -1154,6 +1192,7 @@ export async function reconcile(config: ReconcileConfig): Promise<{ status: Fina
       if (targetVersion !== release.version || request.stableRelease?.assetSha256 !== release.assetSha256) {
         throw new ReconcileError("invariant-failed", 23, "latest stable release changed during agentic resolution");
       }
+      normalizeSharedCoreDependency(config, runDir, source);
       stageAgenticChanges(runDir, source);
     } else {
       targetVersion = release.version;

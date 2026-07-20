@@ -5,7 +5,9 @@
 # Prereqs: bun on PATH; Claude Code 2.1.215 installed and signed in (Keychain).
 set -euo pipefail
 
-PORT="/Users/atighi/dev/context-bonsai-agents/tweakcc_context_bonsai"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+PORT="${CB_PORT:-$REPO_ROOT/tweakcc_context_bonsai}"
 CFG="$HOME/.claude.json"
 
 # --- Guard: the patch anchors are certified for one Claude Code version. Refuse to patch a mismatch. ---

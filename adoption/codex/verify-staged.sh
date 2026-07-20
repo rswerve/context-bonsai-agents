@@ -2,8 +2,8 @@
 set -euo pipefail
 
 readonly SCRIPT_DIR="${0:A:h}"
-readonly REPO_ROOT="${SCRIPT_DIR:h:h}"
-readonly ARTIFACT_DIR="$REPO_ROOT/.artifacts/context-bonsai/codex/0.144.5/bin"
+readonly INSTALL_ROOT="${CB_INSTALL_ROOT:-$HOME/.local/share/context-bonsai}"
+readonly ARTIFACT_DIR="$INSTALL_ROOT/artifacts/codex/0.144.5/bin"
 readonly BINARY="$ARTIFACT_DIR/codex"
 readonly CHECKSUM="$ARTIFACT_DIR/codex.sha256"
 

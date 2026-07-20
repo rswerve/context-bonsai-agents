@@ -4,7 +4,9 @@
 # After running, restart Claude Code sessions; any pruned history reappears in full.
 set -euo pipefail
 
-PORT="/Users/atighi/dev/context-bonsai-agents/tweakcc_context_bonsai"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+PORT="${CB_PORT:-$REPO_ROOT/tweakcc_context_bonsai}"
 CFG="$HOME/.claude.json"
 
 echo "[1/2] Restoring the original Claude Code bundle from backup ..."

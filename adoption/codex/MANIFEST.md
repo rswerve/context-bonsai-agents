@@ -8,7 +8,7 @@
 - Source patch SHA-256: `0c99e333d5e835b8051854c27490c6a1bb13465dffac1a7c544ea74b4a0aaf4a`
 - Release binary SHA-256: `2781a198fc0ada549b920b24d7c6a16098c1d79314fca777fb92c72bbc1ffc92`
 - Release binary bytes: `355151720`
-- Release binary path: `.artifacts/context-bonsai/codex/0.144.5/bin/codex`
+- Release binary path: `~/.local/share/context-bonsai/artifacts/codex/0.144.5/bin/codex`
 
 Verification evidence:
 

@@ -36,7 +36,8 @@ failure leaves the current certified fork selected and retries the next day.
 ./uninstall-schedule.sh        # disable + remove both jobs (Bonsai itself stays as-is)
 launchctl kickstart gui/$(id -u)/com.atighi.context-bonsai-maintenance   # trigger a run
 ```
-Status: `state/last-run.md` · Log: `state/maintenance.log`
+Status: `~/.local/state/context-bonsai/auto-maintenance/last-run.md` · Log:
+`~/.local/state/context-bonsai/auto-maintenance/maintenance.log`
 
 ## Files
 `lib.sh` (shared helpers, env-overridable paths for testing) · `reconcile-claude.sh` · `run-daily.sh` (orchestrator with lane selection) · `codex/` (Codex-side reconciler) · `install-schedule.sh` / `uninstall-schedule.sh` (daily + watch agents) · `test-fixtures.sh` · `test-combined.sh`

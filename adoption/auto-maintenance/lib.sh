@@ -4,11 +4,12 @@
 
 # --- Paths (single source of truth; the live-target ones are env-overridable so fixtures can exercise
 #     every branch against scratch copies without ever touching the real install) ---
-CB_REPO="${CB_REPO:-/Users/atighi/dev/context-bonsai-agents}"
+CB_AM_SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CB_REPO="${CB_REPO:-$(cd "$CB_AM_SOURCE/../.." && pwd)}"
 CB_PORT="${CB_PORT:-$CB_REPO/tweakcc_context_bonsai}"            # tweakcc Claude port (MCP + apply/restore)
 CB_ADOPT="$CB_REPO/adoption"
 CB_AM="$CB_ADOPT/auto-maintenance"
-CB_STATE="${CB_STATE:-$CB_AM/state}"                            # logs + last-run status (git-ignored)
+CB_STATE="${CB_STATE:-$HOME/.local/state/context-bonsai/auto-maintenance}"
 CB_LOG="$CB_STATE/maintenance.log"
 CB_STATUS="$CB_STATE/last-run.md"                                # human-readable latest status
 CB_LOCK="$CB_STATE/.lock"

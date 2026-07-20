@@ -29,3 +29,12 @@ Global — every Claude Code + Codex session on this machine picks it up on next
 Both harnesses were built and **live-verified against AgentBridge** on your real setup before this flip: byte-exact prune → placeholder → retrieve round-trips in bridged sessions, with the patched/forked binary as a live bridge endpoint. Two real bugs were caught and fixed by that testing (`gpt-5.6-sol` boundary repetition; `CLAUDE_CONFIG_DIR` session-path discovery).
 
 See `adoption/codex/` and `adoption/claude/` for the per-side enable/rollback scripts and build details.
+
+## Durable runtime
+
+The Git checkout is source, not installation state. `adoption/runtime/install.sh`
+builds and certifies a versioned runtime under
+`~/.local/share/context-bonsai/runtime/`; Claude's MCP entry and both
+LaunchAgents point through its atomic `current` symlink. Codex binaries live
+under `~/.local/share/context-bonsai/artifacts/`. Branch switches and upstream
+merges therefore cannot break new or running sessions.

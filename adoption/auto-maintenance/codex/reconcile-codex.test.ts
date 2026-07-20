@@ -15,6 +15,7 @@ import {
   activateCandidate,
   parseStableReleasePayload,
   releaseAction,
+  rewriteSharedCoreDependencyText,
   type ActivationPaths,
   type Candidate,
   type LinkSnapshot,
@@ -195,5 +196,23 @@ describe("latest stable release policy", () => {
     const wrongUrl = stablePayload();
     wrongUrl.assets[0].browser_download_url = "https://example.invalid/codex.tar.gz";
     expect(() => parseStableReleasePayload(wrongUrl)).toThrow("official download");
+  });
+});
+
+describe("runtime portability", () => {
+  test("normalizes the historical Cargo path to the installed shared core", () => {
+    const source = 'codex-context-bonsai = { path = "/old/development/checkout" }\n';
+    const rewritten = rewriteSharedCoreDependencyText(source, "/installed/runtime/codex_context_bonsai");
+    expect(rewritten).toContain(
+      'codex-context-bonsai = { path = "/installed/runtime/codex_context_bonsai" }',
+    );
+    expect(rewritten).not.toContain("/old/development/checkout");
+  });
+
+  test("fails closed if the dependency is missing or ambiguous", () => {
+    expect(() => rewriteSharedCoreDependencyText("", "/runtime/core")).toThrow("found 0");
+    const duplicate =
+      'codex-context-bonsai = { path = "/one" }\n' + 'codex-context-bonsai = { path = "/two" }\n';
+    expect(() => rewriteSharedCoreDependencyText(duplicate, "/runtime/core")).toThrow("found 2");
   });
 });

@@ -19,11 +19,12 @@ the model calls `context-bonsai-prune`.
 - `rollback.sh`: the off-ramp. It moves the Bonsai symlink into switch history
   and restores the exact prior entry; it deletes nothing.
 
-The built binary and checksum are intentionally outside version control at:
+The built binary and checksum are intentionally outside both version control
+and the development checkout at:
 
 ```text
-.artifacts/context-bonsai/codex/0.144.5/bin/codex
-.artifacts/context-bonsai/codex/0.144.5/bin/codex.sha256
+~/.local/share/context-bonsai/artifacts/codex/0.144.5/bin/codex
+~/.local/share/context-bonsai/artifacts/codex/0.144.5/bin/codex.sha256
 ```
 
 ## Safety contract

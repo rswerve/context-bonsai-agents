@@ -2,8 +2,8 @@
 set -euo pipefail
 
 readonly SCRIPT_DIR="${0:A:h}"
-readonly REPO_ROOT="${SCRIPT_DIR:h:h}"
-readonly STAGED_BINARY="$REPO_ROOT/.artifacts/context-bonsai/codex/0.144.5/bin/codex"
+readonly INSTALL_ROOT="${CB_INSTALL_ROOT:-$HOME/.local/share/context-bonsai}"
+readonly STAGED_BINARY="$INSTALL_ROOT/artifacts/codex/0.144.5/bin/codex"
 readonly LINK_DIR="$HOME/.local/bin"
 readonly LINK_PATH="$LINK_DIR/codex"
 readonly STATE_DIR="$HOME/.local/state/context-bonsai/codex-switch"
