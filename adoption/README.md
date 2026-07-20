@@ -18,6 +18,7 @@ Global — every Claude Code + Codex session on this machine picks it up on next
 - Restart sessions afterward. Claude's hidden messages reappear when its patch is removed. Codex's sidecar archives remain intact, but stock Codex cannot retrieve them; run `context-bonsai-retrieve` before rollback when restored Codex context is required.
 
 ## Maintenance (script this)
+- **Context Bonsai upstream updates:** the daily source lane merges both upstream `main` branches into the corresponding `rswerve` fork `main` branches in isolated clones. It pushes and atomically installs only after the full suite passes; conflicts leave the current runtime selected and notify.
 - **Claude Code updates:** the patch is certified for `2.1.215`; `adoption/claude/enable.sh` refuses a version mismatch. After a CC update: re-derive anchors (`tweakcc_context_bonsai/patches/anchors.ts`) + re-run `enable.sh`. An auto-update silently reverts to stock until re-applied (fails *off*, never broken).
 - **Codex updates:** rebuild the fork on the new upstream (`adoption/codex/build-staged.sh`) + re-run `adoption/codex/enable.sh` to repoint the symlink.
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Install (or refresh) the Context Bonsai auto-maintenance LaunchAgents:
-#   1. daily (both sides) at HOUR:00
+#   1. daily (source sync + both harnesses) at HOUR:00
 #   2. claude-watch — instant Claude re-patch the moment Claude Code auto-updates (WatchPaths)
 # Usage: ./install-schedule.sh [HOUR]   (HOUR 0-23, default 10). Runs in the user GUI session.
 set -euo pipefail
@@ -54,7 +54,7 @@ EOF
 load "$L2" "$P2"
 
 echo "Installed 2 LaunchAgents:"
-echo "  • $L1               — daily at ${HOUR}:00 (Claude + Codex)"
+echo "  • $L1               — daily at ${HOUR}:00 (Bonsai source + Claude + Codex)"
 echo "  • $L2  — instant Claude re-patch on Claude Code auto-update (WatchPaths)"
 echo "  Log: $CB_LOG"
 echo "  Status: $CB_STATUS"

@@ -36,6 +36,7 @@ echo "=== combined orchestrator run (both sides no-change, isolated) ==="
 CB_CLAUDE_LAUNCHER="$SB/claude" CB_CLAUDE_JSON="$SB/c.json" CB_BACKUP_DIR="$SB/backups" CB_STATE="$SB/state" \
 CB_CODEX_SYMLINK="$SB/codexlink" CB_CODEX_LINK_PATH="$SB/codexlink" CB_CODEX_STABLE_BIN="$SB/stock/codex" \
 CB_CODEX_ARTIFACT_ROOT="$SB/artifacts" CB_CODEX_SCRATCH_ROOT="$SB/scratch" \
+CB_SOURCE_DISABLE=1 CB_RUNTIME_CURRENT="$DIR/../.." \
   bash "$DIR/run-daily.sh"
 rc=$?
 echo "  orchestrator rc=$rc"
@@ -44,6 +45,7 @@ echo "--- status file ---"; cat "$SB/state/last-run.md" 2>/dev/null
 echo ""
 echo "=== assertions ==="
 ck "orchestrator exit 0" "$rc" "0"
+ck "status mentions source" "$(grep -c 'Source:' "$SB/state/last-run.md" 2>/dev/null)" "1"
 ck "status mentions claude" "$(grep -c 'Claude:' "$SB/state/last-run.md" 2>/dev/null)" "1"
 ck "status mentions codex" "$(grep -c 'Codex:' "$SB/state/last-run.md" 2>/dev/null)" "1"
 ck "real Claude bundle untouched" "$(shasum -a256 "$real_cbundle" | cut -d' ' -f1)" "$real_csha"

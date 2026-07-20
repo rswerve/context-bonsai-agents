@@ -4,9 +4,13 @@
 set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; source "$DIR/lib.sh"
 
-# Mode: both (default), claude-only (used by the WatchPaths instant-react agent), or codex-only.
+# Mode: both (default), source-only, claude-only (WatchPaths), or codex-only.
 MODE="both"
-for a in "$@"; do case "$a" in --claude-only) MODE="claude";; --codex-only) MODE="codex";; esac; done
+for a in "$@"; do case "$a" in
+  --source-only) MODE="source";;
+  --claude-only) MODE="claude";;
+  --codex-only) MODE="codex";;
+esac; done
 
 cb_log "===== auto-maintenance run start (mode=$MODE) ====="
 trap 'cb_release_lock' EXIT
@@ -22,14 +26,35 @@ EOF
   exit 0
 fi
 
-# --- Claude side (this repo's lane) ---
-if [ "$MODE" != "codex" ]; then
+# --- Source lane: merge/certify both Bonsai upstreams before harness upkeep. ---
+if [ "$MODE" = "both" ] || [ "$MODE" = "source" ]; then
+  SOURCE_REC="$DIR/source/reconcile.sh"
+  if [ -x "$SOURCE_REC" ]; then
+    SOURCE_OUT="$("$SOURCE_REC")"; SOURCE_RC=$?
+  else
+    SOURCE_OUT="source: reconciler not installed yet (skipped)"; SOURCE_RC=0
+  fi
+else
+  SOURCE_OUT="source: skipped ($MODE-only run)"; SOURCE_RC=0
+fi
+
+# A successful source transaction may have atomically advanced runtime/current.
+# Resolve the remaining lanes from that new runtime so shared-core changes can
+# rebuild Codex during this same daily run.
+if [ "$MODE" = "both" ]; then
+  NEXT_RUNTIME="${CB_RUNTIME_CURRENT:-$HOME/.local/share/context-bonsai/runtime/current}"
+  NEXT_DIR="$NEXT_RUNTIME/adoption/auto-maintenance"
+  [ -x "$NEXT_DIR/run-daily.sh" ] && DIR="$NEXT_DIR"
+fi
+
+# --- Claude side ---
+if [ "$MODE" = "both" ] || [ "$MODE" = "claude" ]; then
   CLAUDE_OUT="$("$DIR/reconcile-claude.sh")"; CLAUDE_RC=$?
 else
-  CLAUDE_OUT="claude: skipped (codex-only run)"; CLAUDE_RC=0
+  CLAUDE_OUT="claude: skipped ($MODE-only run)"; CLAUDE_RC=0
 fi
 # --- Codex side (Codex's reconciler; discover its entry point; skip gracefully if absent) ---
-if [ "$MODE" != "claude" ]; then
+if [ "$MODE" = "both" ] || [ "$MODE" = "codex" ]; then
   CODEX_REC=""
   for cand in "$DIR/codex/reconcile.sh" "$DIR/codex/reconcile-codex.sh" "$DIR/reconcile-codex.sh"; do
     [ -x "$cand" ] && CODEX_REC="$cand" && break
@@ -40,13 +65,15 @@ if [ "$MODE" != "claude" ]; then
     CODEX_OUT="codex: reconciler not installed yet (skipped)"; CODEX_RC=0
   fi
 else
-  CODEX_OUT="codex: skipped (claude-only run)"; CODEX_RC=0
+  CODEX_OUT="codex: skipped ($MODE-only run)"; CODEX_RC=0
 fi
 
+cb_log "source rc=$SOURCE_RC: $SOURCE_OUT"
 cb_log "claude rc=$CLAUDE_RC: $CLAUDE_OUT"
 cb_log "codex  rc=$CODEX_RC: $CODEX_OUT"
 
 NEEDS_ATTENTION=0
+[ "$SOURCE_RC" = "10" ] && NEEDS_ATTENTION=1
 [ "$CLAUDE_RC" = "10" ] && NEEDS_ATTENTION=1
 [ "$CODEX_RC" = "10" ] && NEEDS_ATTENTION=1
 
@@ -54,6 +81,7 @@ if [ "$NEEDS_ATTENTION" = "1" ]; then SUMMARY="⚠️ **Action may be needed** �
 else SUMMARY="✅ All good — nothing needed, or an update was applied cleanly."; fi
 
 cb_status <<EOF
+- **Source:** $SOURCE_OUT
 - **Claude:** $CLAUDE_OUT
 - **Codex:**  $CODEX_OUT
 

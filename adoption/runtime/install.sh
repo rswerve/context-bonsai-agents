@@ -5,7 +5,7 @@ readonly SCRIPT_DIR="${0:A:h}"
 readonly REPO_ROOT="${SCRIPT_DIR:h:h}"
 readonly INSTALL_ROOT="${CB_INSTALL_ROOT:-$HOME/.local/share/context-bonsai}"
 readonly RUNTIME_ROOT="$INSTALL_ROOT/runtime"
-readonly STATE_ROOT="$HOME/.local/state/context-bonsai/runtime-history"
+readonly STATE_ROOT="${CB_RUNTIME_STATE_ROOT:-$HOME/.local/state/context-bonsai/runtime-history}"
 
 [[ -z "$(git -C "$REPO_ROOT" status --porcelain --untracked-files=no)" ]] || {
   print -u2 "tracked parent checkout is dirty; refusing to package an ambiguous runtime"
@@ -47,7 +47,9 @@ git -C "$REPO_ROOT/codex_context_bonsai" archive HEAD | tar -x -C "$CANDIDATE/co
 )
 bun test "$CANDIDATE/adoption/auto-maintenance/codex/reconcile-codex.test.ts"
 zsh -n "$CANDIDATE/adoption/codex/"*.sh "$CANDIDATE/adoption/auto-maintenance/codex/"*.sh
-bash -n "$CANDIDATE/adoption/claude/"*.sh "$CANDIDATE/adoption/auto-maintenance/"*.sh
+bash -n "$CANDIDATE/adoption/claude/"*.sh \
+  "$CANDIDATE/adoption/auto-maintenance/"*.sh \
+  "$CANDIDATE/adoption/auto-maintenance/source/"*.sh
 
 jq -n \
   --arg installedAt "$STAMP" \

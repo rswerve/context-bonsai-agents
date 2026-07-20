@@ -10,14 +10,38 @@ Every path is **fail-safe**: the system only ever leaves your install in a *work
 - Anything it can't do safely → it **does nothing to the live install** and **notifies** you. Claude stays clean-stock after anchor drift; Codex stays on its last certified Bonsai fork.
 
 ## What it does
-1. **Claude instant-react:** a `WatchPaths` LaunchAgent notices a new Claude Code version and runs the Claude lane within seconds. It re-certs + re-applies if all anchors match; if they drift, it leaves Claude clean-stock and escalates.
-2. **Daily safety net:** a 10:00 LaunchAgent runs both lanes (missed runs fire on wake).
-3. **Codex proactive stable updates** (`codex/reconcile.sh`): query the official latest stable release, forward-port in a scratch checkout → build → test against the checksummed same-version official binary → **compare-and-swap the symlink** only if green. Homebrew does not need to be updated first. Offline/rate-limited checks are benign no-ops.
-4. Writes a status file (`state/last-run.md`) and posts a notification after a successful maintenance change or whenever attention is needed.
+1. **Bonsai source updates** (`source/reconcile.sh`): compare both fork `main` branches with their upstreams, merge in isolated clones, certify the complete candidate, compare-and-swap the two fork refs, package an immutable runtime, and atomically advance `runtime/current`. The development checkout is never modified.
+2. **Claude instant-react:** a `WatchPaths` LaunchAgent notices a new Claude Code version and runs the Claude lane within seconds. It re-certs + re-applies if all anchors match; if they drift, it leaves Claude clean-stock and escalates.
+3. **Daily safety net:** a 10:00 LaunchAgent runs source sync followed by both harness lanes (missed runs fire on wake).
+4. **Codex proactive stable updates** (`codex/reconcile.sh`): query the official latest stable release, forward-port in a scratch checkout → build → test against the checksummed same-version official binary → **compare-and-swap the symlink** only if green. Homebrew does not need to be updated first. Offline/rate-limited checks are benign no-ops.
+5. Writes a status file (`state/last-run.md`) and posts a notification after a successful maintenance change or whenever attention is needed.
+
+## Source-update transaction
+The source lane trusts the configured GitHub upstream repositories, but never
+blindly runs `git pull` in a working checkout. It discovers immutable ref IDs,
+clones the fork and upstream branches into a retained scratch run, merges the
+parent and tweakcc histories, preserves the durable tweakcc-fork URL, and runs:
+
+- tweakcc install, tests, and both TypeScript typechecks;
+- Codex transaction/policy tests and simulated bumps;
+- Claude and combined fail-safe fixtures;
+- shell syntax checks; and
+- a complete isolated runtime package + verification.
+
+Only then may it fast-forward `rswerve/tweakcc_context_bonsai:main`, followed by
+`rswerve/context-bonsai-agents:main`. Remote refs are checked again immediately
+before each outward write. A runtime rollback symlink is pre-staged before the
+atomic activation; post-activation failure restores the exact previous target.
+Partial cross-repository pushes are safe: the live runtime does not advance,
+and the next run converges the remaining parent pointer.
+
+The user's local development checkout is deliberately not updated by the
+background job. To catch it up after an automatic source update, use
+`git fetch origin && git merge --ff-only origin/main` from a clean local `main`.
 
 ## Handled automatically vs. escalated
 - **Automatic (most updates):** the patch anchors usually still match / Codex rebases are usually clean → re-applied with no action from you.
-- **Escalated (rare):** an update reshapes the code enough to need intelligent re-derivation (like the one anchor hand-fixed for 2.1.215), or a Codex rebase conflict. Claude remains safely unpatched; Codex keeps using its prior certified fork. You get a notification rather than a silent breakage.
+- **Escalated (rare):** a Bonsai source merge conflicts, its certification fails, an update reshapes the Claude code enough to need intelligent re-derivation (like the one anchor hand-fixed for 2.1.215), or a Codex rebase conflicts. The prior runtime remains selected, Claude remains safely unpatched when appropriate, and Codex keeps using its prior certified fork. You get a notification rather than a silent breakage.
 - **Honest limit:** a headless run can't reproduce the deep *live behavioral* test (the model + bridge checks that caught 2 bugs during the build). So auto-apply relies on structural anchor-match + smoke checks + auto-rollback + notifying you — it stays conservative.
 
 Codex follows the official GitHub **stable release** endpoint—not raw tags,
@@ -28,11 +52,13 @@ failure leaves the current certified fork selected and retries the next day.
 ```sh
 ./install-schedule.sh [HOUR]   # install daily + Claude WatchPaths LaunchAgents
 ./run-daily.sh                 # run once, right now
+./run-daily.sh --source-only   # sync/certify upstream Bonsai source only
 ./run-daily.sh --claude-only   # run only the instant-react Claude lane
 ./run-daily.sh --codex-only    # run only proactive Codex maintenance
 ./test-fixtures.sh             # fail-safe fixture tests (never touches the real install)
 ./test-combined.sh             # both reconcilers + orchestrator, fully isolated
 ./codex/test-simulated-bumps.sh # Codex conflict/CAS/rollback simulations
+./source/test-source-reconcile.sh # local fake-remotes; source CAS/rollback simulations
 ./uninstall-schedule.sh        # disable + remove both jobs (Bonsai itself stays as-is)
 launchctl kickstart gui/$(id -u)/com.atighi.context-bonsai-maintenance   # trigger a run
 ```
@@ -40,4 +66,4 @@ Status: `~/.local/state/context-bonsai/auto-maintenance/last-run.md` · Log:
 `~/.local/state/context-bonsai/auto-maintenance/maintenance.log`
 
 ## Files
-`lib.sh` (shared helpers, env-overridable paths for testing) · `reconcile-claude.sh` · `run-daily.sh` (orchestrator with lane selection) · `codex/` (Codex-side reconciler) · `install-schedule.sh` / `uninstall-schedule.sh` (daily + watch agents) · `test-fixtures.sh` · `test-combined.sh`
+`lib.sh` (shared helpers, env-overridable paths for testing) · `source/` (upstream source transaction) · `reconcile-claude.sh` · `run-daily.sh` (orchestrator with lane selection) · `codex/` (Codex-side reconciler) · `install-schedule.sh` / `uninstall-schedule.sh` (daily + watch agents) · `test-fixtures.sh` · `test-combined.sh`
