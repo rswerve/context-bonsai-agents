@@ -4,3 +4,10 @@
 /kilo/
 /opencode
 /opencode_context_bonsai_plugin
+
+# Local Context Bonsai build/test products. Source, manifests, and reproducible
+# build recipes live under adoption/; these runtime artifacts never belong in
+# ordinary Git history.
+/.artifacts/
+/.staging/
+/codex-rs/

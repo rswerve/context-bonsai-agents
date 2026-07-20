@@ -1,0 +1,1607 @@
+diff --git a/codex-rs/core/Cargo.toml b/codex-rs/core/Cargo.toml
+index a575f32..34cfb18 100644
+--- a/codex-rs/core/Cargo.toml
++++ b/codex-rs/core/Cargo.toml
+@@ -33,6 +33,7 @@ codex-code-mode = { workspace = true }
+ codex-connectors = { workspace = true }
+ codex-context-fragments = { workspace = true }
+ codex-config = { workspace = true }
++codex-context-bonsai = { path = "/Users/atighi/dev/context-bonsai-agents/codex_context_bonsai" }
+ codex-core-plugins = { workspace = true }
+ codex-core-skills = { workspace = true }
+ codex-exec-server = { workspace = true }
+diff --git a/codex-rs/core/src/lib.rs b/codex-rs/core/src/lib.rs
+index cfc26c5..cb51047 100644
+--- a/codex-rs/core/src/lib.rs
++++ b/codex-rs/core/src/lib.rs
+@@ -40,6 +40,7 @@ pub mod config;
+ pub mod connectors;
+ pub mod context;
+ mod context_manager;
++mod context_bonsai;
+ mod current_time;
+ mod elicitation;
+ mod environment_selection;
+diff --git a/codex-rs/core/src/session/mod.rs b/codex-rs/core/src/session/mod.rs
+index 9339413..90395a3 100644
+--- a/codex-rs/core/src/session/mod.rs
++++ b/codex-rs/core/src/session/mod.rs
+@@ -3073,6 +3073,77 @@ impl Session {
+         }
+     }
+ 
++    pub(crate) async fn apply_bonsai_prune(
++        &self,
++        turn_context: &TurnContext,
++        install: crate::context_bonsai::PruneInstall,
++    ) -> Result<(), crate::context_bonsai::ArchiveStoreError> {
++        let (codex_home, thread_id) = {
++            let state = self.state.lock().await;
++            (
++                state.session_configuration.codex_home().to_path_buf(),
++                self.thread_id().to_string(),
++            )
++        };
++        crate::context_bonsai::persist_archive(
++            codex_home,
++            thread_id,
++            install.archive_payload.clone(),
++        )
++        .await?;
++        let (window_number, window_ids) = self.advance_auto_compact_window().await;
++        let compacted_item = CompactedItem {
++            message: install.placeholder_text,
++            replacement_history: Some(install.replacement_history.clone()),
++            window_number: Some(window_number),
++            first_window_id: Some(window_ids.first_window_id.to_string()),
++            previous_window_id: window_ids.previous_window_id.map(|id| id.to_string()),
++            window_id: Some(window_ids.window_id.to_string()),
++        };
++        self.replace_compacted_history(
++            turn_context,
++            install.replacement_history,
++            None,
++            None,
++            compacted_item,
++        )
++        .await;
++        self.recompute_token_usage(turn_context).await;
++        Ok(())
++    }
++
++    pub(crate) async fn apply_bonsai_retrieve(
++        &self,
++        turn_context: &TurnContext,
++        anchor_id: &str,
++    ) -> Result<(), crate::context_bonsai::ApplyRetrieveError> {
++        let (codex_home, thread_id, history) = {
++            let state = self.state.lock().await;
++            (
++                state.session_configuration.codex_home().to_path_buf(),
++                self.thread_id().to_string(),
++                state.clone_history().into_raw_items(),
++            )
++        };
++        let archive =
++            crate::context_bonsai::load_archive(codex_home, thread_id, anchor_id.to_string())
++                .await?;
++        let restored = crate::context_bonsai::build_retrieve_install(&history, &archive, false)?;
++        let (window_number, window_ids) = self.advance_auto_compact_window().await;
++        let compacted_item = CompactedItem {
++            message: format!("[RETRIEVED: {anchor_id}]"),
++            replacement_history: Some(restored.clone()),
++            window_number: Some(window_number),
++            first_window_id: Some(window_ids.first_window_id.to_string()),
++            previous_window_id: window_ids.previous_window_id.map(|id| id.to_string()),
++            window_id: Some(window_ids.window_id.to_string()),
++        };
++        self.replace_compacted_history(turn_context, restored, None, None, compacted_item)
++            .await;
++        self.recompute_token_usage(turn_context).await;
++        Ok(())
++    }
++
+     async fn persist_rollout_response_items(&self, items: &[ResponseItem]) {
+         let rollout_items: Vec<RolloutItem> = items
+             .iter()
+diff --git a/codex-rs/core/src/tools/handlers/mod.rs b/codex-rs/core/src/tools/handlers/mod.rs
+index 29ad172..9a19c38 100644
+--- a/codex-rs/core/src/tools/handlers/mod.rs
++++ b/codex-rs/core/src/tools/handlers/mod.rs
+@@ -2,6 +2,7 @@ pub(crate) mod agent_jobs;
+ pub(crate) mod agent_jobs_spec;
+ pub(crate) mod apply_patch;
+ pub(crate) mod apply_patch_spec;
++mod bonsai;
+ mod current_time;
+ mod dynamic;
+ pub(crate) mod extension_tools;
+@@ -55,6 +56,8 @@ use crate::session::turn_context::TurnEnvironment;
+ pub(crate) use crate::tools::code_mode::CodeModeExecuteHandler;
+ pub(crate) use crate::tools::code_mode::CodeModeWaitHandler;
+ pub use apply_patch::ApplyPatchHandler;
++pub use bonsai::ContextBonsaiPruneHandler;
++pub use bonsai::ContextBonsaiRetrieveHandler;
+ use codex_protocol::models::AdditionalPermissionProfile;
+ use codex_protocol::protocol::AskForApproval;
+ pub use current_time::CurrentTimeHandler;
+diff --git a/codex-rs/core/src/tools/spec_plan.rs b/codex-rs/core/src/tools/spec_plan.rs
+index 9d9b762..04ac641 100644
+--- a/codex-rs/core/src/tools/spec_plan.rs
++++ b/codex-rs/core/src/tools/spec_plan.rs
+@@ -8,6 +8,8 @@ use crate::tools::effective_tool_mode;
+ use crate::tools::handlers::ApplyPatchHandler;
+ use crate::tools::handlers::CodeModeExecuteHandler;
+ use crate::tools::handlers::CodeModeWaitHandler;
++use crate::tools::handlers::ContextBonsaiPruneHandler;
++use crate::tools::handlers::ContextBonsaiRetrieveHandler;
+ use crate::tools::handlers::CurrentTimeHandler;
+ use crate::tools::handlers::DynamicToolHandler;
+ use crate::tools::handlers::ExecCommandHandler;
+@@ -681,6 +683,8 @@ fn add_core_utility_tools(context: &CoreToolPlanContext<'_>, planned_tools: &mut
+     let environment_mode = tool_environment_mode(context.step_context);
+ 
+     planned_tools.add(PlanHandler);
++    planned_tools.add(ContextBonsaiPruneHandler);
++    planned_tools.add(ContextBonsaiRetrieveHandler);
+ 
+     if features.enabled(Feature::DeferredExecutor) {
+         planned_tools.add(WaitForEnvironmentHandler);
+diff --git a/codex-rs/core/src/tools/spec_plan_tests.rs b/codex-rs/core/src/tools/spec_plan_tests.rs
+index 7fd4c69..2fe4748 100644
+--- a/codex-rs/core/src/tools/spec_plan_tests.rs
++++ b/codex-rs/core/src/tools/spec_plan_tests.rs
+@@ -273,6 +273,14 @@ fn use_bedrock_provider(turn: &mut TurnContext) {
+     turn.provider = create_model_provider(provider_info, turn.auth_manager.clone());
+ }
+ 
++#[tokio::test]
++async fn context_bonsai_tools_are_model_visible_and_registered() {
++    let plan = probe(|_| {}).await;
++    let names = ["context-bonsai-prune", "context-bonsai-retrieve"];
++    plan.assert_visible_contains(&names);
++    plan.assert_registered_contains(&names);
++}
++
+ struct TestNamespaceExtensionTool {
+     namespace: &'static str,
+     tool_name: &'static str,
+
+diff --git a/codex-rs/core/src/context_bonsai.rs b/codex-rs/core/src/context_bonsai.rs
+new file mode 100644
+index 0000000..1b312de
+--- /dev/null
++++ b/codex-rs/core/src/context_bonsai.rs
+@@ -0,0 +1,1209 @@
++//! Context Bonsai wrapper module.
++//!
++//! This module is the thin seam between the host-neutral
++//! `codex-context-bonsai` side crate and the Codex core
++//! replacement-history machinery. Its responsibilities are:
++//!
++//! 1. Project Codex [`ResponseItem`]s into the side crate's
++//!    [`MessageForMatching`] projection so pattern resolution
++//!    and guards can operate without any Codex-specific types.
++//! 2. Build replacement history plus the archive payload that the
++//!    session layer installs alongside an ordinary Codex compaction
++//!    marker when a prune succeeds.
++//! 3. Persist each archive in a versioned `$CODEX_HOME` sidecar,
++//!    then reverse the transformation on retrieve so the archived
++//!    range is restored verbatim after process restart or resume.
++//!
++//! The history transformations are pure and synchronous. The
++//! sidecar helpers perform versioned, atomic filesystem I/O on a
++//! blocking worker, and the async session glue coordinates both.
++
++use std::collections::HashSet;
++use std::path::Path;
++use std::path::PathBuf;
++
++use codex_context_bonsai::BonsaiArchiveMeta;
++use codex_context_bonsai::BonsaiArchivePayload;
++use codex_context_bonsai::GuardError;
++use codex_context_bonsai::MessageForMatching;
++use codex_context_bonsai::PRUNE_TOOL_NAME;
++use codex_context_bonsai::PlaceholderFields;
++use codex_context_bonsai::render_placeholder;
++use codex_context_bonsai::resolve_pattern;
++use codex_context_bonsai::validate_index_terms;
++use codex_context_bonsai::validate_range;
++use codex_context_bonsai::validate_summary;
++use codex_protocol::models::ContentItem;
++use codex_protocol::models::LocalShellAction;
++use codex_protocol::models::LocalShellExecAction;
++use codex_protocol::models::ReasoningItemContent;
++use codex_protocol::models::ReasoningItemReasoningSummary;
++use codex_protocol::models::ResponseItem;
++use codex_protocol::models::WebSearchAction;
++use serde::Deserialize;
++use serde::Serialize;
++use sha1::Digest;
++use sha1::Sha1;
++
++const BONSAI_STORE_VERSION: u32 = 1;
++const BONSAI_STORE_DIR: &str = "context-bonsai/archives/v1";
++
++#[derive(Debug, Serialize, Deserialize)]
++struct StoredArchive {
++    version: u32,
++    thread_id: String,
++    archive: BonsaiArchivePayload<ResponseItem>,
++}
++
++/// Errors from the durable Context Bonsai sidecar.
++#[derive(Debug, thiserror::Error)]
++pub(crate) enum ArchiveStoreError {
++    #[error("no persisted archive found for anchor_id {anchor_id}")]
++    Missing { anchor_id: String },
++    #[error("failed to {operation} Context Bonsai sidecar {path}: {source}")]
++    Io {
++        operation: &'static str,
++        path: PathBuf,
++        #[source]
++        source: std::io::Error,
++    },
++    #[error("failed to serialize Context Bonsai archive: {0}")]
++    Serialize(#[source] serde_json::Error),
++    #[error("failed to parse Context Bonsai sidecar {path}: {source}")]
++    Deserialize {
++        path: PathBuf,
++        #[source]
++        source: serde_json::Error,
++    },
++    #[error("unsupported Context Bonsai sidecar version {found}; expected {expected}")]
++    UnsupportedVersion { found: u32, expected: u32 },
++    #[error("Context Bonsai sidecar identity mismatch for anchor_id {anchor_id}")]
++    IdentityMismatch { anchor_id: String },
++    #[error("Context Bonsai sidecar worker failed: {0}")]
++    Worker(String),
++}
++
++/// Combined durable-load and history-restoration errors for retrieve.
++#[derive(Debug, thiserror::Error)]
++pub(crate) enum ApplyRetrieveError {
++    #[error(transparent)]
++    Store(#[from] ArchiveStoreError),
++    #[error(transparent)]
++    Restore(#[from] RetrieveError),
++}
++
++fn archive_file_path(codex_home: &Path, thread_id: &str, anchor_id: &str) -> PathBuf {
++    let mut hasher = Sha1::new();
++    hasher.update(anchor_id.as_bytes());
++    let anchor_digest = format!("{:x}", hasher.finalize());
++    codex_home
++        .join(BONSAI_STORE_DIR)
++        .join(thread_id)
++        .join(format!("{anchor_digest}.json"))
++}
++
++fn create_private_store_dir(path: &Path) -> Result<(), ArchiveStoreError> {
++    std::fs::create_dir_all(path).map_err(|source| ArchiveStoreError::Io {
++        operation: "create",
++        path: path.to_path_buf(),
++        source,
++    })?;
++    #[cfg(unix)]
++    {
++        use std::os::unix::fs::PermissionsExt;
++        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o700)).map_err(
++            |source| ArchiveStoreError::Io {
++                operation: "secure",
++                path: path.to_path_buf(),
++                source,
++            },
++        )?;
++    }
++    Ok(())
++}
++
++fn persist_archive_sync(
++    codex_home: &Path,
++    thread_id: &str,
++    archive: &BonsaiArchivePayload<ResponseItem>,
++) -> Result<(), ArchiveStoreError> {
++    let path = archive_file_path(codex_home, thread_id, &archive.meta.anchor_id);
++    let parent = path.parent().ok_or_else(|| ArchiveStoreError::Io {
++        operation: "resolve",
++        path: path.clone(),
++        source: std::io::Error::new(
++            std::io::ErrorKind::InvalidInput,
++            "archive path has no parent directory",
++        ),
++    })?;
++    create_private_store_dir(parent)?;
++    let contents = serde_json::to_string_pretty(&StoredArchive {
++        version: BONSAI_STORE_VERSION,
++        thread_id: thread_id.to_string(),
++        archive: archive.clone(),
++    })
++    .map_err(ArchiveStoreError::Serialize)?;
++    crate::path_utils::write_atomically(&path, &contents).map_err(|source| ArchiveStoreError::Io {
++        operation: "write",
++        path,
++        source,
++    })
++}
++
++fn load_archive_sync(
++    codex_home: &Path,
++    thread_id: &str,
++    anchor_id: &str,
++) -> Result<BonsaiArchivePayload<ResponseItem>, ArchiveStoreError> {
++    let path = archive_file_path(codex_home, thread_id, anchor_id);
++    let contents = std::fs::read_to_string(&path).map_err(|source| {
++        if source.kind() == std::io::ErrorKind::NotFound {
++            ArchiveStoreError::Missing {
++                anchor_id: anchor_id.to_string(),
++            }
++        } else {
++            ArchiveStoreError::Io {
++                operation: "read",
++                path: path.clone(),
++                source,
++            }
++        }
++    })?;
++    let stored: StoredArchive =
++        serde_json::from_str(&contents).map_err(|source| ArchiveStoreError::Deserialize {
++            path: path.clone(),
++            source,
++        })?;
++    if stored.version != BONSAI_STORE_VERSION {
++        return Err(ArchiveStoreError::UnsupportedVersion {
++            found: stored.version,
++            expected: BONSAI_STORE_VERSION,
++        });
++    }
++    if stored.thread_id != thread_id || stored.archive.meta.anchor_id != anchor_id {
++        return Err(ArchiveStoreError::IdentityMismatch {
++            anchor_id: anchor_id.to_string(),
++        });
++    }
++    Ok(stored.archive)
++}
++
++pub(crate) async fn persist_archive(
++    codex_home: PathBuf,
++    thread_id: String,
++    archive: BonsaiArchivePayload<ResponseItem>,
++) -> Result<(), ArchiveStoreError> {
++    tokio::task::spawn_blocking(move || persist_archive_sync(&codex_home, &thread_id, &archive))
++        .await
++        .map_err(|error| ArchiveStoreError::Worker(error.to_string()))?
++}
++
++pub(crate) async fn load_archive(
++    codex_home: PathBuf,
++    thread_id: String,
++    anchor_id: String,
++) -> Result<BonsaiArchivePayload<ResponseItem>, ArchiveStoreError> {
++    tokio::task::spawn_blocking(move || load_archive_sync(&codex_home, &thread_id, &anchor_id))
++        .await
++        .map_err(|error| ArchiveStoreError::Worker(error.to_string()))?
++}
++
++/// Prefix for anchor ids synthesized from a stable content hash
++/// when the raw [`ResponseItem`] carries no host id. Emitted by
++/// [`default_item_id`] and must remain stable across rollout
++/// reconstruction so retrieve-by-anchor survives resume.
++const BONSAI_ANCHOR_PREFIX: &str = "bonsai-anchor-";
++
++/// Number of characters of item text to feed into the anchor
++/// hash. Keeps the hash deterministic and cheap without
++/// requiring the full content slice.
++const ANCHOR_TEXT_HASH_WINDOW: usize = 128;
++
++/// Input arguments to `context-bonsai-prune` as received from the
++/// model. The wrapper converts these into guard-validated,
++/// persisted state.
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub(crate) struct PruneArgs {
++    pub from_pattern: String,
++    pub to_pattern: String,
++    pub summary: String,
++    pub index_terms: Vec<String>,
++    pub reason: Option<String>,
++}
++
++/// Result of a successful prune. The caller installs
++/// `replacement_history` via `Session::replace_compacted_history`
++/// after durably writing `archive_payload` to the sidecar.
++#[derive(Debug, Clone)]
++pub(crate) struct PruneInstall {
++    /// The new live history, with the archived range replaced by
++    /// a placeholder message.
++    pub replacement_history: Vec<ResponseItem>,
++    /// The full archive payload persisted outside the app-server
++    /// wire schema in the `$CODEX_HOME` sidecar.
++    pub archive_payload: BonsaiArchivePayload<ResponseItem>,
++    /// Model-visible placeholder persisted in an ordinary CompactedItem message.
++    pub placeholder_text: String,
++    /// The resolved `anchor_id` for the archive. Returned so the
++    /// tool handler can surface it in its success output.
++    pub anchor_id: String,
++    /// The resolved `range_end_id` for the archive.
++    pub range_end_id: String,
++}
++
++/// Returns true iff the supplied [`ResponseItem`] is a prior
++/// `context-bonsai-prune` tool-use call (either the typed
++/// `FunctionCall` route or the `CustomToolCall` route used when
++/// MCP-bridged dispatch is in play). Used by
++/// [`project_message_for_matching`] to populate
++/// [`MessageForMatching::is_prune_wrapper`] so the side crate's
++/// `resolve_pattern` ambiguity branch can filter prune wrappers
++/// on retry without depending on `codex_protocol` types.
++///
++/// The side crate is intentionally host-neutral and does not
++/// depend on `codex_protocol`; this predicate therefore lives in
++/// the agent-repo wrapper module.
++pub(crate) fn is_prune_wrapper_response_item(item: &ResponseItem) -> bool {
++    match item {
++        ResponseItem::FunctionCall { name, .. } => name == PRUNE_TOOL_NAME,
++        ResponseItem::CustomToolCall { name, .. } => name == PRUNE_TOOL_NAME,
++        _ => false,
++    }
++}
++
++/// Mark existing Bonsai placeholders plus the active user turn and everything
++/// after it as unavailable for prune boundary matching. Current-turn reasoning
++/// commonly repeats the exact boundary strings the model is about to pass to
++/// the tool; letting those rows participate makes an otherwise unique
++/// historical selector ambiguous. Existing placeholders are protected so a
++/// later prune cannot bury the only live retrieval anchor inside another
++/// archive.
++pub(crate) fn prune_protected_flags(history: &[ResponseItem]) -> Vec<bool> {
++    let active_turn_start = history.iter().rposition(|item| {
++        matches!(
++            item,
++            ResponseItem::Message { role, .. } if role == "user"
++        )
++    });
++    history
++        .iter()
++        .enumerate()
++        .map(|(index, item)| {
++            is_bonsai_placeholder(item) || active_turn_start.is_some_and(|start| index >= start)
++        })
++        .collect()
++}
++
++fn is_bonsai_placeholder(item: &ResponseItem) -> bool {
++    matches!(
++        item,
++        ResponseItem::Message { content, .. }
++            if content.iter().any(|content| matches!(
++                content,
++                ContentItem::OutputText { text } if text.starts_with("[PRUNED: ")
++            ))
++    )
++}
++
++/// Compute a `MessageForMatching` projection for a single
++/// [`ResponseItem`] and assign it a stable id. The caller should
++/// map over the raw history slice and produce a stable id per
++/// item — typically using the item's own id fields where
++/// available, and falling back to a content-hashed stable id.
++///
++/// `malformed` is pre-computed by [`compute_malformed_flags`] so
++/// this helper stays synchronous and cheap.
++///
++/// `text` is borrowed from a caller-owned buffer (typically a
++/// `Vec<String>` produced by mapping [`extract_text`] over the
++/// history) so the projector can return owned multi-field
++/// representations without forcing every caller into an owned
++/// `MessageForMatching` shape.
++///
++/// The `is_prune_wrapper` flag is populated inline via
++/// [`is_prune_wrapper_response_item`] so the side crate's
++/// `resolve_pattern` ambiguity branch can filter prior prune
++/// tool-use rows when their projected text collides with a real
++/// retry pattern.
++pub(crate) fn project_message_for_matching<'a>(
++    item: &'a ResponseItem,
++    id: &'a str,
++    text: &'a str,
++    in_archive: bool,
++    malformed: bool,
++) -> MessageForMatching<'a> {
++    MessageForMatching {
++        id,
++        text,
++        in_archive,
++        malformed,
++        is_prune_wrapper: is_prune_wrapper_response_item(item),
++    }
++}
++
++/// Extract an owned text projection for pattern matching.
++///
++/// Per the shared Context Bonsai Pattern Matching Contract, this
++/// MUST emit non-empty searchable text for every `ResponseItem`
++/// variant that represents a model-visible tool-call name, input,
++/// or output. Variants that are not model-visible (internal
++/// snapshots, host compaction marker, unknown serde catch-all)
++/// project to the empty string with a comment explaining why.
++///
++/// The function returns `String` (owned) because several variants
++/// must compose multi-field representations that have no
++/// single-field borrow available. `build_prune_install`
++/// materializes a `Vec<String>` once and lends each entry to the
++/// `MessageForMatching` slice via `&projected[i]`.
++fn extract_text(item: &ResponseItem) -> String {
++    match item {
++        ResponseItem::Message { content, .. } => content
++            .iter()
++            .find_map(|c| match c {
++                ContentItem::InputText { text } | ContentItem::OutputText { text } => {
++                    Some(text.clone())
++                }
++                ContentItem::InputImage { .. } => None,
++            })
++            .unwrap_or_default(),
++        ResponseItem::Reasoning {
++            summary, content, ..
++        } => {
++            if let Some(items) = content.as_ref()
++                && let Some(text) = items
++                    .iter()
++                    .map(|c| match c {
++                        ReasoningItemContent::ReasoningText { text }
++                        | ReasoningItemContent::Text { text } => text.clone(),
++                    })
++                    .next()
++            {
++                return text;
++            }
++            summary
++                .iter()
++                .map(|s| match s {
++                    ReasoningItemReasoningSummary::SummaryText { text } => text.clone(),
++                })
++                .next()
++                .unwrap_or_default()
++        }
++        ResponseItem::FunctionCall {
++            name,
++            namespace,
++            arguments,
++            ..
++        } => {
++            let namespace_line = match namespace.as_deref() {
++                Some(ns) => format!("namespace:{ns}\n"),
++                None => String::new(),
++            };
++            format!("tool:{name}\n{namespace_line}input:{arguments}")
++        }
++        ResponseItem::FunctionCallOutput {
++            call_id, output, ..
++        } => {
++            let body = output.body.to_text().unwrap_or_default();
++            format!("tool_output:{call_id}\noutput:{body}")
++        }
++        ResponseItem::CustomToolCall { name, input, .. } => {
++            format!("custom_tool:{name}\ninput:{input}")
++        }
++        ResponseItem::CustomToolCallOutput {
++            call_id: _,
++            name,
++            output,
++            ..
++        } => {
++            let body = output.body.to_text().unwrap_or_default();
++            let name_str = name.as_deref().unwrap_or("");
++            format!("custom_tool_output:{name_str}\noutput:{body}")
++        }
++        ResponseItem::ToolSearchCall {
++            execution,
++            arguments,
++            ..
++        } => {
++            let args_str = serde_json::to_string(arguments).unwrap_or_default();
++            format!("tool_search:{execution}\narguments:{args_str}")
++        }
++        ResponseItem::ToolSearchOutput {
++            execution,
++            status,
++            tools,
++            ..
++        } => {
++            let tools_str = serde_json::to_string(tools).unwrap_or_default();
++            format!("tool_search_output:{execution}\nstatus:{status}\ntools:{tools_str}")
++        }
++        ResponseItem::LocalShellCall { action, .. } => {
++            let LocalShellAction::Exec(LocalShellExecAction {
++                command,
++                working_directory,
++                ..
++            }) = action;
++            let cmd = command.join(" ");
++            let cwd = working_directory.as_deref().unwrap_or("");
++            format!("shell:{cmd}\ncwd:{cwd}")
++        }
++        ResponseItem::WebSearchCall { action, .. } => match action {
++            Some(WebSearchAction::Search { query, queries }) => {
++                let q = query.clone().unwrap_or_default();
++                let qs = queries.as_deref().map(|q| q.join("|")).unwrap_or_default();
++                format!("web_search:{q}\nqueries:{qs}")
++            }
++            Some(WebSearchAction::OpenPage { url }) => {
++                let u = url.clone().unwrap_or_default();
++                format!("web_open:{u}")
++            }
++            Some(WebSearchAction::FindInPage { url, pattern }) => {
++                let u = url.clone().unwrap_or_default();
++                let p = pattern.clone().unwrap_or_default();
++                format!("web_find:{u}\npattern:{p}")
++            }
++            Some(WebSearchAction::Other) => String::new(),
++            None => String::new(),
++        },
++        ResponseItem::ImageGenerationCall {
++            revised_prompt,
++            result,
++            ..
++        } => {
++            let prompt = revised_prompt.as_deref().unwrap_or("");
++            let result_len = result.len();
++            format!("image_generation:{prompt}\nresult_len:{result_len}")
++        }
++        // not model-visible: ghost snapshots are harness-internal
++        // commit pointers used for rollback, never shown to the
++        // model as conversational content.
++        ResponseItem::AdditionalTools { tools, .. } => {
++            serde_json::to_string(tools).unwrap_or_default()
++        }
++        ResponseItem::AgentMessage {
++            author,
++            recipient,
++            content,
++            ..
++        } => {
++            format!(
++                "agent_message:{author}->{recipient}\n{}",
++                serde_json::to_string(content).unwrap_or_default()
++            )
++        }
++        // not model-visible: host-compaction marker carries only
++        // an opaque encrypted blob; it does not represent
++        // pattern-matchable transcript content.
++        ResponseItem::Compaction { .. } => String::new(),
++        ResponseItem::CompactionTrigger { .. } | ResponseItem::ContextCompaction { .. } => {
++            String::new()
++        }
++        // unknown variant via #[serde(other)]: nothing to project.
++        ResponseItem::Other => String::new(),
++    }
++}
++
++/// Deterministic id-assignment strategy that survives rollout
++/// round-trips.
++///
++/// [`ResponseItem::Message`] and [`ResponseItem::Reasoning`]
++/// carry `#[serde(default, skip_serializing)]` on their `id`
++/// field, meaning the raw host id is dropped by the rollout. To
++/// keep `anchor_id` references stable across resume, we derive a
++/// content-hashed id whenever no persisted id is available. The
++/// hash uses role + item-kind + first
++/// [`ANCHOR_TEXT_HASH_WINDOW`] characters of extracted text +
++/// index so it collides deterministically for identical payloads
++/// but is unique for distinct rows within a single history.
++pub(crate) fn default_item_id(item: &ResponseItem, index: usize) -> String {
++    if let Some(id) = explicit_item_id(item) {
++        return id;
++    }
++    stable_hashed_id(item, index)
++}
++
++/// Return a host-provided id for items that carry one and where
++/// the value is not empty. Items whose id field is lost over
++/// serialization return `None` so [`default_item_id`] falls back
++/// to the content-hashed strategy.
++fn explicit_item_id(item: &ResponseItem) -> Option<String> {
++    match item {
++        // Message and Reasoning ids are skipped during rollout
++        // serialization; never trust them for stable anchors.
++        ResponseItem::Message { .. } | ResponseItem::Reasoning { .. } => None,
++        ResponseItem::LocalShellCall {
++            id: Some(id),
++            call_id,
++            ..
++        } if !id.is_empty() => Some(id.clone()).or_else(|| call_id.clone()),
++        ResponseItem::FunctionCall {
++            id: Some(id),
++            call_id,
++            ..
++        } if !id.is_empty() => {
++            let _ = call_id;
++            Some(id.clone())
++        }
++        ResponseItem::ToolSearchCall {
++            id: Some(id),
++            call_id,
++            ..
++        } if !id.is_empty() => {
++            let _ = call_id;
++            Some(id.clone())
++        }
++        ResponseItem::CustomToolCall { id: Some(id), .. } if !id.is_empty() => Some(id.clone()),
++        ResponseItem::FunctionCallOutput { call_id, .. } => Some(format!("fco-{call_id}")),
++        ResponseItem::CustomToolCallOutput { call_id, .. } => Some(format!("cco-{call_id}")),
++        ResponseItem::ToolSearchOutput {
++            call_id: Some(call_id),
++            ..
++        } => Some(format!("tso-{call_id}")),
++        _ => None,
++    }
++}
++
++/// Derive a deterministic hashed anchor id for items whose host
++/// id does not survive rollout serialization.
++fn stable_hashed_id(item: &ResponseItem, index: usize) -> String {
++    use std::collections::hash_map::DefaultHasher;
++    use std::hash::Hasher;
++
++    let role = item_role(item);
++    let kind = item_kind_tag(item);
++    let text = extract_text(item);
++    let text_window = match text.char_indices().nth(ANCHOR_TEXT_HASH_WINDOW) {
++        Some((byte_idx, _)) => &text[..byte_idx],
++        None => text.as_str(),
++    };
++
++    let mut hasher = DefaultHasher::new();
++    hasher.write(role.as_bytes());
++    hasher.write(&[0]);
++    hasher.write(kind.as_bytes());
++    hasher.write(&[0]);
++    hasher.write(text_window.as_bytes());
++    hasher.write(&[0]);
++    hasher.write(&index.to_le_bytes());
++    let digest = hasher.finish();
++    format!("{BONSAI_ANCHOR_PREFIX}{digest:016x}")
++}
++
++fn item_role(item: &ResponseItem) -> &str {
++    match item {
++        ResponseItem::Message { role, .. } => role.as_str(),
++        ResponseItem::Reasoning { .. } => "reasoning",
++        ResponseItem::FunctionCall { .. } | ResponseItem::FunctionCallOutput { .. } => "function",
++        ResponseItem::CustomToolCall { .. } | ResponseItem::CustomToolCallOutput { .. } => "custom",
++        ResponseItem::ToolSearchCall { .. } | ResponseItem::ToolSearchOutput { .. } => {
++            "tool-search"
++        }
++        ResponseItem::LocalShellCall { .. } => "local-shell",
++        ResponseItem::AdditionalTools { .. } => "additional-tools",
++        ResponseItem::AgentMessage { .. } => "agent-message",
++        ResponseItem::WebSearchCall { .. } => "web-search",
++        ResponseItem::ImageGenerationCall { .. } => "image-generation",
++        ResponseItem::Compaction { .. } => "compaction",
++        ResponseItem::CompactionTrigger { .. } => "compaction-trigger",
++        ResponseItem::ContextCompaction { .. } => "context-compaction",
++        ResponseItem::Other => "other",
++    }
++}
++
++fn item_kind_tag(item: &ResponseItem) -> &'static str {
++    match item {
++        ResponseItem::Message { .. } => "msg",
++        ResponseItem::Reasoning { .. } => "reasoning",
++        ResponseItem::FunctionCall { .. } => "fn-call",
++        ResponseItem::FunctionCallOutput { .. } => "fn-out",
++        ResponseItem::CustomToolCall { .. } => "custom-call",
++        ResponseItem::CustomToolCallOutput { .. } => "custom-out",
++        ResponseItem::ToolSearchCall { .. } => "search-call",
++        ResponseItem::ToolSearchOutput { .. } => "search-out",
++        ResponseItem::LocalShellCall { .. } => "shell-call",
++        ResponseItem::AdditionalTools { .. } => "additional-tools",
++        ResponseItem::AgentMessage { .. } => "agent-message",
++        ResponseItem::WebSearchCall { .. } => "web",
++        ResponseItem::ImageGenerationCall { .. } => "image",
++        ResponseItem::Compaction { .. } => "compact",
++        ResponseItem::CompactionTrigger { .. } => "compact-trigger",
++        ResponseItem::ContextCompaction { .. } => "context-compact",
++        ResponseItem::Other => "other",
++    }
++}
++
++/// Shallow tool-call pairing flags: any `FunctionCall`,
++/// `CustomToolCall`, or `LocalShellCall` whose matching
++/// `*Output` row lives outside the candidate range is flagged
++/// `malformed`, as is any orphan output whose originating call
++/// does not appear in the history at all. [`validate_range`]
++/// rejects ranges containing malformed rows with
++/// [`GuardError::MalformedRange`], so the side-crate MUSTs in
++/// spec §2 stay enforced when a prune range cuts through an
++/// incomplete tool-call pair.
++///
++/// `archived_flags` describes which history rows are already
++/// inside an existing archive. Rows inside an existing archive
++/// are treated as present (their absence from the candidate range
++/// cannot make their counterpart malformed) so that nested
++/// archives remain consistent with the `in_archive` guard.
++fn compute_malformed_flags(
++    history: &[ResponseItem],
++    archived_flags: &[bool],
++) -> Result<Vec<bool>, GuardError> {
++    if history.len() != archived_flags.len() {
++        return Err(GuardError::Internal {
++            context: "history/archived_flags length mismatch",
++        });
++    }
++
++    // Collect the `call_id`s of every call + output row in the
++    // entire history so orphans (no pair anywhere) can be flagged
++    // without depending on range boundaries.
++    let mut call_ids_with_call: HashSet<&str> = HashSet::new();
++    let mut call_ids_with_output: HashSet<&str> = HashSet::new();
++
++    for item in history {
++        match item {
++            ResponseItem::FunctionCall { call_id, .. } => {
++                call_ids_with_call.insert(call_id.as_str());
++            }
++            ResponseItem::CustomToolCall { call_id, .. } => {
++                call_ids_with_call.insert(call_id.as_str());
++            }
++            ResponseItem::LocalShellCall {
++                call_id: Some(call_id),
++                ..
++            } => {
++                call_ids_with_call.insert(call_id.as_str());
++            }
++            ResponseItem::ToolSearchCall {
++                call_id: Some(call_id),
++                ..
++            } => {
++                call_ids_with_call.insert(call_id.as_str());
++            }
++            ResponseItem::FunctionCallOutput { call_id, .. } => {
++                call_ids_with_output.insert(call_id.as_str());
++            }
++            ResponseItem::CustomToolCallOutput { call_id, .. } => {
++                call_ids_with_output.insert(call_id.as_str());
++            }
++            ResponseItem::ToolSearchOutput {
++                call_id: Some(call_id),
++                ..
++            } => {
++                call_ids_with_output.insert(call_id.as_str());
++            }
++            _ => {}
++        }
++    }
++
++    // Compute orphan flags and mask archived rows in a single
++    // pass. Rows inside an existing archive cannot be malformed for
++    // the purposes of pruning: the guard layer already refuses to
++    // treat them as boundaries.
++    let flags = history
++        .iter()
++        .zip(archived_flags.iter())
++        .map(|(item, archived)| {
++            let orphan = match item {
++                ResponseItem::FunctionCall { call_id, .. }
++                | ResponseItem::CustomToolCall { call_id, .. } => {
++                    !call_ids_with_output.contains(call_id.as_str())
++                }
++                ResponseItem::LocalShellCall {
++                    call_id: Some(call_id),
++                    ..
++                }
++                | ResponseItem::ToolSearchCall {
++                    call_id: Some(call_id),
++                    ..
++                } => !call_ids_with_output.contains(call_id.as_str()),
++                ResponseItem::FunctionCallOutput { call_id, .. }
++                | ResponseItem::CustomToolCallOutput { call_id, .. } => {
++                    !call_ids_with_call.contains(call_id.as_str())
++                }
++                ResponseItem::ToolSearchOutput {
++                    call_id: Some(call_id),
++                    ..
++                } => !call_ids_with_call.contains(call_id.as_str()),
++                _ => false,
++            };
++            orphan && !archived
++        })
++        .collect();
++
++    Ok(flags)
++}
++
++/// Second-pass malformed check that reflects boundary-relative
++/// pairing: rows whose call-id pair falls OUTSIDE the candidate
++/// `[start_index, end_index]` inclusive range are flagged
++/// malformed. Used to set `MessageForMatching::malformed` for the
++/// rows the guard will inspect.
++fn malformed_flags_for_range(
++    history: &[ResponseItem],
++    archived_flags: &[bool],
++    start: usize,
++    end: usize,
++) -> Result<Vec<bool>, GuardError> {
++    if history.len() != archived_flags.len() {
++        return Err(GuardError::Internal {
++            context: "history/archived_flags length mismatch",
++        });
++    }
++    if history.is_empty() {
++        return Ok(Vec::new());
++    }
++
++    // Begin with the global orphan-pairing flags so rows that
++    // have no pair anywhere stay marked regardless of the range.
++    let mut flags = compute_malformed_flags(history, archived_flags)?;
++
++    // Any call or output row whose pair lives outside the
++    // candidate range counts as malformed for this prune. We only
++    // mark rows actually inside the range; rows outside the range
++    // are irrelevant to `validate_range`'s inclusive walk.
++    if start > end || end >= history.len() {
++        return Ok(flags);
++    }
++
++    let in_range_ids: HashSet<&str> = history[start..=end]
++        .iter()
++        .filter_map(|item| match item {
++            ResponseItem::FunctionCall { call_id, .. }
++            | ResponseItem::CustomToolCall { call_id, .. }
++            | ResponseItem::FunctionCallOutput { call_id, .. }
++            | ResponseItem::CustomToolCallOutput { call_id, .. } => Some(call_id.as_str()),
++            ResponseItem::LocalShellCall {
++                call_id: Some(call_id),
++                ..
++            }
++            | ResponseItem::ToolSearchCall {
++                call_id: Some(call_id),
++                ..
++            }
++            | ResponseItem::ToolSearchOutput {
++                call_id: Some(call_id),
++                ..
++            } => Some(call_id.as_str()),
++            _ => None,
++        })
++        .collect();
++
++    for (idx, item) in history.iter().enumerate().take(end + 1).skip(start) {
++        let call_id = match item {
++            ResponseItem::FunctionCall { call_id, .. }
++            | ResponseItem::CustomToolCall { call_id, .. }
++            | ResponseItem::FunctionCallOutput { call_id, .. }
++            | ResponseItem::CustomToolCallOutput { call_id, .. } => Some(call_id.as_str()),
++            ResponseItem::LocalShellCall {
++                call_id: Some(call_id),
++                ..
++            }
++            | ResponseItem::ToolSearchCall {
++                call_id: Some(call_id),
++                ..
++            }
++            | ResponseItem::ToolSearchOutput {
++                call_id: Some(call_id),
++                ..
++            } => Some(call_id.as_str()),
++            _ => None,
++        };
++        if let Some(call_id) = call_id {
++            // If this row is inside the range but its pair is
++            // not, the prune would sever the pair. Only flag when
++            // a matching pair exists somewhere outside the range
++            // — truly orphaned pairs stay flagged by the global
++            // pass regardless of range.
++            let has_outside_pair = history.iter().enumerate().any(|(other_idx, other)| {
++                if other_idx >= start && other_idx <= end {
++                    return false;
++                }
++                other_call_id(other) == Some(call_id)
++            });
++            if has_outside_pair && !in_range_ids.contains(call_id) {
++                // unreachable in practice because the row itself
++                // is inside the range, but guard explicitly for
++                // clarity.
++                flags[idx] = true;
++            }
++            if has_outside_pair {
++                // The companion row is outside this range — the
++                // prune would leave a dangling call or output.
++                flags[idx] = true;
++            }
++        }
++    }
++
++    Ok(flags)
++}
++
++fn other_call_id(item: &ResponseItem) -> Option<&str> {
++    match item {
++        ResponseItem::FunctionCall { call_id, .. }
++        | ResponseItem::CustomToolCall { call_id, .. }
++        | ResponseItem::FunctionCallOutput { call_id, .. }
++        | ResponseItem::CustomToolCallOutput { call_id, .. } => Some(call_id.as_str()),
++        ResponseItem::LocalShellCall {
++            call_id: Some(call_id),
++            ..
++        }
++        | ResponseItem::ToolSearchCall {
++            call_id: Some(call_id),
++            ..
++        }
++        | ResponseItem::ToolSearchOutput {
++            call_id: Some(call_id),
++            ..
++        } => Some(call_id.as_str()),
++        _ => None,
++    }
++}
++
++/// Given a live history and validated prune arguments, produce
++/// the replacement history and durable sidecar payload. Returns
++/// a [`GuardError`] if the arguments fail validation.
++///
++/// Mismatched parallel slices return
++/// [`GuardError::Internal`] rather than panicking in release.
++pub(crate) fn build_prune_install(
++    history: &[ResponseItem],
++    archived_flags: &[bool],
++    args: PruneArgs,
++) -> Result<PruneInstall, GuardError> {
++    if history.len() != archived_flags.len() {
++        // Previously this was `assert_eq!`, which crashed a
++        // tool handler on mismatched inputs. The typed error
++        // keeps release builds alive; callers surface it to the
++        // model. We also trace-log the breach so debug builds
++        // can still notice the caller invariant violation
++        // without aborting.
++        tracing::error!(
++            target: "context_bonsai",
++            history_len = history.len(),
++            flags_len = archived_flags.len(),
++            "context_bonsai: archived_flags length did not match history length"
++        );
++        return Err(GuardError::Internal {
++            context: "history/archived_flags length mismatch",
++        });
++    }
++
++    let summary = validate_summary(&args.summary)?;
++    let index_terms = validate_index_terms(&args.index_terms)?;
++
++    let ids: Vec<String> = history
++        .iter()
++        .enumerate()
++        .map(|(idx, item)| default_item_id(item, idx))
++        .collect();
++
++    // Materialize the projected text for every item once so the
++    // owned `String`s outlive both `compute_malformed_flags` and
++    // the `resolve_pattern` / `validate_range` chain. The
++    // `MessageForMatching` slice borrows from this `Vec` via
++    // `&projected_text[i]`.
++    let projected_text: Vec<String> = history.iter().map(extract_text).collect();
++
++    // First pass: compute global orphan-pairing flags so
++    // `resolve_pattern` never returns a malformed candidate.
++    let global_malformed = compute_malformed_flags(history, archived_flags)?;
++    let projections: Vec<MessageForMatching<'_>> = history
++        .iter()
++        .zip(ids.iter())
++        .zip(projected_text.iter())
++        .zip(archived_flags.iter())
++        .zip(global_malformed.iter())
++        .map(|((((item, id), text), archived), malformed)| {
++            project_message_for_matching(item, id.as_str(), text.as_str(), *archived, *malformed)
++        })
++        .collect();
++
++    let start = resolve_pattern(&projections, &args.from_pattern, "from")?;
++    let end = resolve_pattern(&projections, &args.to_pattern, "to")?;
++
++    // Second pass: compute range-aware malformed flags so
++    // `validate_range` rejects ranges that sever a tool-call pair
++    // at their boundary.
++    let range_malformed =
++        malformed_flags_for_range(history, archived_flags, start.index, end.index)?;
++    let range_projections: Vec<MessageForMatching<'_>> = history
++        .iter()
++        .zip(ids.iter())
++        .zip(projected_text.iter())
++        .zip(archived_flags.iter())
++        .zip(range_malformed.iter())
++        .map(|((((item, id), text), archived), malformed)| {
++            project_message_for_matching(item, id.as_str(), text.as_str(), *archived, *malformed)
++        })
++        .collect();
++    validate_range(&range_projections, &start, &end)?;
++
++    let meta = BonsaiArchiveMeta {
++        anchor_id: start.id.clone(),
++        range_end_id: end.id.clone(),
++        summary,
++        index_terms,
++        reason: args.reason.and_then(|r| {
++            let trimmed = r.trim();
++            if trimmed.is_empty() {
++                None
++            } else {
++                Some(trimmed.to_string())
++            }
++        }),
++    };
++
++    let placeholder_text = render_placeholder(PlaceholderFields::from(&meta));
++    let placeholder_item = ResponseItem::Message {
++        id: None,
++        role: "assistant".to_string(),
++        content: vec![ContentItem::OutputText {
++            text: placeholder_text.clone(),
++        }],
++        phase: None,
++        internal_chat_message_metadata_passthrough: None,
++    };
++
++    // Slice the archived range out of the live history and
++    // replace it with the placeholder. Anything before and
++    // after the range is preserved verbatim.
++    let mut replacement_history: Vec<ResponseItem> = Vec::with_capacity(history.len());
++    replacement_history.extend(history[..start.index].iter().cloned());
++    replacement_history.push(placeholder_item);
++    replacement_history.extend(history[end.index + 1..].iter().cloned());
++
++    let archived_history: Vec<ResponseItem> = history[start.index..=end.index].to_vec();
++    let payload = BonsaiArchivePayload::new(meta.clone(), archived_history);
++
++    Ok(PruneInstall {
++        replacement_history,
++        archive_payload: payload,
++        placeholder_text,
++        anchor_id: meta.anchor_id,
++        range_end_id: meta.range_end_id,
++    })
++}
++
++/// Errors that can surface from the retrieve path.
++#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
++pub(crate) enum RetrieveError {
++    #[error("no archive found for anchor_id {anchor_id}")]
++    Missing { anchor_id: String },
++    #[error("archive payload missing archived_history; persisted shape predates bonsai")]
++    LegacyPayload,
++    #[error(transparent)]
++    Guard(#[from] GuardError),
++}
++
++/// Given the current live history (which must contain the
++/// placeholder), the matching persisted archive and the guard
++/// flag disallowing same-step retrieval, restore the archived
++/// range verbatim.
++pub(crate) fn build_retrieve_install(
++    live_history: &[ResponseItem],
++    archive: &BonsaiArchivePayload<ResponseItem>,
++    same_step_guard: bool,
++) -> Result<Vec<ResponseItem>, RetrieveError> {
++    if same_step_guard {
++        return Err(RetrieveError::Guard(GuardError::SameStepRetrieve));
++    }
++    if archive.archived_history.is_empty() {
++        return Err(RetrieveError::LegacyPayload);
++    }
++
++    // Find the placeholder by scanning for a Message whose first
++    // content item begins with the canonical placeholder prefix
++    // for this anchor.
++    let placeholder_marker = format!(
++        "[PRUNED: {} to {}]",
++        archive.meta.anchor_id, archive.meta.range_end_id
++    );
++    let placeholder_index = live_history.iter().position(|item| {
++        matches!(
++            item,
++            ResponseItem::Message { content, .. }
++                if content.iter().any(|c| matches!(
++                    c,
++                    ContentItem::OutputText { text } if text.starts_with(&placeholder_marker)
++                ))
++        )
++    });
++
++    let Some(idx) = placeholder_index else {
++        return Err(RetrieveError::Missing {
++            anchor_id: archive.meta.anchor_id.clone(),
++        });
++    };
++
++    let mut restored: Vec<ResponseItem> =
++        Vec::with_capacity(live_history.len() - 1 + archive.archived_history.len());
++    restored.extend(live_history[..idx].iter().cloned());
++    restored.extend(archive.archived_history.iter().cloned());
++    restored.extend(live_history[idx + 1..].iter().cloned());
++    Ok(restored)
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    fn message(role: &str, text: &str) -> ResponseItem {
++        ResponseItem::Message {
++            id: None,
++            role: role.to_string(),
++            content: vec![if role == "assistant" {
++                ContentItem::OutputText {
++                    text: text.to_string(),
++                }
++            } else {
++                ContentItem::InputText {
++                    text: text.to_string(),
++                }
++            }],
++            phase: None,
++            internal_chat_message_metadata_passthrough: None,
++        }
++    }
++
++    #[test]
++    fn prune_then_retrieve_round_trips_exact_items() {
++        let history = vec![
++            message("user", "alpha completed request"),
++            message("assistant", "beta completed result"),
++            message("user", "gamma active request"),
++        ];
++        let install = build_prune_install(
++            &history,
++            &[false, false, false],
++            PruneArgs {
++                from_pattern: "alpha completed".to_string(),
++                to_pattern: "beta completed".to_string(),
++                summary: "finished alpha and beta work".to_string(),
++                index_terms: vec!["alpha".to_string(), "beta".to_string()],
++                reason: Some("completed".to_string()),
++            },
++        )
++        .expect("prune should succeed");
++
++        assert_eq!(install.archive_payload.archived_history, history[..2]);
++        assert_eq!(install.replacement_history.len(), 2);
++        assert!(install.placeholder_text.starts_with("[PRUNED:"));
++
++        let restored = build_retrieve_install(
++            &install.replacement_history,
++            &install.archive_payload,
++            false,
++        )
++        .expect("retrieve should succeed");
++        assert_eq!(restored, history);
++    }
++
++    #[test]
++    fn current_turn_is_excluded_from_boundary_matching() {
++        let history = vec![
++            message("user", "historical unique boundary"),
++            message("assistant", "historical completed reply"),
++            message(
++                "user",
++                "prune the message containing historical unique boundary",
++            ),
++            message(
++                "assistant",
++                "reasoning repeats historical unique boundary before the tool call",
++            ),
++        ];
++        let protected = prune_protected_flags(&history);
++        assert_eq!(protected, vec![false, false, true, true]);
++
++        let install = build_prune_install(
++            &history,
++            &protected,
++            PruneArgs {
++                from_pattern: "historical unique boundary".to_string(),
++                to_pattern: "historical completed reply".to_string(),
++                summary: "completed historical work".to_string(),
++                index_terms: vec!["historical".to_string()],
++                reason: None,
++            },
++        )
++        .expect("current-turn repetitions must not make old boundaries ambiguous");
++
++        assert_eq!(install.archive_payload.archived_history, history[..2]);
++        assert_eq!(install.replacement_history[1..], history[2..]);
++    }
++
++    #[test]
++    fn existing_placeholder_is_protected_from_nested_prune() {
++        let history = vec![
++            message(
++                "assistant",
++                "[PRUNED: prior-anchor to prior-end]\nSummary: prior\nIndex: prior",
++            ),
++            message("assistant", "later completed reply"),
++            message("user", "prune old completed work"),
++        ];
++        let protected = prune_protected_flags(&history);
++
++        assert_eq!(protected, vec![true, false, true]);
++        let error = build_prune_install(
++            &history,
++            &protected,
++            PruneArgs {
++                from_pattern: "prior-anchor".to_string(),
++                to_pattern: "later completed reply".to_string(),
++                summary: "nested archive".to_string(),
++                index_terms: vec!["nested".to_string()],
++                reason: None,
++            },
++        )
++        .expect_err("an existing retrieval placeholder must not be re-archived");
++
++        assert!(matches!(error, GuardError::NoMatch { which: "from" }));
++    }
++
++    #[test]
++    fn persisted_archive_survives_a_fresh_load() {
++        let codex_home = tempfile::tempdir().expect("create temporary CODEX_HOME");
++        let thread_id = "019f-test-thread";
++        let archive = BonsaiArchivePayload::new(
++            BonsaiArchiveMeta {
++                anchor_id: "bonsai-anchor-persisted".to_string(),
++                range_end_id: "bonsai-anchor-end".to_string(),
++                summary: "persisted completed work".to_string(),
++                index_terms: vec!["persisted".to_string()],
++                reason: None,
++            },
++            vec![message("user", "archived payload")],
++        );
++
++        persist_archive_sync(codex_home.path(), thread_id, &archive).expect("persist archive");
++        let loaded = load_archive_sync(codex_home.path(), thread_id, &archive.meta.anchor_id)
++            .expect("load archive in a fresh operation");
++
++        assert_eq!(loaded, archive);
++    }
++
++    #[test]
++    fn persisted_archives_are_thread_scoped() {
++        let codex_home = tempfile::tempdir().expect("create temporary CODEX_HOME");
++        let archive = BonsaiArchivePayload::new(
++            BonsaiArchiveMeta {
++                anchor_id: "bonsai-anchor-scoped".to_string(),
++                range_end_id: "bonsai-anchor-end".to_string(),
++                summary: "thread scoped work".to_string(),
++                index_terms: vec!["scoped".to_string()],
++                reason: None,
++            },
++            vec![message("assistant", "only thread A can retrieve this")],
++        );
++
++        persist_archive_sync(codex_home.path(), "thread-a", &archive).expect("persist archive");
++        let error = load_archive_sync(codex_home.path(), "thread-b", &archive.meta.anchor_id)
++            .expect_err("thread B must not read thread A archive");
++
++        assert!(matches!(error, ArchiveStoreError::Missing { .. }));
++    }
++}
+
+diff --git a/codex-rs/core/src/tools/handlers/bonsai.rs b/codex-rs/core/src/tools/handlers/bonsai.rs
+new file mode 100644
+index 0000000..c05b3bd
+--- /dev/null
++++ b/codex-rs/core/src/tools/handlers/bonsai.rs
+@@ -0,0 +1,216 @@
++use std::collections::BTreeMap;
++
++use codex_tools::JsonSchema;
++use codex_tools::ResponsesApiTool;
++use codex_tools::ToolName;
++use codex_tools::ToolSpec;
++use serde::Deserialize;
++
++use crate::context_bonsai::PruneArgs;
++use crate::context_bonsai::build_prune_install;
++use crate::context_bonsai::prune_protected_flags;
++use crate::function_tool::FunctionCallError;
++use crate::tools::context::FunctionToolOutput;
++use crate::tools::context::ToolInvocation;
++use crate::tools::context::ToolPayload;
++use crate::tools::context::boxed_tool_output;
++use crate::tools::handlers::parse_arguments;
++use crate::tools::registry::CoreToolRuntime;
++use crate::tools::registry::ToolExecutor;
++
++pub(crate) const PRUNE_TOOL_NAME: &str = "context-bonsai-prune";
++pub(crate) const RETRIEVE_TOOL_NAME: &str = "context-bonsai-retrieve";
++
++fn prune_spec() -> ToolSpec {
++    let properties = BTreeMap::from([
++        (
++            "from_pattern".to_string(),
++            JsonSchema::string(Some(
++                "Unique substring identifying the first transcript item to archive.".to_string(),
++            )),
++        ),
++        (
++            "to_pattern".to_string(),
++            JsonSchema::string(Some(
++                "Unique substring identifying the last transcript item to archive.".to_string(),
++            )),
++        ),
++        (
++            "summary".to_string(),
++            JsonSchema::string(Some(
++                "Short summary retained in the replacement placeholder.".to_string(),
++            )),
++        ),
++        (
++            "index_terms".to_string(),
++            JsonSchema::array(
++                JsonSchema::string(None),
++                Some("Terms that make the archive discoverable later.".to_string()),
++            ),
++        ),
++        (
++            "reason".to_string(),
++            JsonSchema::string(Some(
++                "Optional reason for pruning this completed range.".to_string(),
++            )),
++        ),
++    ]);
++    ToolSpec::Function(ResponsesApiTool {
++        name: PRUNE_TOOL_NAME.to_string(),
++        description: "Archive a completed contiguous transcript range and replace it with a recoverable summary placeholder.".to_string(),
++        strict: false,
++        defer_loading: None,
++        parameters: JsonSchema::object(properties, Some(vec!["from_pattern".to_string(), "to_pattern".to_string(), "summary".to_string(), "index_terms".to_string()]), Some(false.into())),
++        output_schema: None,
++    })
++}
++
++fn retrieve_spec() -> ToolSpec {
++    let properties = BTreeMap::from([(
++        "anchor_id".to_string(),
++        JsonSchema::string(Some(
++            "Anchor id returned by context-bonsai-prune.".to_string(),
++        )),
++    )]);
++    ToolSpec::Function(ResponsesApiTool {
++        name: RETRIEVE_TOOL_NAME.to_string(),
++        description: "Restore an archived Context Bonsai range into the live transcript."
++            .to_string(),
++        strict: false,
++        defer_loading: None,
++        parameters: JsonSchema::object(
++            properties,
++            Some(vec!["anchor_id".to_string()]),
++            Some(false.into()),
++        ),
++        output_schema: None,
++    })
++}
++
++#[derive(Debug, Deserialize)]
++struct PruneArgsWire {
++    from_pattern: String,
++    to_pattern: String,
++    summary: String,
++    #[serde(default)]
++    index_terms: Vec<String>,
++    #[serde(default)]
++    reason: Option<String>,
++}
++
++pub struct ContextBonsaiPruneHandler;
++
++impl ToolExecutor<ToolInvocation> for ContextBonsaiPruneHandler {
++    fn tool_name(&self) -> ToolName {
++        ToolName::plain(PRUNE_TOOL_NAME)
++    }
++
++    fn spec(&self) -> ToolSpec {
++        prune_spec()
++    }
++
++    fn handle(&self, invocation: ToolInvocation) -> codex_tools::ToolExecutorFuture<'_> {
++        Box::pin(async move {
++            let ToolInvocation {
++                session,
++                turn,
++                payload,
++                ..
++            } = invocation;
++            let ToolPayload::Function { arguments } = payload else {
++                return Err(FunctionCallError::RespondToModel(
++                    "context-bonsai-prune received an unsupported payload".to_string(),
++                ));
++            };
++            let wire: PruneArgsWire = parse_arguments(&arguments)?;
++            let history = session.clone_history().await.into_raw_items();
++            let archived_flags = prune_protected_flags(&history);
++            let install = build_prune_install(
++                &history,
++                &archived_flags,
++                PruneArgs {
++                    from_pattern: wire.from_pattern,
++                    to_pattern: wire.to_pattern,
++                    summary: wire.summary,
++                    index_terms: wire.index_terms,
++                    reason: wire.reason,
++                },
++            )
++            .map_err(|error| {
++                FunctionCallError::RespondToModel(format!("context-bonsai-prune rejected: {error}"))
++            })?;
++            let anchor_id = install.anchor_id.clone();
++            let range_end_id = install.range_end_id.clone();
++            session
++                .apply_bonsai_prune(turn.as_ref(), install)
++                .await
++                .map_err(|error| {
++                    FunctionCallError::RespondToModel(format!(
++                        "context-bonsai-prune persistence failed: {error}"
++                    ))
++                })?;
++            Ok(boxed_tool_output(FunctionToolOutput::from_text(
++                format!(
++                    "Archived range {anchor_id} to {range_end_id}. Use context-bonsai-retrieve with anchor_id {anchor_id} to restore it."
++                ),
++                Some(true),
++            )))
++        })
++    }
++}
++
++impl CoreToolRuntime for ContextBonsaiPruneHandler {}
++
++#[derive(Debug, Deserialize)]
++struct RetrieveArgsWire {
++    anchor_id: String,
++}
++
++pub struct ContextBonsaiRetrieveHandler;
++
++impl ToolExecutor<ToolInvocation> for ContextBonsaiRetrieveHandler {
++    fn tool_name(&self) -> ToolName {
++        ToolName::plain(RETRIEVE_TOOL_NAME)
++    }
++
++    fn spec(&self) -> ToolSpec {
++        retrieve_spec()
++    }
++
++    fn handle(&self, invocation: ToolInvocation) -> codex_tools::ToolExecutorFuture<'_> {
++        Box::pin(async move {
++            let ToolInvocation {
++                session,
++                turn,
++                payload,
++                ..
++            } = invocation;
++            let ToolPayload::Function { arguments } = payload else {
++                return Err(FunctionCallError::RespondToModel(
++                    "context-bonsai-retrieve received an unsupported payload".to_string(),
++                ));
++            };
++            let wire: RetrieveArgsWire = parse_arguments(&arguments)?;
++            let anchor_id = wire.anchor_id.trim().to_string();
++            if anchor_id.is_empty() {
++                return Err(FunctionCallError::RespondToModel(
++                    "anchor_id must be non-empty".to_string(),
++                ));
++            }
++            session
++                .apply_bonsai_retrieve(turn.as_ref(), &anchor_id)
++                .await
++                .map_err(|error| {
++                    FunctionCallError::RespondToModel(format!(
++                        "context-bonsai-retrieve rejected: {error}"
++                    ))
++                })?;
++            Ok(boxed_tool_output(FunctionToolOutput::from_text(
++                format!("Restored bonsai archive {anchor_id} into the live transcript."),
++                Some(true),
++            )))
++        })
++    }
++}
++
++impl CoreToolRuntime for ContextBonsaiRetrieveHandler {}
