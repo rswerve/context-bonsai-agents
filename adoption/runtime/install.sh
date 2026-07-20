@@ -58,12 +58,22 @@ jq -n \
   > "$CANDIDATE/runtime-manifest.json"
 mv "$CANDIDATE" "$TARGET"
 
+previous=""
 if [[ -L "$RUNTIME_ROOT/current" ]]; then
-  ln -s "$(readlink "$RUNTIME_ROOT/current")" "$STATE_ROOT/current-before-$STAMP"
+  previous="$(readlink "$RUNTIME_ROOT/current")"
+  ln -s "$previous" "$STATE_ROOT/current-before-$STAMP"
 elif [[ -e "$RUNTIME_ROOT/current" ]]; then
   print -u2 "$RUNTIME_ROOT/current exists but is not a managed symlink; runtime staged but not activated"
   exit 1
 fi
 ln -s "$TARGET" "$RUNTIME_ROOT/.current-$STAMP"
-mv "$RUNTIME_ROOT/.current-$STAMP" "$RUNTIME_ROOT/current"
+mv -fh "$RUNTIME_ROOT/.current-$STAMP" "$RUNTIME_ROOT/current"
+if [[ "$(readlink "$RUNTIME_ROOT/current")" != "$TARGET" ]]; then
+  if [[ -n "$previous" ]]; then
+    ln -s "$previous" "$RUNTIME_ROOT/.rollback-$STAMP"
+    mv -fh "$RUNTIME_ROOT/.rollback-$STAMP" "$RUNTIME_ROOT/current"
+  fi
+  print -u2 "runtime current pointer did not advance; previous target restored"
+  exit 1
+fi
 print "Context Bonsai runtime installed and verified: $TARGET"
