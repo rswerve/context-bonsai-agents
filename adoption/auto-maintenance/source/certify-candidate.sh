@@ -29,7 +29,7 @@ bash -n "$PARENT/adoption/claude/"*.sh "$AM/"*.sh "$AM/source/"*.sh
 bash "$AM/source/test-source-reconcile.sh"
 CB_SOURCE_DISABLE=1 bash "$AM/test-fixtures.sh"
 CB_SOURCE_DISABLE=1 bash "$AM/test-combined.sh"
-bash "$AM/codex/test-simulated-bumps.sh"
+"$AM/codex/test-simulated-bumps.sh"
 
 # Prove that the candidate can package and verify an entirely isolated runtime.
 CB_INSTALL_ROOT="$FIXTURE_INSTALL" \
