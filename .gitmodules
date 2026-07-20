@@ -30,7 +30,7 @@
 	url = https://github.com/Vibecodelicious/cline_context_bonsai.git
 [submodule "tweakcc_context_bonsai"]
 	path = tweakcc_context_bonsai
-	url = https://github.com/Vibecodelicious/tweakcc_context_bonsai.git
+	url = https://github.com/rswerve/tweakcc_context_bonsai.git
 [submodule "pi_context_bonsai"]
 	path = pi_context_bonsai
 	url = https://github.com/Vibecodelicious/pi_context_bonsai.git
