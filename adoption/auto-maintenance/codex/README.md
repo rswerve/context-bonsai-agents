@@ -43,8 +43,9 @@ the next run on an older patch lineage.
 - clean, commit-pinned shared `codex_context_bonsai` core when running from a
   development checkout, or an exact file/mode/Git-blob match against the
   checksum-pinned tree manifest when running from the installed archive;
-- isolated Cargo lock resolution followed by `--locked` for every test, clippy,
-  and build command; the standalone shared-core tests run from a retained copy
+- isolated full-dependency-graph Cargo lock resolution followed by `--locked`
+  for every test, clippy, and build command; the standalone shared-core tests
+  run from a retained copy
   whose separate lock is resolved with `--offline` before its tests run with
   `--locked`, so the installed archive remains immutable and the test lock plus
   all evidence stay in the retained run;

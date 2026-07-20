@@ -957,7 +957,7 @@ function certifyAndBuild(
   }
   const targetDir = join(runDir, "cargo-target");
   const baseEnv = { CARGO_TARGET_DIR: targetDir, RUST_MIN_STACK: "8388608" };
-  command(runDir, "resolve-candidate-lock", ["cargo", "metadata", "--format-version", "1", "--no-deps"], {
+  command(runDir, "resolve-candidate-lock", ["cargo", "metadata", "--format-version", "1"], {
     cwd: join(source, "codex-rs"),
     env: baseEnv,
   });
