@@ -1,0 +1,4 @@
+# Runtime logs + status + candidate build dirs — not source
+state/
+candidates/
+*.log
