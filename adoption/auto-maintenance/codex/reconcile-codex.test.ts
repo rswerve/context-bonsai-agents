@@ -16,6 +16,7 @@ import {
   parseStableReleasePayload,
   releaseAction,
   rewriteSharedCoreDependencyText,
+  validateSharedCoreSnapshot,
   type ActivationPaths,
   type Candidate,
   type LinkSnapshot,
@@ -214,5 +215,54 @@ describe("runtime portability", () => {
     const duplicate =
       'codex-context-bonsai = { path = "/one" }\n' + 'codex-context-bonsai = { path = "/two" }\n';
     expect(() => rewriteSharedCoreDependencyText(duplicate, "/runtime/core")).toThrow("found 2");
+  });
+
+  function archivedCore(name: string) {
+    const root = uniqueRoot(name);
+    const core = join(root, "codex_context_bonsai");
+    mkdirSync(join(core, "src"), { recursive: true });
+    writeFileSync(join(core, "Cargo.toml"), "[package]\nname='fixture'\nversion='0.0.0'\n");
+    writeFileSync(join(core, "src/lib.rs"), "pub fn fixture() {}\n");
+    const blob = (path: string) => {
+      const content = readFileSync(path);
+      return createHash("sha1").update(Buffer.from(`blob ${content.length}\0`)).update(content).digest("hex");
+    };
+    const tree = join(root, "shared-core-tree.txt");
+    writeFileSync(
+      tree,
+      [
+        `100644 blob ${blob(join(core, "Cargo.toml"))}\tCargo.toml`,
+        `100644 blob ${blob(join(core, "src/lib.rs"))}\tsrc/lib.rs`,
+        "",
+      ].join("\n"),
+    );
+    const runtime = join(root, "runtime-manifest.json");
+    const commit = "b".repeat(40);
+    writeFileSync(runtime, `${JSON.stringify({ sharedCoreCommit: commit, sharedCoreTreeSha256: sha(tree) })}\n`);
+    return { root, core, tree, runtime, commit };
+  }
+
+  test("verifies an immutable archived shared core without .git metadata", () => {
+    const f = archivedCore("archived-core-green");
+    const identity = validateSharedCoreSnapshot(f.core, f.runtime, f.tree);
+    expect(identity).toEqual({ commit: f.commit, fingerprint: `${f.commit}:${sha(f.tree)}`, kind: "archive" });
+  });
+
+  test("fails closed when an archived shared-core blob changes", () => {
+    const f = archivedCore("archived-core-tamper");
+    writeFileSync(join(f.core, "src/lib.rs"), "pub fn tampered() {}\n");
+    expect(() => validateSharedCoreSnapshot(f.core, f.runtime, f.tree)).toThrow("blob mismatch");
+  });
+
+  test("fails closed on added files or tree-manifest drift", () => {
+    const added = archivedCore("archived-core-added");
+    writeFileSync(join(added.core, "unexpected.txt"), "unexpected\n");
+    expect(() => validateSharedCoreSnapshot(added.core, added.runtime, added.tree)).toThrow("file set drifted");
+
+    const manifest = archivedCore("archived-core-manifest-drift");
+    writeFileSync(manifest.tree, `${readFileSync(manifest.tree, "utf8")}\n`);
+    expect(() => validateSharedCoreSnapshot(manifest.core, manifest.runtime, manifest.tree)).toThrow(
+      "manifest checksum mismatch",
+    );
   });
 });

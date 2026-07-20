@@ -38,6 +38,7 @@ git -C "$REPO_ROOT" archive HEAD adoption | tar -x -C "$CANDIDATE"
 mkdir -p "$CANDIDATE/tweakcc_context_bonsai" "$CANDIDATE/codex_context_bonsai"
 git -C "$REPO_ROOT/tweakcc_context_bonsai" archive HEAD | tar -x -C "$CANDIDATE/tweakcc_context_bonsai"
 git -C "$REPO_ROOT/codex_context_bonsai" archive HEAD | tar -x -C "$CANDIDATE/codex_context_bonsai"
+git -C "$REPO_ROOT/codex_context_bonsai" ls-tree -r --full-tree HEAD > "$CANDIDATE/shared-core-tree.txt"
 
 (
   cd "$CANDIDATE/tweakcc_context_bonsai"
@@ -51,13 +52,16 @@ bash -n "$CANDIDATE/adoption/claude/"*.sh \
   "$CANDIDATE/adoption/auto-maintenance/"*.sh \
   "$CANDIDATE/adoption/auto-maintenance/source/"*.sh
 
+readonly CORE_TREE_SHA256="$(shasum -a 256 "$CANDIDATE/shared-core-tree.txt" | awk '{print $1}')"
 jq -n \
   --arg installedAt "$STAMP" \
   --arg parentCommit "$PARENT_COMMIT" \
   --arg tweakccCommit "$TWEAKCC_COMMIT" \
   --arg sharedCoreCommit "$CORE_COMMIT" \
-  '{installedAt:$installedAt,parentCommit:$parentCommit,tweakccCommit:$tweakccCommit,sharedCoreCommit:$sharedCoreCommit}' \
+  --arg sharedCoreTreeSha256 "$CORE_TREE_SHA256" \
+  '{installedAt:$installedAt,parentCommit:$parentCommit,tweakccCommit:$tweakccCommit,sharedCoreCommit:$sharedCoreCommit,sharedCoreTreeSha256:$sharedCoreTreeSha256}' \
   > "$CANDIDATE/runtime-manifest.json"
+bun "$CANDIDATE/adoption/auto-maintenance/codex/verify-shared-core.ts" "$CANDIDATE"
 mv "$CANDIDATE" "$TARGET"
 
 previous=""

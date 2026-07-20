@@ -6,6 +6,14 @@ the full tweakcc suite plus Codex transaction tests and script syntax checks,
 then atomically advances `runtime/current`. Previous runtime pointers are kept
 under `~/.local/state/context-bonsai/runtime-history/`; nothing is deleted.
 
+Because `git archive` intentionally omits `.git`, the package also contains a
+`shared-core-tree.txt` generated from the exact `codex_context_bonsai` commit.
+Its checksum is pinned in `runtime-manifest.json`. Installation, runtime
+verification, and every Codex forward-port verify the archive's exact paths,
+file modes, and Git blob hashes before trusting it, and verify it again after
+the build. This preserves commit-level integrity without making the live
+runtime depend on a mutable Git checkout.
+
 The live MCP entry and LaunchAgents should point through `runtime/current`, not
 through a development checkout. Codex binaries live separately under
 `~/.local/share/context-bonsai/artifacts/codex/` and are selected by the managed

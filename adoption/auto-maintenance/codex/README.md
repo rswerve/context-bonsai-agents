@@ -40,9 +40,13 @@ the next run on an older patch lineage.
 - exact official stable tag and unchanged upstream `HEAD`;
 - exact eight-file Bonsai allowlist, clean diff, no source symlinks/executables,
   and no app-server protocol edits;
-- clean, commit-pinned shared `codex_context_bonsai` core;
+- clean, commit-pinned shared `codex_context_bonsai` core when running from a
+  development checkout, or an exact file/mode/Git-blob match against the
+  checksum-pinned tree manifest when running from the installed archive;
 - isolated Cargo lock resolution followed by `--locked` for every test, clippy,
-  and build command; no build-time source mutation beyond the recorded lock;
+  and build command; the standalone shared-core tests run from a retained copy
+  using the candidate Codex workspace's resolved lock, so the installed archive
+  remains immutable and no unlocked dependency resolution is accepted;
 - shared-core test suite;
 - focused `codex-core` Context Bonsai tests;
 - full `codex-core --lib` suite with the required larger Rust test stack;

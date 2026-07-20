@@ -96,8 +96,22 @@ export interface ReconcileConfig {
   scratchRoot: string;
   upstreamUrl: string;
   sharedCore: string;
+  runtimeManifest: string;
+  sharedCoreTree: string;
   initialPatch: string;
   certifyExistingRun?: string;
+}
+
+export interface SharedCoreIdentity {
+  commit: string;
+  fingerprint: string;
+  kind: "git" | "archive";
+}
+
+interface SharedCoreTreeEntry {
+  mode: "100644" | "100755" | "120000";
+  oid: string;
+  path: string;
 }
 
 class ReconcileError extends Error {
@@ -334,6 +348,138 @@ function detectLatestStable(config: ReconcileConfig, runDir: string): StableRele
 
 function sha256File(path: string): string {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
+}
+
+function gitBlobOid(content: Buffer): string {
+  return createHash("sha1")
+    .update(Buffer.from(`blob ${content.length}\0`))
+    .update(content)
+    .digest("hex");
+}
+
+function parseSharedCoreTree(path: string): SharedCoreTreeEntry[] {
+  if (!existsSync(path)) {
+    throw new ReconcileError("certification-failed", 21, `shared-core tree manifest is missing: ${path}`);
+  }
+  const entries: SharedCoreTreeEntry[] = [];
+  const seen = new Set<string>();
+  for (const line of readFileSync(path, "utf8").split("\n").filter(Boolean)) {
+    const match = /^(100644|100755|120000) blob ([0-9a-f]{40})\t(.+)$/.exec(line);
+    if (!match) {
+      throw new ReconcileError("certification-failed", 21, "shared-core tree manifest contains an invalid entry");
+    }
+    const entry = { mode: match[1], oid: match[2], path: match[3] } as SharedCoreTreeEntry;
+    const parts = entry.path.split("/");
+    if (
+      isAbsolute(entry.path) ||
+      parts.some((part) => part === "" || part === "." || part === "..") ||
+      entry.path.includes("\t") ||
+      entry.path.includes("\0") ||
+      seen.has(entry.path)
+    ) {
+      throw new ReconcileError("certification-failed", 21, `unsafe or duplicate shared-core path: ${entry.path}`);
+    }
+    seen.add(entry.path);
+    entries.push(entry);
+  }
+  if (entries.length === 0) {
+    throw new ReconcileError("certification-failed", 21, "shared-core tree manifest is empty");
+  }
+  return entries.sort((a, b) => a.path.localeCompare(b.path));
+}
+
+function walkSharedCore(root: string, dir = root): string[] {
+  const paths: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    const absolute = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      paths.push(...walkSharedCore(root, absolute));
+    } else if (entry.isFile() || entry.isSymbolicLink()) {
+      paths.push(relative(root, absolute));
+    } else {
+      throw new ReconcileError("certification-failed", 21, `unsupported shared-core filesystem entry: ${absolute}`);
+    }
+  }
+  return paths.sort((a, b) => a.localeCompare(b));
+}
+
+export function validateSharedCoreSnapshot(
+  sharedCore: string,
+  runtimeManifest: string,
+  treeManifest: string,
+): SharedCoreIdentity {
+  if (!existsSync(sharedCore) || !statSync(sharedCore).isDirectory()) {
+    throw new ReconcileError("certification-failed", 21, `shared-core snapshot is missing: ${sharedCore}`);
+  }
+  if (!existsSync(runtimeManifest)) {
+    throw new ReconcileError("certification-failed", 21, `runtime manifest is missing: ${runtimeManifest}`);
+  }
+  const metadata = JSON.parse(readFileSync(runtimeManifest, "utf8")) as Record<string, unknown>;
+  const commit = typeof metadata.sharedCoreCommit === "string" ? metadata.sharedCoreCommit : "";
+  const expectedTreeSha =
+    typeof metadata.sharedCoreTreeSha256 === "string" ? metadata.sharedCoreTreeSha256 : "";
+  if (!/^[0-9a-f]{40}$/.test(commit) || !/^[0-9a-f]{64}$/.test(expectedTreeSha)) {
+    throw new ReconcileError("certification-failed", 21, "runtime manifest lacks valid shared-core integrity metadata");
+  }
+  const actualTreeSha = sha256File(treeManifest);
+  if (actualTreeSha !== expectedTreeSha) {
+    throw new ReconcileError("certification-failed", 21, "shared-core tree manifest checksum mismatch");
+  }
+  const entries = parseSharedCoreTree(treeManifest);
+  const expectedPaths = entries.map((entry) => entry.path);
+  const actualPaths = walkSharedCore(sharedCore);
+  if (JSON.stringify(actualPaths) !== JSON.stringify(expectedPaths)) {
+    throw new ReconcileError("certification-failed", 21, "shared-core archive file set drifted");
+  }
+  for (const entry of entries) {
+    const absolute = join(sharedCore, entry.path);
+    const info = lstatSync(absolute);
+    let mode: SharedCoreTreeEntry["mode"];
+    let content: Buffer;
+    if (info.isSymbolicLink()) {
+      mode = "120000";
+      content = Buffer.from(readlinkSync(absolute));
+    } else if (info.isFile()) {
+      mode = (info.mode & 0o111) === 0 ? "100644" : "100755";
+      content = readFileSync(absolute);
+    } else {
+      throw new ReconcileError("certification-failed", 21, `unsupported shared-core entry: ${entry.path}`);
+    }
+    if (mode !== entry.mode) {
+      throw new ReconcileError("certification-failed", 21, `shared-core mode mismatch: ${entry.path}`);
+    }
+    if (gitBlobOid(content) !== entry.oid) {
+      throw new ReconcileError("certification-failed", 21, `shared-core blob mismatch: ${entry.path}`);
+    }
+  }
+  return { commit, fingerprint: `${commit}:${actualTreeSha}`, kind: "archive" };
+}
+
+function resolveSharedCoreIdentity(config: ReconcileConfig, runDir: string, label: string): SharedCoreIdentity {
+  if (existsSync(join(config.sharedCore, ".git"))) {
+    const dirty = command(runDir, `${label}-shared-core-clean`, [
+      "git",
+      "-C",
+      config.sharedCore,
+      "status",
+      "--porcelain",
+    ]).stdout.trim();
+    if (dirty) throw new ReconcileError("certification-failed", 21, "shared Context Bonsai core is dirty");
+    const commit = command(runDir, `${label}-shared-core-commit`, [
+      "git",
+      "-C",
+      config.sharedCore,
+      "rev-parse",
+      "HEAD",
+    ]).stdout.trim();
+    if (!/^[0-9a-f]{40}$/.test(commit)) {
+      throw new ReconcileError("certification-failed", 21, "could not pin shared Context Bonsai core commit");
+    }
+    return { commit, fingerprint: commit, kind: "git" };
+  }
+  const identity = validateSharedCoreSnapshot(config.sharedCore, config.runtimeManifest, config.sharedCoreTree);
+  appendEvent(runDir, `${label}-shared-core-archive-verified`, { ...identity });
+  return identity;
 }
 
 function snapshotManagedLink(linkPath: string, runDir: string): LinkSnapshot {
@@ -674,7 +820,7 @@ function validatePortSource(
   runDir: string,
   source: string,
   expectedCommit: string,
-): { sharedCoreCommit: string; patchText: string } {
+): { sharedCoreIdentity: SharedCoreIdentity; patchText: string } {
   const head = command(runDir, "source-head-invariant", ["git", "-C", source, "rev-parse", "HEAD"]).stdout.trim();
   if (head !== expectedCommit) {
     throw new ReconcileError("certification-failed", 21, "candidate changed upstream HEAD");
@@ -702,14 +848,7 @@ function validatePortSource(
   if (/mode 120000|mode 100755/.test(summary)) {
     throw new ReconcileError("certification-failed", 21, "candidate introduced a symlink or executable source file");
   }
-  const sharedDirty = command(runDir, "shared-core-clean", ["git", "-C", config.sharedCore, "status", "--porcelain"]).stdout.trim();
-  if (sharedDirty) {
-    throw new ReconcileError("certification-failed", 21, "shared Context Bonsai core is dirty");
-  }
-  const sharedCoreCommit = command(runDir, "shared-core-commit", ["git", "-C", config.sharedCore, "rev-parse", "HEAD"]).stdout.trim();
-  if (!/^[0-9a-f]{40}$/.test(sharedCoreCommit)) {
-    throw new ReconcileError("certification-failed", 21, "could not pin shared Context Bonsai core commit");
-  }
+  const sharedCoreIdentity = resolveSharedCoreIdentity(config, runDir, "pre-certification");
   const patchText = command(runDir, "render-port-patch", [
     "git",
     "-C",
@@ -722,7 +861,7 @@ function validatePortSource(
   if (!patchText.includes("context-bonsai-prune") || !patchText.includes("context-bonsai-retrieve")) {
     throw new ReconcileError("certification-failed", 21, "candidate patch does not contain both model-facing tools");
   }
-  return { sharedCoreCommit, patchText };
+  return { sharedCoreIdentity, patchText };
 }
 
 function walkJson(root: string, dir = root): string[] {
@@ -810,7 +949,7 @@ function certifyAndBuild(
   stableRelease: StableRelease,
   version: string,
   sourceCommit: string,
-  sharedCoreCommit: string,
+  sharedCoreIdentity: SharedCoreIdentity,
   patchText: string,
 ): Candidate {
   if (stableRelease.version !== version) {
@@ -823,14 +962,17 @@ function certifyAndBuild(
     env: baseEnv,
   });
   assertOnlyGeneratedLockChanged(runDir, source, "post-lock-resolution");
+  const sharedCoreTest = join(runDir, "shared-core-test");
+  command(runDir, "stage-shared-core-tests", ["cp", "-R", config.sharedCore, sharedCoreTest]);
+  copyFileSync(join(source, "codex-rs", "Cargo.lock"), join(sharedCoreTest, "Cargo.lock"));
   command(runDir, "shared-core-tests", [
     "cargo",
     "test",
     "--locked",
     "--manifest-path",
-    join(config.sharedCore, "Cargo.toml"),
+    join(sharedCoreTest, "Cargo.toml"),
   ], {
-    cwd: config.sharedCore,
+    cwd: sharedCoreTest,
     env: { CARGO_TARGET_DIR: join(runDir, "shared-core-target") },
   });
   command(runDir, "focused-bonsai-tests", ["cargo", "test", "--locked", "-p", "codex-core", "context_bonsai", "--lib"], {
@@ -854,25 +996,9 @@ function certifyAndBuild(
     env: baseEnv,
   });
   assertOnlyGeneratedLockChanged(runDir, source, "post-build");
-  const sharedDirtyAfter = command(runDir, "shared-core-clean-after-tests", [
-    "git",
-    "-C",
-    config.sharedCore,
-    "status",
-    "--porcelain",
-  ]).stdout.trim();
-  if (sharedDirtyAfter) {
+  const sharedCoreAfter = resolveSharedCoreIdentity(config, runDir, "post-certification");
+  if (sharedCoreAfter.fingerprint !== sharedCoreIdentity.fingerprint) {
     throw new ReconcileError("certification-failed", 21, "shared Context Bonsai core changed during certification");
-  }
-  const sharedCommitAfter = command(runDir, "shared-core-commit-after-tests", [
-    "git",
-    "-C",
-    config.sharedCore,
-    "rev-parse",
-    "HEAD",
-  ]).stdout.trim();
-  if (sharedCommitAfter !== sharedCoreCommit) {
-    throw new ReconcileError("certification-failed", 21, "shared Context Bonsai core commit changed during certification");
   }
   const sourceCommitAfter = command(runDir, "source-head-after-build", ["git", "-C", source, "rev-parse", "HEAD"])
     .stdout.trim();
@@ -974,7 +1100,7 @@ function certifyAndBuild(
         {
           version,
           sourceCommit,
-          sharedCoreCommit,
+          sharedCoreCommit: sharedCoreIdentity.commit,
           sha256,
           lockSha256,
           patchSha256,
@@ -1012,7 +1138,7 @@ function certifyAndBuild(
     patchPath,
     patchSha256,
     sourceCommit,
-    sharedCoreCommit,
+    sharedCoreCommit: sharedCoreIdentity.commit,
     schemaHash: candidateFingerprint.hash,
   };
 }
@@ -1127,6 +1253,8 @@ function defaultConfig(certifyExistingRun?: string): ReconcileConfig {
       join(process.env.HOME ?? "", ".local/state/context-bonsai/codex-maintenance/runs"),
     upstreamUrl: process.env.CB_CODEX_UPSTREAM_URL ?? "https://github.com/openai/codex.git",
     sharedCore: process.env.CB_CODEX_SHARED_CORE ?? SHARED_CORE,
+    runtimeManifest: process.env.CB_CODEX_RUNTIME_MANIFEST ?? join(REPO_ROOT, "runtime-manifest.json"),
+    sharedCoreTree: process.env.CB_CODEX_SHARED_CORE_TREE ?? join(REPO_ROOT, "shared-core-tree.txt"),
     initialPatch: process.env.CB_CODEX_INITIAL_PATCH ?? INITIAL_PATCH,
     certifyExistingRun,
   };
@@ -1209,7 +1337,7 @@ export async function reconcile(config: ReconcileConfig): Promise<{ status: Fina
       );
     }
 
-    const { sharedCoreCommit, patchText } = validatePortSource(config, runDir, source, sourceCommit);
+    const { sharedCoreIdentity, patchText } = validatePortSource(config, runDir, source, sourceCommit);
     const baseline = prepareReleaseBaseline(release, runDir);
     const candidate = certifyAndBuild(
       config,
@@ -1219,7 +1347,7 @@ export async function reconcile(config: ReconcileConfig): Promise<{ status: Fina
       release,
       targetVersion,
       sourceCommit,
-      sharedCoreCommit,
+      sharedCoreIdentity,
       patchText,
     );
     assertCurrentLinkUnchanged(snapshot);

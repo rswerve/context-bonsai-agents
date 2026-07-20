@@ -16,11 +16,13 @@ else
     exit 1
   }
 fi
-jq -e '.parentCommit and .tweakccCommit and .sharedCoreCommit' "$MANIFEST" >/dev/null
+jq -e '.parentCommit and .tweakccCommit and .sharedCoreCommit and .sharedCoreTreeSha256' "$MANIFEST" >/dev/null
 [[ -x "$RUNTIME/adoption/auto-maintenance/run-daily.sh" ]]
 [[ -x "$RUNTIME/adoption/auto-maintenance/source/reconcile.sh" ]]
 [[ -x "$RUNTIME/adoption/auto-maintenance/source/certify-candidate.sh" ]]
 [[ -f "$RUNTIME/tweakcc_context_bonsai/mcp-server/index.ts" ]]
 [[ -f "$RUNTIME/codex_context_bonsai/Cargo.toml" ]]
+[[ -f "$RUNTIME/shared-core-tree.txt" ]]
+bun "$RUNTIME/adoption/auto-maintenance/codex/verify-shared-core.ts" "$RUNTIME" >/dev/null
 bun test "$RUNTIME/adoption/auto-maintenance/codex/reconcile-codex.test.ts" >/dev/null
 print "Context Bonsai runtime verified: $(readlink "$RUNTIME")"
