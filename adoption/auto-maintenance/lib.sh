@@ -4,7 +4,9 @@
 
 # --- Paths (single source of truth; the live-target ones are env-overridable so fixtures can exercise
 #     every branch against scratch copies without ever touching the real install) ---
-CB_AM_SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -z "${CB_AM_SOURCE:-}" ]; then
+  CB_AM_SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
 CB_REPO="${CB_REPO:-$(cd "$CB_AM_SOURCE/../.." && pwd)}"
 CB_PORT="${CB_PORT:-$CB_REPO/tweakcc_context_bonsai}"            # tweakcc Claude port (MCP + apply/restore)
 CB_ADOPT="$CB_REPO/adoption"

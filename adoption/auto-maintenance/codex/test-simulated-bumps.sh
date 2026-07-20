@@ -6,6 +6,20 @@ readonly REPO_ROOT="${SCRIPT_DIR:h:h:h}"
 readonly LIVE_LINK="$HOME/.local/bin/codex"
 readonly BEFORE="$(readlink "$LIVE_LINK")"
 
+# The successful-forward-port notification path sources the shared Bash helper
+# from this zsh wrapper. Prove that the explicit source directory avoids zsh's
+# unset BASH_SOURCE diagnostic under nounset.
+mkdir -p "$REPO_ROOT/.staging/auto-maintenance/simulations"
+readonly LIB_STDERR="$REPO_ROOT/.staging/auto-maintenance/simulations/zsh-lib-$(date -u +%Y%m%dT%H%M%SZ)-$$.stderr"
+readonly LIB_SOURCE="$(
+  zsh -uc 'SCRIPT_DIR="$1"; CB_AM_SOURCE="${SCRIPT_DIR:h}"; source "$SCRIPT_DIR/../lib.sh"; print -r -- "$CB_AM_SOURCE"' \
+    -- "$SCRIPT_DIR" 2> "$LIB_STDERR"
+)"
+[[ "$LIB_SOURCE" == "${SCRIPT_DIR:h}" && ! -s "$LIB_STDERR" ]] || {
+  print -u2 "FAIL: zsh notification helper source is not clean"
+  exit 1
+}
+
 bun test "$SCRIPT_DIR/reconcile-codex.test.ts"
 
 # Exercise the production wrapper/one-line stdout contract against a fully
