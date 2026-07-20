@@ -964,7 +964,15 @@ function certifyAndBuild(
   assertOnlyGeneratedLockChanged(runDir, source, "post-lock-resolution");
   const sharedCoreTest = join(runDir, "shared-core-test");
   command(runDir, "stage-shared-core-tests", ["cp", "-R", config.sharedCore, sharedCoreTest]);
-  copyFileSync(join(source, "codex-rs", "Cargo.lock"), join(sharedCoreTest, "Cargo.lock"));
+  command(runDir, "resolve-shared-core-lock-offline", [
+    "cargo",
+    "generate-lockfile",
+    "--offline",
+    "--manifest-path",
+    join(sharedCoreTest, "Cargo.toml"),
+  ], {
+    cwd: sharedCoreTest,
+  });
   command(runDir, "shared-core-tests", [
     "cargo",
     "test",

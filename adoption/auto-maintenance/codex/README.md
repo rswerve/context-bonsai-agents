@@ -45,8 +45,9 @@ the next run on an older patch lineage.
   checksum-pinned tree manifest when running from the installed archive;
 - isolated Cargo lock resolution followed by `--locked` for every test, clippy,
   and build command; the standalone shared-core tests run from a retained copy
-  using the candidate Codex workspace's resolved lock, so the installed archive
-  remains immutable and no unlocked dependency resolution is accepted;
+  whose separate lock is resolved with `--offline` before its tests run with
+  `--locked`, so the installed archive remains immutable and the test lock plus
+  all evidence stay in the retained run;
 - shared-core test suite;
 - focused `codex-core` Context Bonsai tests;
 - full `codex-core --lib` suite with the required larger Rust test stack;
