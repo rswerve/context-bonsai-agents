@@ -15,7 +15,7 @@ Every path is **fail-safe**: the system only ever leaves your install in a *work
 2. **Claude instant-react:** a `WatchPaths` LaunchAgent notices a new Claude Code version and runs the Claude lane within seconds. It re-certs + re-applies if all anchors match; if they drift, it leaves Claude clean-stock and escalates.
 3. **Daily safety net:** a 10:00 LaunchAgent runs source sync followed by both harness lanes (missed runs fire on wake).
 4. **Codex proactive stable updates** (`codex/reconcile.sh`): query the official latest stable release, forward-port in a scratch checkout → build → test against the checksummed same-version official binary → **compare-and-swap the symlink** only if green. Homebrew does not need to be updated first. Offline/rate-limited checks are benign no-ops.
-5. Writes a status file (`state/last-run.md`) and posts a notification after a successful maintenance change or whenever attention is needed.
+5. Writes a status file (`state/last-run.md`) and posts a notification after a successful maintenance change or whenever attention is needed. Failure notifications name every failed lane, state whether its install/runtime was unchanged or rolled back, and give the exact status/evidence path. If `terminal-notifier` is available, clicking the notification opens that status file; otherwise the AppleScript fallback remains display-only but carries the same complete diagnosis and path.
 
 ## Persistent Claude controls
 
@@ -76,6 +76,7 @@ failure leaves the current certified fork selected and retries the next day.
 ./run-daily.sh --codex-only    # run only proactive Codex maintenance
 ./test-fixtures.sh             # fail-safe fixture tests (never touches the real install)
 ./test-combined.sh             # both reconcilers + orchestrator, fully isolated
+./test-notifications.sh        # actionable + display-only notification fixtures
 ./codex/test-simulated-bumps.sh # Codex conflict/CAS/rollback simulations
 ./source/test-source-reconcile.sh # local fake-remotes; source CAS/rollback simulations
 ./uninstall-schedule.sh        # stop + remove both jobs (Bonsai itself stays as-is)

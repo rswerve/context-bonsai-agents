@@ -50,7 +50,8 @@ bun test "$CANDIDATE/adoption/auto-maintenance/codex/reconcile-codex.test.ts"
 zsh -n "$CANDIDATE/adoption/codex/"*.sh "$CANDIDATE/adoption/auto-maintenance/codex/"*.sh
 bash -n "$CANDIDATE/adoption/claude/"*.sh \
   "$CANDIDATE/adoption/auto-maintenance/"*.sh \
-  "$CANDIDATE/adoption/auto-maintenance/source/"*.sh
+  "$CANDIDATE/adoption/auto-maintenance/source/"*.sh \
+  "$CANDIDATE/adoption/auto-maintenance/test-support/"*.sh
 
 readonly CORE_TREE_SHA256="$(shasum -a 256 "$CANDIDATE/shared-core-tree.txt" | awk '{print $1}')"
 jq -n \

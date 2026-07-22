@@ -23,12 +23,14 @@ FIXTURE_HISTORY="$RUN_DIR/certified-runtime-history"
 
 bun test "$AM/codex/reconcile-codex.test.ts"
 zsh -n "$PARENT/adoption/codex/"*.sh "$AM/codex/"*.sh
-bash -n "$PARENT/adoption/claude/"*.sh "$AM/"*.sh "$AM/source/"*.sh
+bash -n "$PARENT/adoption/claude/"*.sh "$AM/"*.sh "$AM/source/"*.sh "$AM/test-support/"*.sh
 
 # Existing fixtures are explicitly forced not to recurse into source syncing.
 bash "$AM/source/test-source-reconcile.sh"
 CB_SOURCE_DISABLE=1 bash "$AM/test-fixtures.sh"
 CB_SOURCE_DISABLE=1 bash "$AM/test-combined.sh"
+CB_NOTIFICATION_TEST_ROOT="$RUN_DIR/notification-tests" bash "$AM/test-notifications.sh"
+CB_ATTENTION_TEST_ROOT="$RUN_DIR/attention-tests" bash "$AM/test-attention-notification.sh"
 "$AM/codex/test-simulated-bumps.sh"
 
 # Prove that the candidate can package and verify an entirely isolated runtime.

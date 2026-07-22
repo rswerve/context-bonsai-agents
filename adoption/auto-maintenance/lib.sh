@@ -27,15 +27,67 @@ mkdir -p "$CB_STATE" 2>/dev/null || true
 cb_ts() { date -u '+%Y-%m-%dT%H:%M:%SZ'; }
 cb_log() { printf '%s  %s\n' "$(cb_ts)" "$*" | tee -a "$CB_LOG" >&2; }
 
-# --- Notification (macOS): non-fatal if osascript unavailable ---
-# cb_notify <title> <message> [sound]
+# --- Notification (macOS): actionable when terminal-notifier is available,
+#     self-contained even when the display-only AppleScript fallback is used. ---
+# cb_notify <title> <message> [sound] [path-to-open]
+cb_file_url() {
+  local path="$1"
+  path="${path//%/%25}"
+  path="${path// /%20}"
+  path="${path//#/%23}"
+  path="${path//\?/%3F}"
+  printf 'file://%s' "$path"
+}
+
 cb_notify() {
-  local title="$1" msg="$2" sound="${3:-}"
-  cb_log "NOTIFY: $title — $msg"
-  if command -v osascript >/dev/null 2>&1; then
-    local s=""; [ -n "$sound" ] && s=" sound name \"$sound\""
-    osascript -e "display notification \"${msg//\"/\\\"}\" with title \"${title//\"/\\\"}\"$s" >/dev/null 2>&1 || true
+  local title="$1" msg="$2" sound="${3:-}" target="${4:-$CB_STATUS}"
+  local display_target="$target" display_msg="$msg" notifier="${CB_TERMINAL_NOTIFIER:-}"
+  local osascript_bin="${CB_OSASCRIPT:-}"
+
+  if [ -n "$target" ]; then
+    case "$target" in "$HOME"/*) display_target="~${target#$HOME}";; esac
+    case "$display_msg" in
+      *"$target"*|*"$display_target"*) ;;
+      *) display_msg="$display_msg Details: $display_target";;
+    esac
   fi
+  cb_log "NOTIFY: $title — $display_msg"
+
+  if [ -z "$notifier" ]; then notifier="$(command -v terminal-notifier 2>/dev/null || true)"; fi
+  if [ -n "$notifier" ] && [ -x "$notifier" ]; then
+    local -a args
+    args=(-title "$title" -message "$display_msg" -group "context-bonsai-maintenance")
+    [ -n "$sound" ] && args+=(-sound "$sound")
+    [ -n "$target" ] && args+=(-open "$(cb_file_url "$target")")
+    "$notifier" "${args[@]}" >/dev/null 2>&1 || true
+    return 0
+  fi
+
+  if [ -z "$osascript_bin" ]; then osascript_bin="$(command -v osascript 2>/dev/null || true)"; fi
+  if [ -n "$osascript_bin" ] && [ -x "$osascript_bin" ]; then
+    "$osascript_bin" - "$title" "$display_msg" "$sound" >/dev/null 2>&1 <<'APPLESCRIPT' || true
+on run argv
+  set notificationTitle to item 1 of argv
+  set notificationMessage to item 2 of argv
+  set notificationSound to item 3 of argv
+  if notificationSound is "" then
+    display notification notificationMessage with title notificationTitle
+  else
+    display notification notificationMessage with title notificationTitle sound name notificationSound
+  end if
+end run
+APPLESCRIPT
+  fi
+}
+
+# Return the newest retained candidate/run directory under a lane root.
+cb_latest_evidence() {
+  local root="$1" newest="" candidate
+  for candidate in "$root"/*; do
+    [ -d "$candidate" ] || continue
+    if [ -z "$newest" ] || [ "$candidate" -nt "$newest" ]; then newest="$candidate"; fi
+  done
+  printf '%s' "$newest"
 }
 
 # --- Status file: overwrite with the latest run summary the user can read anytime ---
