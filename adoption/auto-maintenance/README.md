@@ -14,8 +14,13 @@ Every path is **fail-safe**: the system only ever leaves your install in a *work
 1. **Bonsai source updates** (`source/reconcile.sh`): compare both fork `main` branches with their upstreams, merge in isolated clones, certify the complete candidate, compare-and-swap the two fork refs, package an immutable runtime, and atomically advance `runtime/current`. The development checkout is never modified.
 2. **Claude instant-react:** a `WatchPaths` LaunchAgent notices a new Claude Code version and runs the Claude lane within seconds. It re-certs + re-applies if all anchors match; if they drift, it leaves Claude clean-stock and escalates.
 3. **Daily safety net:** a 10:00 LaunchAgent runs source sync followed by both harness lanes (missed runs fire on wake).
-4. **Codex proactive stable updates** (`codex/reconcile.sh`): query the official latest stable release, forward-port in a scratch checkout → build → test against the checksummed same-version official binary → **compare-and-swap the symlink** only if green. Homebrew does not need to be updated first. Offline/rate-limited checks are benign no-ops.
-5. Writes a status file (`state/last-run.md`) and posts a notification after a successful maintenance change or whenever attention is needed. Failure notifications name every failed lane, state whether its install/runtime was unchanged or rolled back, and give the exact status/evidence path. If `terminal-notifier` is available, clicking the notification opens that status file; otherwise the AppleScript fallback remains display-only but carries the same complete diagnosis and path.
+4. **Unresolved-incident reminders:** an `rc=10` creates a durable local record containing its fingerprint, diagnosis, safe state, evidence path, and first-seen time. A third LaunchAgent checks those records every 15 minutes and reminds at detection, 1 hour, 4 hours, and every 24 hours thereafter. A clean `rc=0` for that lane marks the incident resolved; records and event history are retained. This path invokes no model, agent, or reconciler and consumes no subscription quota.
+5. **Codex proactive stable updates** (`codex/reconcile.sh`): query the official latest stable release, forward-port in a scratch checkout → build → test against the checksummed same-version official binary → **compare-and-swap the symlink** only if green. Homebrew does not need to be updated first. Offline/rate-limited checks are benign no-ops.
+6. Writes a status file (`state/last-run.md`) and posts a notification after a successful maintenance change or whenever attention is needed. Failure notifications name every failed lane, state whether its install/runtime was unchanged or rolled back, and give the exact status/evidence path. If `terminal-notifier` is available, clicking the notification opens that status file; if that backend fails, notification delivery falls through to AppleScript. The display-only fallback carries the same complete diagnosis and path.
+
+The experimental semantic guard is shipped as dormant, reviewable code only.
+No scheduled or reconciliation path invokes it or `run-agentic-rebase.sh`; an
+unresolved incident never starts an agent automatically.
 
 ## Persistent Claude controls
 
@@ -69,7 +74,7 @@ failure leaves the current certified fork selected and retries the next day.
 
 ## Use it
 ```sh
-./install-schedule.sh [HOUR]   # install daily + Claude WatchPaths LaunchAgents
+./install-schedule.sh [HOUR]   # install daily + Claude WatchPaths + local reminder LaunchAgents
 ./run-daily.sh                 # run once, right now
 ./run-daily.sh --source-only   # sync/certify upstream Bonsai source only
 ./run-daily.sh --claude-only   # run only the instant-react Claude lane
@@ -77,13 +82,14 @@ failure leaves the current certified fork selected and retries the next day.
 ./test-fixtures.sh             # fail-safe fixture tests (never touches the real install)
 ./test-combined.sh             # both reconcilers + orchestrator, fully isolated
 ./test-notifications.sh        # actionable + display-only notification fixtures
+./test-incident-reminder.sh    # 0h → 1h → 4h → daily + auto-clear fixtures
 ./codex/test-simulated-bumps.sh # Codex conflict/CAS/rollback simulations
 ./source/test-source-reconcile.sh # local fake-remotes; source CAS/rollback simulations
-./uninstall-schedule.sh        # stop + remove both jobs (Bonsai itself stays as-is)
+./uninstall-schedule.sh        # stop + remove all three jobs (Bonsai itself stays as-is)
 launchctl kickstart gui/$(id -u)/com.atighi.context-bonsai-maintenance   # trigger a run
 ```
 Status: `~/.local/state/context-bonsai/auto-maintenance/last-run.md` · Log:
 `~/.local/state/context-bonsai/auto-maintenance/maintenance.log`
 
 ## Files
-`lib.sh` (shared helpers, env-overridable paths for testing) · `source/` (upstream source transaction) · `reconcile-claude.sh` · `run-daily.sh` (orchestrator with lane selection) · `codex/` (Codex-side reconciler) · `install-schedule.sh` / `uninstall-schedule.sh` (daily + watch agents) · `test-fixtures.sh` · `test-combined.sh`
+`lib.sh` (shared helpers, env-overridable paths for testing) · `source/` (upstream source transaction) · `reconcile-claude.sh` · `run-daily.sh` (orchestrator with lane selection) · `incident-reminder.sh` (quota-free durable escalation schedule) · `codex/` (Codex-side reconciler) · `install-schedule.sh` / `uninstall-schedule.sh` (daily + watch + reminder agents) · `test-fixtures.sh` · `test-combined.sh`

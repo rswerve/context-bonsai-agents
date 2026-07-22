@@ -97,6 +97,36 @@ add_attention() {
   NEEDS_ATTENTION=1
 }
 
+attention_safe_state() {
+  local lane="$1" output="$2"
+  case "$output" in
+    *"ROLLBACK FAILED"*|*"rollback needs attention"*)
+      printf 'URGENT: rollback could not be verified; inspect the retained evidence before launching or changing %s.' "$lane"
+      ;;
+    *"stock unrunnable"*)
+      printf 'URGENT: stock was restored but did not pass its run check; do not assume Claude is healthy.'
+      ;;
+    *"previous target auto-restored"*)
+      printf 'The previous certified Codex target was atomically restored.'
+      ;;
+    *"ROLLED BACK + verified"*|*"rolled back to stock"*)
+      printf 'Claude was atomically restored to verified stock; Bonsai is safely off for that version.'
+      ;;
+    *"previous runtime restored"*)
+      printf 'The previous certified Bonsai runtime was restored.'
+      ;;
+    *"previous runtime retained"*|*"runtime unchanged"*)
+      printf 'The last certified Bonsai runtime remains selected; no runtime change was made.'
+      ;;
+    *"install untouched"*)
+      printf 'The %s install is untouched; its prior working state remains selected.' "$lane"
+      ;;
+    *)
+      printf 'The lane stopped at its transaction boundary. Treat its state as unverified until the retained evidence is reviewed.'
+      ;;
+  esac
+}
+
 if [ "$SOURCE_RC" = "10" ]; then
   SOURCE_EVIDENCE="$(cb_latest_evidence "${CB_SOURCE_SCRATCH_ROOT:-$HOME/.local/state/context-bonsai/source-maintenance/runs}")"
   add_attention "Source" "$SOURCE_OUT" "$SOURCE_EVIDENCE"
@@ -123,9 +153,48 @@ $EVIDENCE_LINES
 Log: \`$CB_LOG\` · Disable anytime: \`$CB_AM/uninstall-schedule.sh\`
 EOF
 
-[ "$NEEDS_ATTENTION" = "1" ] && cb_notify \
-  "Context Bonsai — $ATTENTION_NAMES failed" \
-  "$ATTENTION_DETAIL. Each failed lane's current safe/rollback state is stated here." \
-  "Basso" "$CB_STATUS"
+INCIDENT_HELPER="${CB_INCIDENT_REMINDER:-$DIR/incident-reminder.sh}"
+INCIDENT_STATE_FAILED=0
+incident_observe() {
+  local lane="$1" display="$2" output="$3" evidence="$4" safe_state
+  safe_state="$(attention_safe_state "$display" "$output")"
+  if [ -x "$INCIDENT_HELPER" ]; then
+    "$INCIDENT_HELPER" observe "$lane" "$output" "$safe_state" "$evidence" >/dev/null || INCIDENT_STATE_FAILED=1
+  else
+    INCIDENT_STATE_FAILED=1
+  fi
+}
+incident_resolve() {
+  local lane="$1"
+  if [ -x "$INCIDENT_HELPER" ]; then
+    "$INCIDENT_HELPER" resolve "$lane" >/dev/null || INCIDENT_STATE_FAILED=1
+  fi
+}
+
+if [ "$SOURCE_RC" = "10" ]; then
+  incident_observe "source" "Source" "$SOURCE_OUT" "${SOURCE_EVIDENCE:-$CB_STATUS}"
+elif { [ "$MODE" = "both" ] || [ "$MODE" = "source" ]; } && [ "$SOURCE_RC" = "0" ]; then
+  incident_resolve "source"
+fi
+if [ "$CLAUDE_RC" = "10" ]; then
+  incident_observe "claude" "Claude" "$CLAUDE_OUT" "$CB_STATUS"
+elif { [ "$MODE" = "both" ] || [ "$MODE" = "claude" ]; } && [ "$CLAUDE_RC" = "0" ]; then
+  incident_resolve "claude"
+fi
+if [ "$CODEX_RC" = "10" ]; then
+  incident_observe "codex" "Codex" "$CODEX_OUT" "${CODEX_EVIDENCE:-$CB_STATUS}"
+elif { [ "$MODE" = "both" ] || [ "$MODE" = "codex" ]; } && [ "$CODEX_RC" = "0" ]; then
+  incident_resolve "codex"
+fi
+
+if [ "$NEEDS_ATTENTION" = "1" ] && [ "$INCIDENT_STATE_FAILED" = "1" ]; then
+  cb_notify "Context Bonsai — $ATTENTION_NAMES failed" \
+    "$ATTENTION_DETAIL. The incident recorder failed, but each lane stopped at its transaction boundary." \
+    "Basso" "$CB_STATUS"
+elif [ "$INCIDENT_STATE_FAILED" = "1" ]; then
+  cb_notify "Context Bonsai — reminder state needs attention" \
+    "A maintenance lane is clean, but its prior incident could not be marked resolved. Claude and Codex were not changed. Evidence: $CB_STATUS" \
+    "Basso" "$CB_STATUS"
+fi
 cb_log "===== auto-maintenance run end (attention=$NEEDS_ATTENTION) ====="
 exit 0

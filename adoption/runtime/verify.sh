@@ -20,6 +20,7 @@ jq -e '.parentCommit and .tweakccCommit and .sharedCoreCommit and .sharedCoreTre
 [[ -x "$RUNTIME/adoption/auto-maintenance/run-daily.sh" ]]
 [[ -x "$RUNTIME/adoption/auto-maintenance/source/reconcile.sh" ]]
 [[ -x "$RUNTIME/adoption/auto-maintenance/source/certify-candidate.sh" ]]
+[[ -x "$RUNTIME/adoption/auto-maintenance/incident-reminder.sh" ]]
 [[ -f "$RUNTIME/tweakcc_context_bonsai/mcp-server/index.ts" ]]
 [[ -f "$RUNTIME/codex_context_bonsai/Cargo.toml" ]]
 [[ -f "$RUNTIME/shared-core-tree.txt" ]]

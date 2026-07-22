@@ -40,6 +40,15 @@ check "AppleScript fallback receives the evidence path" \
   "$(grep -c 'Details: ~/.*/last-run.md' "$capture")" "1"
 check "AppleScript fallback receives the requested sound" "$(grep -c '^arg=Basso$' "$capture")" "1"
 
+capture="$ROOT/failed-notifier-fallback.args"
+CB_NOTIFY_CAPTURE="$capture" \
+CB_TERMINAL_NOTIFIER="/usr/bin/false" \
+CB_OSASCRIPT="$DIR/test-support/capture-osascript.sh" \
+  cb_notify "Context Bonsai — delivery fallback" \
+    "The actionable notifier failed; this must reach AppleScript." "Basso" "$CB_STATUS"
+check "failed terminal-notifier degrades to AppleScript" \
+  "$(grep -c 'arg=The actionable notifier failed; this must reach AppleScript.' "$capture")" "1"
+
 printf 'Evidence retained: %s\n' "$ROOT"
 printf 'RESULT: %s passed, %s failed\n' "$pass" "$fail"
 [ "$fail" = "0" ]

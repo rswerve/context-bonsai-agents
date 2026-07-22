@@ -59,13 +59,13 @@ cb_notify() {
     args=(-title "$title" -message "$display_msg" -group "context-bonsai-maintenance")
     [ -n "$sound" ] && args+=(-sound "$sound")
     [ -n "$target" ] && args+=(-open "$(cb_file_url "$target")")
-    "$notifier" "${args[@]}" >/dev/null 2>&1 || true
-    return 0
+    if "$notifier" "${args[@]}" >/dev/null 2>&1; then return 0; fi
+    cb_log "notification backend failed: $notifier — trying AppleScript fallback"
   fi
 
   if [ -z "$osascript_bin" ]; then osascript_bin="$(command -v osascript 2>/dev/null || true)"; fi
   if [ -n "$osascript_bin" ] && [ -x "$osascript_bin" ]; then
-    "$osascript_bin" - "$title" "$display_msg" "$sound" >/dev/null 2>&1 <<'APPLESCRIPT' || true
+    if "$osascript_bin" - "$title" "$display_msg" "$sound" >/dev/null 2>&1 <<'APPLESCRIPT'
 on run argv
   set notificationTitle to item 1 of argv
   set notificationMessage to item 2 of argv
@@ -77,7 +77,11 @@ on run argv
   end if
 end run
 APPLESCRIPT
+    then return 0
+    fi
+    cb_log "notification backend failed: $osascript_bin"
   fi
+  return 1
 }
 
 # Return the newest retained candidate/run directory under a lane root.

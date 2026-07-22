@@ -13,6 +13,7 @@ if (( rc == 0 )) && [[ "$summary" == *'forward-ported + verified' ]]; then
   # stdout contract. Notification failure is deliberately non-fatal.
   CB_AM_SOURCE="${SCRIPT_DIR:h}"
   source "$SCRIPT_DIR/../lib.sh"
-  cb_notify "Context Bonsai" "$summary — spot-check when convenient."
+  cb_notify "Context Bonsai" "$summary — spot-check when convenient." || \
+    cb_log "successful forward-port notification could not be delivered"
 fi
 exit "$rc"

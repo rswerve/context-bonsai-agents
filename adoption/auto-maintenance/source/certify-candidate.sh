@@ -31,6 +31,7 @@ CB_SOURCE_DISABLE=1 bash "$AM/test-fixtures.sh"
 CB_SOURCE_DISABLE=1 bash "$AM/test-combined.sh"
 CB_NOTIFICATION_TEST_ROOT="$RUN_DIR/notification-tests" bash "$AM/test-notifications.sh"
 CB_ATTENTION_TEST_ROOT="$RUN_DIR/attention-tests" bash "$AM/test-attention-notification.sh"
+CB_INCIDENT_TEST_ROOT="$RUN_DIR/incident-tests" bash "$AM/test-incident-reminder.sh"
 "$AM/codex/test-simulated-bumps.sh"
 
 # Prove that the candidate can package and verify an entirely isolated runtime.
