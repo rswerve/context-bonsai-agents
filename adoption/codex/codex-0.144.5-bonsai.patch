@@ -374,6 +374,7 @@ index 0000000000000000000000000000000000000000..bb2366d36a3d7b35ff23fd10d8f085a5
 +/// materializes a `Vec<String>` once and lends each entry to the
 +/// `MessageForMatching` slice via `&projected[i]`.
 +fn extract_text(item: &ResponseItem) -> String {
++    // context-bonsai:auto-adapter-begin response-item-text-v1
 +    match item {
 +        ResponseItem::Message { content, .. } => content
 +            .iter()
@@ -518,6 +519,7 @@ index 0000000000000000000000000000000000000000..bb2366d36a3d7b35ff23fd10d8f085a5
 +        // unknown variant via #[serde(other)]: nothing to project.
 +        ResponseItem::Other => String::new(),
 +    }
++    // context-bonsai:auto-adapter-end response-item-text-v1
 +}
 +
 +/// Deterministic id-assignment strategy that survives rollout
@@ -544,6 +546,7 @@ index 0000000000000000000000000000000000000000..bb2366d36a3d7b35ff23fd10d8f085a5
 +/// serialization return `None` so [`default_item_id`] falls back
 +/// to the content-hashed strategy.
 +fn explicit_item_id(item: &ResponseItem) -> Option<String> {
++    // context-bonsai:auto-adapter-begin response-item-id-v1
 +    match item {
 +        // Message and Reasoning ids are skipped during rollout
 +        // serialization; never trust them for stable anchors.
@@ -578,6 +581,7 @@ index 0000000000000000000000000000000000000000..bb2366d36a3d7b35ff23fd10d8f085a5
 +        } => Some(format!("tso-{call_id}")),
 +        _ => None,
 +    }
++    // context-bonsai:auto-adapter-end response-item-id-v1
 +}
 +
 +/// Derive a deterministic hashed anchor id for items whose host

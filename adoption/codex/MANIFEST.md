@@ -11,7 +11,7 @@ artifacts under the auto-maintenance system, not this legacy pair.
 - Upstream tag: `rust-v0.144.5`
 - Upstream commit: `87db9bc18ba5bc82c1cb4e4381b44f693ee35623`
 - Shared core commit: `4228054c8d137c29ae12faf97b6feba2ca4b0ef2`
-- Source patch SHA-256: `8dc8413488b4382f5d9c7ef2f88387b134d1f1b365419757254b79389cdab8d5`
+- Source patch SHA-256: `37ee4993dee3d7c0252769186cc2ee11b9ee6e3206f4684dcacc19230df87855`
 - Release binary SHA-256: `2781a198fc0ada549b920b24d7c6a16098c1d79314fca777fb92c72bbc1ffc92`
 - Release binary bytes: `355151720`
 - Release binary path: `~/.local/share/context-bonsai/artifacts/codex/0.144.5/bin/codex`

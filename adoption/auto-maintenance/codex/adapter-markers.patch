@@ -1,0 +1,19 @@
+diff --git a/codex-rs/core/src/context_bonsai.rs b/codex-rs/core/src/context_bonsai.rs
+--- a/codex-rs/core/src/context_bonsai.rs
++++ b/codex-rs/core/src/context_bonsai.rs
+@@ -358,2 +358,3 @@
+ fn extract_text(item: &ResponseItem) -> String {
++    // context-bonsai:auto-adapter-begin response-item-text-v1
+     match item {
+@@ -502,2 +503,3 @@
+     }
++    // context-bonsai:auto-adapter-end response-item-text-v1
+ }
+@@ -528,2 +530,3 @@
+ fn explicit_item_id(item: &ResponseItem) -> Option<String> {
++    // context-bonsai:auto-adapter-begin response-item-id-v1
+     match item {
+@@ -564,2 +567,3 @@
+     }
++    // context-bonsai:auto-adapter-end response-item-id-v1
+ }

@@ -21,6 +21,7 @@ readonly LIB_SOURCE="$(
 }
 
 bun test "$SCRIPT_DIR/reconcile-codex.test.ts"
+bun test "$SCRIPT_DIR/semantic-surface-guard.test.ts"
 
 # Exercise the production wrapper/one-line stdout contract against a fully
 # synthetic same-version install. All state is retained under .staging.

@@ -22,7 +22,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from "node:pat
 
 const REPO_ROOT = resolve(import.meta.dir, "../../..");
 const INITIAL_PATCH = join(REPO_ROOT, "adoption/codex/codex-0.144.5-bonsai.patch");
-const INITIAL_PATCH_SHA256 = "8dc8413488b4382f5d9c7ef2f88387b134d1f1b365419757254b79389cdab8d5";
+const INITIAL_PATCH_SHA256 = "37ee4993dee3d7c0252769186cc2ee11b9ee6e3206f4684dcacc19230df87855";
 const SHARED_CORE = join(REPO_ROOT, "codex_context_bonsai");
 
 const ALLOWED_PORT_FILES = [

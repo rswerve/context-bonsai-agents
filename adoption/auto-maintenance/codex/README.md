@@ -107,7 +107,7 @@ runs only; production deliberately has no installed-stock fallback.
 
 ## Agentic conflict route
 
-The orchestrator may invoke:
+The repository contains a manual conflict helper:
 
 ```sh
 adoption/auto-maintenance/codex/run-agentic-rebase.sh <failed-run-dir>
@@ -119,6 +119,42 @@ pass the exact allowlist, HEAD, tests, clippy, binary, and schema gates before
 the same transactional symlink switch is allowed. If the agent cannot produce
 a certifiable result, the current working fork stays selected and the failure
 is reported.
+
+### Deterministic semantic-surface guard (staged, not armed)
+
+`semantic-surface-guard.ts` and `adapter-markers.patch` implement the
+human-reviewable guard for a possible future unattended conflict attempt. They
+are deliberately **not invoked by `run-daily.sh`, `reconcile.sh`, or
+`run-agentic-rebase.sh`**. An `rc=10` still stops and waits for a human.
+The current live 0.145 artifact was not changed; before any future arming, the
+marker-only refactor must itself pass the normal isolated build/certification
+transaction and become the next patch-lineage baseline.
+
+Before an agent runs, `capture` records an immutable external baseline: exact
+upstream `HEAD`, Git index tree, protected-content digest, adapter-body
+digests, and the exact ten-file Bonsai surface. Afterward, `verify` ignores the
+agent's report and classifies only the repository state and byte diff. It
+rejects commits, staging, untracked files, protected-file changes, marker or
+signature changes, non-exact registrations, and every change to Bonsai-owned
+semantics outside two marked host-adapter bodies.
+
+The permitted bodies are category-based, but intentionally narrow:
+
+- add one or more upstream `ContentItem::<Variant> { .. }` alternatives to the
+  existing non-text `=> None` exhaustiveness arm, while preserving the old arm
+  and all other bytes; or
+- convert one or more exact `Some(id.clone())` projections to
+  `Some(id.to_string())`, with no accompanying edit.
+
+The only other permitted delta is insertion of the exact, predeclared module,
+handler-export, import, and tool-registration lines. The guard does not trust
+an agent to describe or classify its own work.
+
+Run its retained, deletion-free adversarial fixtures with:
+
+```sh
+bun test adoption/auto-maintenance/codex/semantic-surface-guard.test.ts
+```
 
 ## Residual safety boundary
 
