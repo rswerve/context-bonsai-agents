@@ -155,6 +155,24 @@ LIVE_BEFORE="$(readlink "$HOME/.local/share/context-bonsai/runtime/current")"
 REAL_PARENT_BEFORE="$(git ls-remote https://github.com/rswerve/context-bonsai-agents.git refs/heads/main | cut -f1)"
 REAL_TWEAK_BEFORE="$(git ls-remote https://github.com/rswerve/tweakcc_context_bonsai.git refs/heads/main | cut -f1)"
 
+printf '%s\n' '=== idempotent candidate remote setup ==='
+remote_fixture="$ROOT/remote-helper"
+git init -q "$remote_fixture"
+"$SCRIPT_DIR/ensure-remote.sh" "$remote_fixture" upstream https://example.invalid/upstream.git
+first_rc=$?
+"$SCRIPT_DIR/ensure-remote.sh" "$remote_fixture" upstream https://example.invalid/upstream.git
+second_rc=$?
+set +e
+"$SCRIPT_DIR/ensure-remote.sh" "$remote_fixture" upstream https://example.invalid/different.git >/dev/null 2>&1
+mismatch_rc=$?
+set -e
+check 'new remote is added' "$first_rc" '0'
+check 'matching pre-existing remote is accepted' "$second_rc" '0'
+check 'mismatched pre-existing remote is rejected' "$mismatch_rc" '10'
+check 'mismatch does not retarget remote' \
+  "$(git -C "$remote_fixture" remote get-url upstream)" \
+  'https://example.invalid/upstream.git'
+
 printf '%s\n' '=== source no-change ==='
 s="$(make_scenario no-change)"; before="$(readlink "$s/runtime/runtime/current")"
 run_fixture "$s" "$BASE/cert-ok" "$BASE/verify-ok"

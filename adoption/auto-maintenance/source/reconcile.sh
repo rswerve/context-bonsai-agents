@@ -90,7 +90,7 @@ record "discovered tweakcc origin=$TWEAK_ORIGIN_OLD upstream=$TWEAK_UPSTREAM"
 PARENT="$RUN_DIR/parent"
 run git clone --filter=blob:none --no-recurse-submodules --branch "$BRANCH" "$PARENT_ORIGIN_URL" "$PARENT" ||
   say "source: fork or upstream unavailable — runtime unchanged" 20
-run git -C "$PARENT" remote add upstream "$PARENT_UPSTREAM_URL" ||
+run "$SCRIPT_DIR/ensure-remote.sh" "$PARENT" upstream "$PARENT_UPSTREAM_URL" ||
   say "source: candidate setup failed — runtime unchanged (escalate)" 10
 run git -C "$PARENT" fetch --filter=blob:none upstream "$BRANCH" ||
   say "source: fork or upstream unavailable — runtime unchanged" 20
@@ -111,7 +111,7 @@ fi
 TWEAK="$PARENT/tweakcc_context_bonsai"
 run git clone --filter=blob:none --no-recurse-submodules --branch "$BRANCH" "$TWEAK_ORIGIN_URL" "$TWEAK" ||
   say "source: fork or upstream unavailable — runtime unchanged" 20
-run git -C "$TWEAK" remote add upstream "$TWEAK_UPSTREAM_URL" ||
+run "$SCRIPT_DIR/ensure-remote.sh" "$TWEAK" upstream "$TWEAK_UPSTREAM_URL" ||
   say "source: candidate setup failed — runtime unchanged (escalate)" 10
 run git -C "$TWEAK" fetch --filter=blob:none upstream "$BRANCH" ||
   say "source: fork or upstream unavailable — runtime unchanged" 20
