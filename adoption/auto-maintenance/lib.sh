@@ -109,7 +109,13 @@ cb_acquire_lock() {
   fi
   echo "$$" > "$CB_LOCK"; return 0
 }
-cb_release_lock() { rm -f "$CB_LOCK" 2>/dev/null || true; }
+cb_release_lock() {
+  # Never release another run's lock. A queued WatchPaths invocation can
+  # observe this lock while its owner is still patching a large Claude bundle.
+  [ -f "$CB_LOCK" ] || return 0
+  [ "$(cat "$CB_LOCK" 2>/dev/null || echo)" = "$$" ] || return 0
+  rm -f "$CB_LOCK" 2>/dev/null || true
+}
 
 # --- Persistent operator intent ---
 # Missing mode files mean "enabled" for compatibility with installations that

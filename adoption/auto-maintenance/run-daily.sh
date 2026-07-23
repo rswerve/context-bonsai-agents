@@ -13,8 +13,8 @@ for a in "$@"; do case "$a" in
 esac; done
 
 cb_log "===== auto-maintenance run start (mode=$MODE) ====="
-trap 'cb_release_lock' EXIT
 cb_acquire_lock || { cb_log "another run active — exiting"; exit 0; }
+trap 'cb_release_lock' EXIT
 
 if ! cb_preflight; then
   cb_log "preflight failed — doing nothing (install untouched)"

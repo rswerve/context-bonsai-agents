@@ -51,4 +51,11 @@ ck "status mentions codex" "$(grep -c 'Codex:' "$SB/state/last-run.md" 2>/dev/nu
 ck "real Claude bundle untouched" "$(shasum -a256 "$real_cbundle" | cut -d' ' -f1)" "$real_csha"
 ck "real Codex symlink untouched" "$(readlink "$HOME/.local/bin/codex" 2>/dev/null)" "$real_codexlink"
 
+echo ""
+echo "=== queued WatchPaths run cannot release another process's lock ==="
+printf '%s\n' "$$" > "$SB/state/.lock"
+CB_STATE="$SB/state" CB_REPO="$DIR/../.." \
+  bash "$DIR/run-daily.sh" --claude-only >/dev/null 2>&1
+ck "foreign live lock remains owned by its original process" "$(cat "$SB/state/.lock")" "$$"
+
 echo ""; echo "RESULT: $pass passed, $fail failed"; [ "$fail" = "0" ]
