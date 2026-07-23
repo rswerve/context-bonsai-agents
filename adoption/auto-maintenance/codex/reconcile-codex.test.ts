@@ -16,6 +16,7 @@ import {
   missingAutonomyWiringTokens,
   parseStableReleasePayload,
   releaseAction,
+  releasePlan,
   rewriteSharedCoreDependencyText,
   validateSharedCoreSnapshot,
   type ActivationPaths,
@@ -182,6 +183,14 @@ describe("latest stable release policy", () => {
   test("same stable version is a no-op and a lower release is never installed", () => {
     expect(releaseAction("0.144.5", "0.144.5")).toBe("current");
     expect(releaseAction("0.145.0", "0.144.5")).toBe("downgrade");
+  });
+
+  test("reviewed same-version certification is explicit and refuses version drift", () => {
+    expect(releasePlan("0.145.0", "0.145.0", true)).toBe("same-version-certification");
+    expect(() => releasePlan("0.144.6", "0.145.0", true)).toThrow(
+      "same-version certification requires active and stable versions to match",
+    );
+    expect(releasePlan("0.145.0", "0.145.0")).toBe("up-to-date");
   });
 
   test("prereleases and non-stable tags fail closed", () => {

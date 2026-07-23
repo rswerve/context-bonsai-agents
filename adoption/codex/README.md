@@ -23,6 +23,10 @@ the model calls `context-bonsai-prune`.
   excluded after the live history replacement has completed. The maintenance
   runtime now requires those strings as part of candidate and post-activation
   verification.
+- The reconciler's explicit `certify-same-version RUN_DIR` command exists for
+  reviewed evidence-only upgrades like this one. It retains the full test,
+  official-binary schema-parity, CAS, post-apply, and auto-rollback gates; the
+  normal daily path still treats an already-current stable version as a no-op.
 - `build-staged.sh`: rebuilds the release binary from an exact clean source
   checkout supplied by the operator.
 - `verify-staged.sh`: checks version, checksum, architecture, and tool strings.

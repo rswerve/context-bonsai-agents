@@ -114,6 +114,7 @@ export interface ReconcileConfig {
   sharedCoreTree: string;
   initialPatch: string;
   certifyExistingRun?: string;
+  certifySameVersion?: boolean;
 }
 
 export interface SharedCoreIdentity {
@@ -291,6 +292,25 @@ export function releaseAction(currentVersion: string, releaseVersion: string): "
   const direction = compareStableVersions(currentVersion, releaseVersion);
   if (direction === 0) return "current";
   return direction < 0 ? "forward-port" : "downgrade";
+}
+
+export function releasePlan(
+  currentVersion: string,
+  releaseVersion: string,
+  certifySameVersion = false,
+): "up-to-date" | "forward-port" | "downgrade" | "same-version-certification" {
+  const action = releaseAction(currentVersion, releaseVersion);
+  if (certifySameVersion) {
+    if (action !== "current") {
+      throw new ReconcileError(
+        "invariant-failed",
+        23,
+        `same-version certification requires active and stable versions to match; active ${currentVersion}, stable ${releaseVersion}`,
+      );
+    }
+    return "same-version-certification";
+  }
+  return action === "current" ? "up-to-date" : action;
 }
 
 function fixtureRelease(binary: string, runDir: string): StableRelease {
@@ -530,13 +550,15 @@ function safeLstat(path: string): boolean {
   }
 }
 
+function assertToolRegistration(binary: string, runDir: string, label: string): void {
+  for (const marker of ["context-bonsai-prune", "context-bonsai-retrieve"]) {
+    command(runDir, `${label}-${marker.replaceAll(/[^a-zA-Z0-9_-]/g, "-")}`, ["rg", "-a", "-q", marker, binary]);
+  }
+}
+
 function assertTools(binary: string, runDir: string, label: string): void {
-  for (const marker of [
-    "context-bonsai-prune",
-    "context-bonsai-retrieve",
-    "CONTEXT BONSAI ENFORCED",
-    "excluded_messages=",
-  ]) {
+  assertToolRegistration(binary, runDir, label);
+  for (const marker of ["CONTEXT BONSAI ENFORCED", "excluded_messages="]) {
     command(runDir, `${label}-${marker.replaceAll(/[^a-zA-Z0-9_-]/g, "-")}`, ["rg", "-a", "-q", marker, binary]);
   }
 }
@@ -1272,7 +1294,7 @@ function productionVerify(binary: string, runDir: string, expectedVersion: strin
   command(runDir, "post-apply-app-server-help", [binary, "app-server", "--help"]);
 }
 
-function defaultConfig(certifyExistingRun?: string): ReconcileConfig {
+function defaultConfig(certifyExistingRun?: string, certifySameVersion = false): ReconcileConfig {
   const sharedState = process.env.CB_STATE ? join(process.env.CB_STATE, "codex") : undefined;
   return {
     releaseApiUrl:
@@ -1301,6 +1323,7 @@ function defaultConfig(certifyExistingRun?: string): ReconcileConfig {
     sharedCoreTree: process.env.CB_CODEX_SHARED_CORE_TREE ?? join(REPO_ROOT, "shared-core-tree.txt"),
     initialPatch: process.env.CB_CODEX_INITIAL_PATCH ?? INITIAL_PATCH,
     certifyExistingRun,
+    certifySameVersion,
   };
 }
 
@@ -1316,7 +1339,14 @@ export async function reconcile(config: ReconcileConfig): Promise<{ status: Fina
     else if (!existsSync(runDir)) {
       throw new ReconcileError("invariant-failed", 23, `agentic run does not exist: ${runDir}`);
     }
-    appendEvent(runDir, "reconcile-start", { runId, mode: config.certifyExistingRun ? "certify-agentic" : "reconcile" });
+    appendEvent(runDir, "reconcile-start", {
+      runId,
+      mode: config.certifySameVersion
+        ? "certify-same-version"
+        : config.certifyExistingRun
+          ? "certify-agentic"
+          : "reconcile",
+    });
     if (!existsSync(config.initialPatch)) throw new ReconcileError("invariant-failed", 23, `initial patch missing: ${config.initialPatch}`);
     if (config.initialPatch === INITIAL_PATCH && sha256File(config.initialPatch) !== INITIAL_PATCH_SHA256) {
       throw new ReconcileError("invariant-failed", 23, "initial Codex Bonsai patch checksum does not match its manifest");
@@ -1324,7 +1354,8 @@ export async function reconcile(config: ReconcileConfig): Promise<{ status: Fina
     const snapshot = snapshotManagedLink(config.linkPath, runDir);
     summaryVersion = snapshot.version;
     assertManagedArtifactChecksum(snapshot.resolvedTarget);
-    assertTools(snapshot.resolvedTarget, runDir, "current-fork");
+    if (config.certifySameVersion) assertToolRegistration(snapshot.resolvedTarget, runDir, "current-fork");
+    else assertTools(snapshot.resolvedTarget, runDir, "current-fork");
     const release = detectLatestStable(config, runDir);
     summaryVersion = release.version;
     appendEvent(runDir, "stable-release-detected", {
@@ -1334,8 +1365,8 @@ export async function reconcile(config: ReconcileConfig): Promise<{ status: Fina
       assetName: release.assetName,
       assetSha256: release.assetSha256,
     });
-    const action = releaseAction(snapshot.version, release.version);
-    if (action === "current") {
+    const action = releasePlan(snapshot.version, release.version, config.certifySameVersion);
+    if (action === "up-to-date") {
       finish(runDir, "up-to-date", {
         version: release.version,
         stableTag: release.tag,
@@ -1430,22 +1461,34 @@ export async function reconcile(config: ReconcileConfig): Promise<{ status: Fina
   }
 }
 
-function parseArgs(argv: string[]): { command: "reconcile" | "certify-agentic"; run?: string } {
+function parseArgs(
+  argv: string[],
+): { command: "reconcile" | "certify-agentic" | "certify-same-version"; run?: string } {
   if (argv.length === 0 || argv[0] === "reconcile") return { command: "reconcile" };
   if (argv[0] === "certify-agentic" && argv.length === 2) return { command: "certify-agentic", run: argv[1] };
-  throw new Error("usage: reconcile-codex.ts [reconcile | certify-agentic RUN_DIR]");
+  if (argv[0] === "certify-same-version" && argv.length === 2) {
+    return { command: "certify-same-version", run: argv[1] };
+  }
+  throw new Error("usage: reconcile-codex.ts [reconcile | certify-agentic RUN_DIR | certify-same-version RUN_DIR]");
 }
 
 if (import.meta.main) {
   try {
     const args = parseArgs(process.argv.slice(2));
-    const result = await reconcile(defaultConfig(args.command === "certify-agentic" ? args.run : undefined));
+    const certifyingExisting = args.command === "certify-agentic" || args.command === "certify-same-version";
+    const result = await reconcile(
+      defaultConfig(certifyingExisting ? args.run : undefined, args.command === "certify-same-version"),
+    );
     const finalPath = `FINAL-${result.status}.json`;
     const final = finalPath ? JSON.parse(readFileSync(join(result.runDir, finalPath), "utf8")) : {};
     if (result.status === "up-to-date") {
       process.stdout.write(`codex ${final.version ?? "unknown"}: Bonsai already current\n`);
     } else if (result.status === "activated") {
-      process.stdout.write(`codex ${final.toVersion ?? "unknown"}: forward-ported + verified\n`);
+      process.stdout.write(
+        args.command === "certify-same-version"
+          ? `codex ${final.toVersion ?? "unknown"}: same-version candidate certified + activated\n`
+          : `codex ${final.toVersion ?? "unknown"}: forward-ported + verified\n`,
+      );
     } else if (result.status === "rolled-back") {
       process.stdout.write(
         `codex ${final.candidateVersion ?? "candidate"}: post-apply verification failed — previous target auto-restored (attention)\n`,
