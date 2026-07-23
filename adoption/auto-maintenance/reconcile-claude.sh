@@ -29,8 +29,25 @@ if cb_bundle_fully_patched "$bundle"; then
   if register_mcp; then echo "claude $ver: re-registered MCP"; exit 0; else echo "claude $ver: MCP register failed (escalate)"; exit 10; fi
 fi
 
-# --- Case 2: unpatched → ISOLATE, VERIFY, then ATOMIC-SWAP. Live bundle untouched until swap. ---
-cb_log "claude $ver: unpatched — building + verifying a candidate in isolation"
+# --- Case 2: missing one or more current patches → ISOLATE, VERIFY, then ATOMIC-SWAP. ---
+# A prior-generation patched binary cannot be patched again: its existing
+# sentinels would duplicate and its minified anchors may already be rewritten.
+# In that case, build from the retained byte-clean stock backup instead.
+backup="$CB_BACKUP_DIR/$(printf '%s' "$bundle" | sed 's/[^a-zA-Z0-9._-]/_/g').backup"
+candidate_source="$bundle"
+if cb_bundle_any_patched "$bundle"; then
+  backup_ver="$("$backup" --version 2>/dev/null | grep -oE '2\.1\.[0-9]+' | head -1)"
+  if [ ! -f "$backup" ] || ! cb_bundle_clean "$backup" || [ "$backup_ver" != "$ver" ]; then
+    cb_log "claude $ver: partial/older patch detected but no verified clean backup — runtime unchanged"
+    cb_notify "Context Bonsai" "Claude Code $ver has an older Bonsai patch, but its clean backup is unavailable or invalid. The current working binary was left untouched. Evidence: $CB_STATE/last-run.md" "Basso"
+    echo "claude $ver: older patch retained; clean rebuild source unavailable (escalate)"
+    exit 10
+  fi
+  candidate_source="$backup"
+  cb_log "claude $ver: older patch generation detected — rebuilding from verified clean backup"
+else
+  cb_log "claude $ver: unpatched — building + verifying a candidate in isolation"
+fi
 cand="$(dirname "$bundle")/.cb-candidate.$$"     # same directory/volume as live bundle → atomic mv
 work="$(mktemp -d "${TMPDIR:-/tmp}/cb-claude.XXXXXX")"
 # cleanup removes ONLY our own transient artifacts (guarded).
@@ -43,8 +60,9 @@ esc() { # escalate: live bundle untouched, Bonsai left safely off
   echo "claude $ver: $3 — install untouched (safe)"; exit 10
 }
 
-# 1. Stage a candidate = copy of the live (stock) bundle; anchor-check it READ-ONLY first.
-cp "$bundle" "$cand" 2>/dev/null && chmod +x "$cand" 2>/dev/null || { cb_log "claude $ver: could not stage candidate"; echo "claude $ver: SKIP (stage failed)"; exit 20; }
+# 1. Stage a candidate from clean stock (live stock or the retained backup);
+#    anchor-check it READ-ONLY first.
+cp "$candidate_source" "$cand" 2>/dev/null && chmod +x "$cand" 2>/dev/null || { cb_log "claude $ver: could not stage candidate"; echo "claude $ver: SKIP (stage failed)"; exit 20; }
 if ! ( cd "$CB_AM" && bun run anchor-check.ts "$cand" ) >"$work/anchors.txt" 2>&1; then
   drifted="$(grep -c '^DRIFT' "$work/anchors.txt" 2>/dev/null || echo '?')"
   cp "$work/anchors.txt" "$CB_STATE/claude-drift-$ver.txt" 2>/dev/null || true
@@ -60,7 +78,6 @@ cb_bundle_fully_patched "$cand" && "$cand" --version >/dev/null 2>&1 \
 # 3. Candidate verified. BEFORE the point of no return, guarantee both the restore backup AND a pre-verified
 #    rollback candidate on the live bundle's volume — so a rollback (if ever needed) is a single already-prepared
 #    atomic mv that cannot fail on prep.
-backup="$CB_BACKUP_DIR/$(printf '%s' "$bundle" | sed 's/[^a-zA-Z0-9._-]/_/g').backup"
 mkdir -p "$CB_BACKUP_DIR" || esc "could not create backup dir" "backup prep failed." "backup prep failed (escalate)"
 if [ ! -f "$backup" ]; then cp "$bundle" "$backup" || esc "could not write rollback backup" "backup prep failed." "backup prep failed (escalate)"; fi
 rbc="$(dirname "$bundle")/.cb-rollback.$$"

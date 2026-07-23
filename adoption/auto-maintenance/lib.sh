@@ -130,6 +130,10 @@ cb_set_claude_mode() { # enabled | disabled; atomic within the durable state dir
 cb_claude_version() { "$CB_CLAUDE_LAUNCHER" --version 2>/dev/null | grep -oE '2\.1\.[0-9]+' | head -1; }
 cb_claude_live_bundle() { readlink "$CB_CLAUDE_LAUNCHER" 2>/dev/null; }
 cb_bundle_patched() { grep -qa 'cb:archived-filter' "$1" 2>/dev/null; }   # $1 = bundle path (quick check)
+cb_bundle_any_patched() {
+  grep -qa 'cb:archived-filter\|cb:message-content-ids\|cb:context-bonsai-gauge\|cb:in-memory-archive' "$1" 2>/dev/null
+}
+cb_bundle_clean() { ! cb_bundle_any_patched "$1"; }
 cb_bundle_fully_patched() {  # $1 = bundle path; require all host patches AND the autonomous five-user-turn controller
   grep -qa 'cb:archived-filter'      "$1" 2>/dev/null \
   && grep -qa 'cb:message-content-ids'  "$1" 2>/dev/null \

@@ -40,6 +40,27 @@ else
   echo "  SKIP: stock backup fixture not found ($STOCK_BACKUP)"
 fi
 
+echo "=== FIXTURE 1A: prior-generation partial patch → rebuild from verified clean backup ==="
+if [ -f "$STOCK_BACKUP" ]; then
+  b4="$SANDBOX/bundle-partial"; cp "$STOCK_BACKUP" "$b4"; chmod +x "$b4"
+  printf '\n/*cb:archived-filter:v1*/ /*cb:message-content-ids:v1*/ /*cb:context-bonsai-gauge:v1*/\n' >> "$b4"
+  ln -sf "$b4" "$SANDBOX/claude-partial"; echo '{}' > "$SANDBOX/c-partial.json"
+  backup4_dir="$SANDBOX/backups-partial"; mkdir -p "$backup4_dir"
+  backup4="$backup4_dir/$(printf '%s' "$b4" | sed 's/[^a-zA-Z0-9._-]/_/g').backup"
+  cp "$STOCK_BACKUP" "$backup4"; chmod +x "$backup4"
+  out4=$(CB_CLAUDE_LAUNCHER="$SANDBOX/claude-partial" CB_CLAUDE_JSON="$SANDBOX/c-partial.json" \
+         CB_BACKUP_DIR="$backup4_dir" CB_STATE="$SANDBOX/state-partial" \
+         bash "$DIR/reconcile-claude.sh" 2>/dev/null); rc4=$?
+  echo "  -> $out4 (rc=$rc4)"
+  check "partial-generation upgrade exits 0" "$rc4" "0"
+  check "partial-generation upgrade installs exactly one fourth sentinel" "$(grep -ca 'cb:in-memory-archive' "$b4")" "1"
+  check "partial-generation upgrade keeps archived-filter singular" "$(grep -ca 'cb:archived-filter' "$b4")" "1"
+  check "partial-generation upgrade preserves clean backup" "$(shasum -a256 "$backup4" | cut -d' ' -f1)" "$(shasum -a256 "$STOCK_BACKUP" | cut -d' ' -f1)"
+  check "partial-generation upgraded binary runs" "$("$b4" --version 2>/dev/null | grep -c 'Claude Code')" "1"
+else
+  echo "  SKIP: stock backup fixture not found ($STOCK_BACKUP)"
+fi
+
 echo "=== FIXTURE 1B: persistent disable → verified stock; maintenance cannot re-enable it ==="
 if [ -f "$STOCK_BACKUP" ]; then
   out1b=$(CB_CLAUDE_CONTROL="$DIR/claude-control.sh" \
