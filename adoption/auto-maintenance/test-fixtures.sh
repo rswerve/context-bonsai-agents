@@ -100,6 +100,16 @@ if [ -f "$STOCK_BACKUP" ]; then
   check "failed disable leaves working patched bundle byte-identical" "$(shasum -a256 "$b1" | cut -d' ' -f1)" "$patched_before"
   check "failed disable preserves enabled intent" "$(cat "$SANDBOX/state/claude-mode")" "enabled"
   check "failed disable preserves MCP registration" "$(jq -c '.mcpServers["context-bonsai"] != null' "$SANDBOX/c1.json")" "true"
+
+  printf 'proxy\n' > "$SANDBOX/state/claude-mode"
+  proxy_before="$(shasum -a256 "$b1" | cut -d' ' -f1)"
+  proxy_out=$(CB_CLAUDE_LAUNCHER="$SANDBOX/claude1" CB_CLAUDE_JSON="$SANDBOX/c1.json" \
+              CB_BACKUP_DIR="$SANDBOX/backups" CB_STATE="$SANDBOX/state" \
+              bash "$DIR/reconcile-claude.sh" 2>/dev/null); proxy_rc=$?
+  check "proxy mode suppresses patch reconciliation cleanly" "$proxy_rc" "0"
+  check "proxy mode reports why it skipped" "$proxy_out" "claude: proxy mode (patch reapply suppressed)"
+  check "proxy mode leaves the bundle byte-identical" "$(shasum -a256 "$b1" | cut -d' ' -f1)" "$proxy_before"
+  printf 'enabled\n' > "$SANDBOX/state/claude-mode"
 else
   echo "  SKIP: stock backup fixture not found ($STOCK_BACKUP)"
 fi

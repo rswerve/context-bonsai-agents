@@ -21,7 +21,14 @@ jq -e '.parentCommit and .tweakccCommit and .sharedCoreCommit and .sharedCoreTre
 [[ -x "$RUNTIME/adoption/auto-maintenance/source/reconcile.sh" ]]
 [[ -x "$RUNTIME/adoption/auto-maintenance/source/certify-candidate.sh" ]]
 [[ -x "$RUNTIME/adoption/auto-maintenance/incident-reminder.sh" ]]
+[[ -x "$RUNTIME/adoption/claude-proxy/control.sh" ]]
 [[ -f "$RUNTIME/tweakcc_context_bonsai/mcp-server/index.ts" ]]
+[[ -f "$RUNTIME/tweakcc_context_bonsai/proxy-prototype/proxy.mjs" ]]
+[[ -f "$RUNTIME/tweakcc_context_bonsai/hooks/context-bonsai-gauge.ts" ]]
+grep -qF '[[CB-PRUNE v1 archive=' "$RUNTIME/tweakcc_context_bonsai/mcp-server/index.ts"
+node --check "$RUNTIME/tweakcc_context_bonsai/proxy-prototype/proxy.mjs"
+node "$RUNTIME/tweakcc_context_bonsai/proxy-prototype/correlate.test.mjs" >/dev/null
+node "$RUNTIME/tweakcc_context_bonsai/proxy-prototype/proxy.test.mjs" >/dev/null
 [[ -f "$RUNTIME/codex_context_bonsai/Cargo.toml" ]]
 [[ -f "$RUNTIME/shared-core-tree.txt" ]]
 bun "$RUNTIME/adoption/auto-maintenance/codex/verify-shared-core.ts" "$RUNTIME" >/dev/null

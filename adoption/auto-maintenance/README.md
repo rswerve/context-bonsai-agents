@@ -41,6 +41,12 @@ disabled Claude lane is reported as a healthy no-op by both the daily job and
 the WatchPaths job; source and Codex maintenance continue normally. The old
 fixed-2.1.215 direct patch path has been retired.
 
+The staged zero-patch migration adds a third mode, `proxy`. In that mode only
+Claude bundle re-patching is suppressed; the daily source and Codex lanes keep
+running. The proxy cutover unloads Claude's WatchPaths job rather than the daily
+job. See `adoption/claude-proxy/`; this mode is not selected until the guarded
+migration is explicitly activated.
+
 ## Source-update transaction
 The source lane trusts the configured GitHub upstream repositories, but never
 blindly runs `git pull` in a working checkout. It discovers immutable ref IDs,

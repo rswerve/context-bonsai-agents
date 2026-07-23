@@ -124,9 +124,12 @@ cb_release_lock() {
 cb_claude_disabled() {
   [ -f "$CB_CLAUDE_MODE_FILE" ] && [ "$(sed -n '1p' "$CB_CLAUDE_MODE_FILE" 2>/dev/null)" = "disabled" ]
 }
-cb_set_claude_mode() { # enabled | disabled; atomic within the durable state directory
+cb_claude_proxy() {
+  [ -f "$CB_CLAUDE_MODE_FILE" ] && [ "$(sed -n '1p' "$CB_CLAUDE_MODE_FILE" 2>/dev/null)" = "proxy" ]
+}
+cb_set_claude_mode() { # enabled | disabled | proxy; atomic within the durable state directory
   local mode="$1" tmp
-  case "$mode" in enabled|disabled) ;; *) return 2;; esac
+  case "$mode" in enabled|disabled|proxy) ;; *) return 2;; esac
   mkdir -p "$(dirname "$CB_CLAUDE_MODE_FILE")" || return 1
   tmp="$(dirname "$CB_CLAUDE_MODE_FILE")/.claude-mode.$$"
   printf '%s\n' "$mode" > "$tmp" && mv "$tmp" "$CB_CLAUDE_MODE_FILE"

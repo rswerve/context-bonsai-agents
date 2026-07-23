@@ -23,7 +23,8 @@ FIXTURE_HISTORY="$RUN_DIR/certified-runtime-history"
 
 bun test "$AM/codex/reconcile-codex.test.ts"
 zsh -n "$PARENT/adoption/codex/"*.sh "$AM/codex/"*.sh
-bash -n "$PARENT/adoption/claude/"*.sh "$AM/"*.sh "$AM/source/"*.sh "$AM/test-support/"*.sh
+bash -n "$PARENT/adoption/claude/"*.sh "$PARENT/adoption/claude-proxy/"*.sh \
+  "$AM/"*.sh "$AM/source/"*.sh "$AM/test-support/"*.sh
 
 # Existing fixtures are explicitly forced not to recurse into source syncing.
 bash "$AM/source/test-source-reconcile.sh"

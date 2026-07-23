@@ -46,11 +46,14 @@ git -C "$REPO_ROOT/codex_context_bonsai" ls-tree -r --full-tree HEAD > "$CANDIDA
   bun test
   bun run typecheck
 )
+node "$CANDIDATE/tweakcc_context_bonsai/proxy-prototype/correlate.test.mjs"
+node "$CANDIDATE/tweakcc_context_bonsai/proxy-prototype/proxy.test.mjs"
 bun test "$CANDIDATE/adoption/auto-maintenance/codex/reconcile-codex.test.ts"
 CB_INCIDENT_TEST_ROOT="$STATE_ROOT/incident-tests-$STAMP" \
   bash "$CANDIDATE/adoption/auto-maintenance/test-incident-reminder.sh"
 zsh -n "$CANDIDATE/adoption/codex/"*.sh "$CANDIDATE/adoption/auto-maintenance/codex/"*.sh
 bash -n "$CANDIDATE/adoption/claude/"*.sh \
+  "$CANDIDATE/adoption/claude-proxy/"*.sh \
   "$CANDIDATE/adoption/auto-maintenance/"*.sh \
   "$CANDIDATE/adoption/auto-maintenance/source/"*.sh \
   "$CANDIDATE/adoption/auto-maintenance/test-support/"*.sh

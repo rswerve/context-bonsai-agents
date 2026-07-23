@@ -6,6 +6,12 @@
 set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; source "$DIR/lib.sh"
 
+if cb_claude_proxy; then
+  cb_log "claude: proxy mode — binary patch reapply suppressed"
+  echo "claude: proxy mode (patch reapply suppressed)"
+  exit 0
+fi
+
 if cb_claude_disabled; then
   cb_log "claude: intentionally disabled — automatic reapply suppressed"
   echo "claude: disabled by user (no action)"
