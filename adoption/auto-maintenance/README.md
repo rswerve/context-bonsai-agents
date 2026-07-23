@@ -7,7 +7,12 @@ Every path is **fail-safe**: the system only ever leaves your install in a *work
 - It builds/certifies a candidate **in isolation**; the live install is touched only after checks pass.
 - `apply` is **pre-write atomic** — on any anchor mismatch it throws *before* writing, so the bundle is never partially patched (proven by `test-fixtures.sh`).
 - Post-apply it **verifies** (sentinels present + binary runs); on failure it **auto-rolls back** to stock.
-- It also certifies the autonomous controller itself: Codex must wire the canonical startup guidance and five-user-turn gauge into live context, while Claude must contain the provider-bound, multi-serialization-safe five-user-turn injector. Tool registration alone is not accepted as healthy.
+- It also certifies the autonomous controller and live enforcement evidence:
+  Codex must wire the canonical startup guidance and five-user-turn gauge and
+  carry the post-prune process/archive/excluded-count acknowledgement; Claude
+  must contain the provider-bound, multi-serialization-safe five-user-turn
+  injector plus the same-process archive filter. Tool registration alone is not
+  accepted as healthy.
 - Anything it can't do safely → it **does nothing to the live install** and **notifies** you. Claude stays clean-stock after anchor drift; Codex stays on its last certified Bonsai fork.
 
 ## What it does

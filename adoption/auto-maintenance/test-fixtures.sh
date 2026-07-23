@@ -25,6 +25,8 @@ if [ -f "$STOCK_BACKUP" ]; then
   echo "  -> $out (rc=$rc)"
   check "exit 0 (applied via isolate-verify-swap)" "$rc" "0"
   check "scratch bundle patched (candidate swapped in)" "$(grep -ca 'cb:archived-filter' "$b1")" "1"
+  check "scratch bundle has same-process archive enforcement" "$(grep -ca 'cb:in-memory-archive' "$b1")" "1"
+  check "scratch bundle carries process-generated exclusion evidence" "$(grep -ca 'excluded_messages=' "$b1")" "1"
   check "scratch bundle has five-user-turn autonomy cadence" "$(grep -ca '__cbTurns%5===0' "$b1")" "1"
   if grep -qa '__cbContextBonsaiInjectGauge' "$b1"; then gauge_present=yes; else gauge_present=no; fi
   check "scratch bundle injects gauge at the provider seam" "$gauge_present" "yes"
@@ -65,7 +67,7 @@ if [ -f "$STOCK_BACKUP" ]; then
   echo "  -> $out1c (rc=$rc1c)"
   check "manual enable exits 0 through safe reconciler" "$rc1c" "0"
   check "manual enable persists enabled intent" "$(cat "$SANDBOX/state/claude-mode")" "enabled"
-  check "manual enable restores all Bonsai patches" "$(grep -ca 'cb:context-bonsai-gauge' "$b1")" "1"
+  check "manual enable restores all Bonsai patches" "$(grep -ca 'cb:in-memory-archive' "$b1")" "1"
   check "manual enable restores MCP entry" "$(jq -c '.mcpServers["context-bonsai"] != null' "$SANDBOX/c1.json")" "true"
 
   patched_before="$(shasum -a256 "$b1" | cut -d' ' -f1)"

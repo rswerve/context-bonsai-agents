@@ -1,0 +1,51 @@
+diff --git a/codex-rs/core/src/tools/handlers/bonsai.rs b/codex-rs/core/src/tools/handlers/bonsai.rs
+--- a/codex-rs/core/src/tools/handlers/bonsai.rs
++++ b/codex-rs/core/src/tools/handlers/bonsai.rs
+@@ -22,3 +22,13 @@
+ pub(crate) const RETRIEVE_TOOL_NAME: &str = "context-bonsai-retrieve";
+-
++
++fn prune_enforcement_acknowledgement(anchor_id: &str, excluded_messages: usize) -> String {
++    format!(
++        "[CONTEXT BONSAI ENFORCED pid={} build_id=codex-{}-cb-live-v1 archive_id={} excluded_messages={}]",
++        std::process::id(),
++        env!("CARGO_PKG_VERSION"),
++        anchor_id,
++        excluded_messages,
++    )
++}
++
+ fn prune_spec() -> ToolSpec {
+@@ -142,5 +152,6 @@
+             })?;
+             let anchor_id = install.anchor_id.clone();
+             let range_end_id = install.range_end_id.clone();
++            let excluded_messages = install.archive_payload.archived_history.len();
+             session
+                 .apply_bonsai_prune(turn.as_ref(), install)
+@@ -152,5 +163,6 @@
+             Ok(boxed_tool_output(FunctionToolOutput::from_text(
+                 format!(
+-                    "Archived range {anchor_id} to {range_end_id}. Use context-bonsai-retrieve with anchor_id {anchor_id} to restore it."
++                    "{} Archived range {anchor_id} to {range_end_id}. Use context-bonsai-retrieve with anchor_id {anchor_id} to restore it.",
++                    prune_enforcement_acknowledgement(&anchor_id, excluded_messages),
+                 ),
+                 Some(true),
+@@ -216,1 +228,17 @@
+ impl CoreToolRuntime for ContextBonsaiRetrieveHandler {}
++
++#[cfg(test)]
++mod tests {
++    use super::prune_enforcement_acknowledgement;
++
++    #[test]
++    fn prune_acknowledgement_carries_process_build_archive_and_actual_count() {
++        let acknowledgement = prune_enforcement_acknowledgement("bonsai-anchor-unit-test", 3);
++
++        assert!(acknowledgement.starts_with("[CONTEXT BONSAI ENFORCED pid="));
++        assert!(acknowledgement.contains(" build_id=codex-"));
++        assert!(acknowledgement.contains("-cb-live-v1"));
++        assert!(acknowledgement.contains(" archive_id=bonsai-anchor-unit-test"));
++        assert!(acknowledgement.contains(" excluded_messages=3]"));
++    }
++}

@@ -36,7 +36,7 @@ function fakeBinary(root: string, name: string, version: string): string {
   const path = join(root, name);
   writeFileSync(
     path,
-    `#!/bin/zsh\nif [[ \"\${1:-}\" == \"--version\" ]]; then echo \"codex-cli ${version}\"; exit 0; fi\n# context-bonsai-prune context-bonsai-retrieve\nexit 0\n`,
+    `#!/bin/zsh\nif [[ \"\${1:-}\" == \"--version\" ]]; then echo \"codex-cli ${version}\"; exit 0; fi\n# context-bonsai-prune context-bonsai-retrieve CONTEXT BONSAI ENFORCED excluded_messages=\nexit 0\n`,
   );
   chmodSync(path, 0o755);
   return path;

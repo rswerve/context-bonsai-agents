@@ -531,8 +531,13 @@ function safeLstat(path: string): boolean {
 }
 
 function assertTools(binary: string, runDir: string, label: string): void {
-  for (const tool of ["context-bonsai-prune", "context-bonsai-retrieve"]) {
-    command(runDir, `${label}-${tool}`, ["rg", "-a", "-q", tool, binary]);
+  for (const marker of [
+    "context-bonsai-prune",
+    "context-bonsai-retrieve",
+    "CONTEXT BONSAI ENFORCED",
+    "excluded_messages=",
+  ]) {
+    command(runDir, `${label}-${marker.replaceAll(/[^a-zA-Z0-9_-]/g, "-")}`, ["rg", "-a", "-q", marker, binary]);
   }
 }
 
@@ -1161,7 +1166,7 @@ function certifyAndBuild(
             "app-server-protocol-tests",
             "codex-core-clippy",
             "release-build",
-            "arm64-version-tools",
+            "arm64-version-tools-live-enforcement-evidence",
             "same-version-stable-release-schema-parity",
           ],
         },

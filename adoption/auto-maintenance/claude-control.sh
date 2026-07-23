@@ -40,7 +40,7 @@ cleanup() {
 trap 'cleanup; cb_release_lock' EXIT
 
 bundle_is_clean() {
-  ! grep -qa 'cb:archived-filter\|cb:message-content-ids\|cb:context-bonsai-gauge' "$1" 2>/dev/null
+  ! grep -qa 'cb:archived-filter\|cb:message-content-ids\|cb:context-bonsai-gauge\|cb:in-memory-archive' "$1" 2>/dev/null
 }
 binary_matches_version() {
   local got

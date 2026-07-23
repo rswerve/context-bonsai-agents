@@ -23,7 +23,7 @@ cat > "$SB/cur/codex" <<'STUB'
 [ "$1" = "--version" ] && echo "codex-cli 0.144.5" && exit 0
 exit 0
 STUB
-printf '\n# context-bonsai-prune context-bonsai-retrieve\n' >> "$SB/cur/codex"; chmod +x "$SB/cur/codex"
+printf '\n# context-bonsai-prune context-bonsai-retrieve CONTEXT BONSAI ENFORCED excluded_messages=\n' >> "$SB/cur/codex"; chmod +x "$SB/cur/codex"
 shasum -a256 "$SB/cur/codex" | cut -d' ' -f1 > "$SB/cur/codex.sha256"    # bare digest (confirm format w/ Codex)
 ln -sf "$SB/cur/codex" "$SB/codexlink"
 cat > "$SB/stock/codex" <<'STUB'

@@ -1,6 +1,6 @@
 // Read-only diagnostic: reports which Context Bonsai patch anchors match a given Claude bundle.
 // Never writes. Usage: bun run anchor-check.ts <bundle-path>
-//   exit 0 = all 3 anchors match; 1 = one or more drifted; 2 = could not extract JS.
+//   exit 0 = all registered patches match; 1 = one or more drifted; 2 = could not extract JS.
 import { tweakccApi } from "../../tweakcc_context_bonsai/apply/tweakcc-api.ts";
 import { bonsaiPatches } from "../../tweakcc_context_bonsai/patches/registry.ts";
 
@@ -16,8 +16,16 @@ try {
 }
 
 let allOk = true;
+let candidate = content;
 for (const p of bonsaiPatches) {
-  try { p.apply(content); console.log("OK  ", p.name); }
+  try {
+    candidate = p.apply(candidate, {
+      installation: { path: target, kind: "native", version: "unknown" } as any,
+      originalContent: content,
+      patchIndex: bonsaiPatches.indexOf(p),
+    });
+    console.log("OK  ", p.name);
+  }
   catch (e: any) { allOk = false; console.log("DRIFT", p.name, "|", e?.message ?? String(e)); }
 }
 process.exit(allOk ? 0 : 1);

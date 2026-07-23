@@ -17,6 +17,12 @@ the model calls `context-bonsai-prune`.
 - `codex-0.144.5-bonsai.patch`: source patch against the exact upstream commit.
   The patch now includes the autonomous startup-guidance and five-user-turn
   gauge wiring used as the forward-port baseline.
+- `codex-live-enforcement-evidence.patch`: a small overlay for an already
+  Bonsai-patched current Codex source. It makes a successful prune report the
+  running process/build/archive identity and the actual number of messages
+  excluded after the live history replacement has completed. The maintenance
+  runtime now requires those strings as part of candidate and post-activation
+  verification.
 - `build-staged.sh`: rebuilds the release binary from an exact clean source
   checkout supplied by the operator.
 - `verify-staged.sh`: checks version, checksum, architecture, and tool strings.
@@ -54,6 +60,9 @@ restart unrelated live pairs during staging.
 - AgentBridge round-trip passed on the same no-wire-change fork architecture.
 - Stock and fork app-server schema bundles contain 337 files each and are
   semantically identical; the aggregate JSON differs only in object-key order.
+- A continuous-process provider-usage test now proves that the request
+  immediately following a prune is smaller, and the acknowledgement is emitted
+  only after the same-process history replacement succeeds.
 
 Known scope boundary: archives are intentionally thread-scoped. Resume is
 verified. A forked child that inherits a parent placeholder cannot retrieve the

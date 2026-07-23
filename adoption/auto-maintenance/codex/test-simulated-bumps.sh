@@ -31,7 +31,7 @@ readonly FAKE_CODEX="$FIXTURE_ROOT/codex-0.144.5"
 {
   print '#!/bin/zsh'
   print 'if [[ "${1:-}" == "--version" ]]; then print "codex-cli 0.144.5"; exit 0; fi'
-  print '# context-bonsai-prune context-bonsai-retrieve'
+  print '# context-bonsai-prune context-bonsai-retrieve CONTEXT BONSAI ENFORCED excluded_messages='
   print 'exit 0'
 } > "$FAKE_CODEX"
 chmod +x "$FAKE_CODEX"
@@ -123,7 +123,7 @@ for spec in "$OLD_FAKE:0.144.5" "$NEW_STABLE_FAKE:0.145.0"; do
   {
     print '#!/bin/zsh'
     print "if [[ \"\${1:-}\" == \"--version\" ]]; then print \"codex-cli $fake_ver\"; exit 0; fi"
-    print '# context-bonsai-prune context-bonsai-retrieve'
+    print '# context-bonsai-prune context-bonsai-retrieve CONTEXT BONSAI ENFORCED excluded_messages='
     print 'exit 0'
   } > "$fake_path"
   chmod +x "$fake_path"

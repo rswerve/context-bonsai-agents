@@ -55,7 +55,7 @@ fi
 ( cd "$CB_PORT" && bun run apply/apply-bonsai.ts --path "$cand" --backup "$work/cand.backup" ) >>"$CB_LOG" 2>&1 \
   || esc "candidate patch failed (anchors matched but apply threw)" "candidate build failed." "candidate build failed (escalate)"
 cb_bundle_fully_patched "$cand" && "$cand" --version >/dev/null 2>&1 \
-  || esc "candidate failed verification (needs all 3 sentinels + a runnable binary)" "candidate failed verification." "candidate verify failed (escalate)"
+  || esc "candidate failed verification (needs all host-patch sentinels + a runnable binary)" "candidate failed verification." "candidate verify failed (escalate)"
 
 # 3. Candidate verified. BEFORE the point of no return, guarantee both the restore backup AND a pre-verified
 #    rollback candidate on the live bundle's volume — so a rollback (if ever needed) is a single already-prepared
@@ -71,12 +71,12 @@ cp "$backup" "$rbc" 2>/dev/null && chmod +x "$rbc" 2>/dev/null && "$rbc" --versi
 if mv "$cand" "$bundle"; then
   cand=""   # consumed by mv; do not clean
   swap_ok=1
-  cb_bundle_fully_patched "$bundle"               || { swap_ok=0; cb_log "claude $ver: post-swap sentinel check failed (need all 3)"; }
+  cb_bundle_fully_patched "$bundle"               || { swap_ok=0; cb_log "claude $ver: post-swap sentinel check failed (need all host patches)"; }
   "$CB_CLAUDE_LAUNCHER" --version >/dev/null 2>&1  || { swap_ok=0; cb_log "claude $ver: post-swap binary does not run"; }
   if [ "$swap_ok" = "1" ] && ! mcp_present && ! register_mcp; then swap_ok=0; cb_log "claude $ver: MCP registration FAILED after swap"; fi
   if [ "$swap_ok" = "1" ]; then
     [ -n "${rbc:-}" ] && [ -f "$rbc" ] && rm -f "$rbc"; rbc=""      # activation OK — remove owned rollback candidate
-    cb_log "claude $ver: candidate swapped in, live re-verified (3 sentinels + runs), MCP registered"
+    cb_log "claude $ver: candidate swapped in, live re-verified (all host patches + runs), MCP registered"
     cb_notify "Context Bonsai" "Re-applied to Claude Code $ver. Worth a quick prune/retrieve check when convenient."
     echo "claude $ver: RE-APPLIED (isolate-verify-swap) + verified"; exit 0
   fi
