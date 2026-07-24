@@ -13,8 +13,8 @@ case "$ACTION" in enable|rollback|verify|guard|retire) ;; *)
   echo "usage: $0 enable|rollback|verify|guard|retire" >&2
   exit 2
 esac
-if [ "$ACTION" = "enable" ] && [ "${CB_FINAL_GO:-0}" != "1" ]; then
-  echo "Staged only. Proxy activation requires Maz's final CB_FINAL_GO=1." >&2
+if [ "$ACTION" = "enable" ]; then
+  echo "Claude proxy activation is retired; the live-model harness was removed." >&2
   exit 2
 fi
 
