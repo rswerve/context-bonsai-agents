@@ -393,7 +393,7 @@ if [ "$ACTION" = "adopt" ]; then
   # the validation still describes what gets written. A dry run takes no lock: it mutates
   # nothing, and cb_acquire_lock itself writes.
   if [ "$DRY" != "1" ]; then
-    cb_acquire_lock || { echo "adopt: maintenance is already running; retry shortly." >&2; exit 20; }
+    cb_acquire_lock || { echo "adopt: could not acquire the maintenance lock (another run may be active, or the lock path is unwritable — see the log); retry shortly." >&2; exit 20; }
     trap 'adopt_cleanup; cb_release_lock' EXIT
   fi
   PLAN="$(adopt_plan)"
@@ -500,7 +500,7 @@ if [ "$ACTION" = "release" ]; then
   # Same reasoning as adopt: the lock spans plan, checks and mutation so the checks still
   # describe what gets written. Dry run stays lock-free.
   if [ "$DRY" != "1" ]; then
-    cb_acquire_lock || { echo "release: maintenance is already running; retry shortly." >&2; exit 20; }
+    cb_acquire_lock || { echo "release: could not acquire the maintenance lock (another run may be active, or the lock path is unwritable — see the log); retry shortly." >&2; exit 20; }
     trap 'release_cleanup; cb_release_lock' EXIT
   fi
   PLAN="$(release_plan)"

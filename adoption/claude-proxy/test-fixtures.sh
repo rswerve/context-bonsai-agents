@@ -335,6 +335,14 @@ after="$(tree_digest "$root")"
 check "busy release exits 20 before preflight" "$rc" "20"
 check "busy release changes nothing" "$after" "$before"
 
+root="$SANDBOX/lock-unwritable"; new_fixture "$root"; drift "$root" mode
+printf 'not a directory\n' > "$root/blocked-state"
+before="$(tree_digest "$root")"
+out="$(run_adopt "$root" 0 CB_STATE="$root/blocked-state" 2>&1)"; rc=$?
+after="$(tree_digest "$root")"
+check "unwritable lock exits 20 instead of applying unlocked" "$rc" "20"
+check "unwritable lock changes nothing" "$after" "$before"
+
 echo "=== release: reverse only Bonsai-owned state, then re-adopt ==="
 root="$SANDBOX/release"; new_fixture "$root"
 bundle_before="$(component "$root" bundle)"

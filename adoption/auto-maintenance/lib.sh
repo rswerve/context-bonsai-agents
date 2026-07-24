@@ -111,7 +111,12 @@ cb_acquire_lock() {
     fi
     cb_log "stale lock (pid ${pid:-none}) — reclaiming"
   fi
-  echo "$$" > "$CB_LOCK"; return 0
+  # The write is the acquisition, so its failure is a failure to acquire. Reporting
+  # success here would hand every caller — run-daily, guard, claude-control, adopt,
+  # release — a lock it does not hold, and they would mutate the bundle and settings
+  # concurrently believing they were serialized. Fail closed instead: no lock, no run.
+  echo "$$" > "$CB_LOCK" || { cb_log "could not write lock file $CB_LOCK — refusing to run unserialized"; return 1; }
+  return 0
 }
 cb_release_lock() {
   # Never release another run's lock. A queued WatchPaths invocation can
