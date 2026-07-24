@@ -104,19 +104,16 @@ cb_status() { { echo "# Context Bonsai auto-maintenance — last run $(cb_ts)"; 
 
 # --- Single-instance lock (prevents overlapping daily runs) ---
 cb_acquire_lock() {
-  if [ -e "$CB_LOCK" ]; then
-    local pid; pid="$(cat "$CB_LOCK" 2>/dev/null || echo)"
-    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-      cb_log "another maintenance run (pid $pid) is active — exiting"; return 1
-    fi
-    cb_log "stale lock (pid ${pid:-none}) — reclaiming"
+  local locker="${CB_SHLOCK:-/usr/bin/shlock}" pid
+  [ -x "$locker" ] || { cb_log "atomic lock helper unavailable: $locker — refusing to run unserialized"; return 1; }
+  "$locker" -f "$CB_LOCK" -p "$$" >/dev/null 2>&1 && return 0
+  pid="$(cat "$CB_LOCK" 2>/dev/null || echo)"
+  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+    cb_log "another maintenance run (pid $pid) is active — exiting"
+  else
+    cb_log "could not acquire maintenance lock $CB_LOCK — refusing to run unserialized"
   fi
-  # The write is the acquisition, so its failure is a failure to acquire. Reporting
-  # success here would hand every caller — run-daily, guard, claude-control, adopt,
-  # release — a lock it does not hold, and they would mutate the bundle and settings
-  # concurrently believing they were serialized. Fail closed instead: no lock, no run.
-  echo "$$" > "$CB_LOCK" || { cb_log "could not write lock file $CB_LOCK — refusing to run unserialized"; return 1; }
-  return 0
+  return 1
 }
 cb_release_lock() {
   # Never release another run's lock. A queued WatchPaths invocation can

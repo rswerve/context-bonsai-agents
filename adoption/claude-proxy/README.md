@@ -19,6 +19,16 @@ control.sh release    # off-ramp: Bonsai off, and staying off
 Prefix either mutating command with `CB_ADOPT_DRY_RUN=1` to print what would change and
 write nothing at all.
 
+Exit codes are distinguishable on purpose, so a caller can tell "this machine is wrong"
+from "someone else is working on it":
+
+| code | meaning |
+|---|---|
+| `0` | desired state reached, or already correct |
+| `10` | preflight refused, apply failed, or verification still fails — the machine needs attention |
+| `20` | could not take the maintenance lock: another run is active, or the lock path is unwritable. Retry; nothing was changed |
+| `2` | usage error, or a retired action (`enable`, `rollback`) |
+
 `adopt` asserts six facts and repairs only those that differ, so it is safe to re-run and
 safe on a machine that is already correct:
 
