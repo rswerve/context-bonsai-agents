@@ -65,6 +65,15 @@ bundle_version_matches() {
 mcp_present() {
   jq -e '.mcpServers["context-bonsai"]' "$CB_CLAUDE_JSON" >/dev/null 2>&1
 }
+mcp_proxy_active() {
+  jq -e --arg url "$PROXY_URL" \
+    '.mcpServers["context-bonsai"].env.ANTHROPIC_BASE_URL==$url' \
+    "$CB_CLAUDE_JSON" >/dev/null 2>&1
+}
+mcp_proxy_absent() {
+  jq -e '.mcpServers["context-bonsai"].env.ANTHROPIC_BASE_URL == null' \
+    "$CB_CLAUDE_JSON" >/dev/null 2>&1
+}
 proxy_health() {
   local body expected
   expected="$(expected_build_id)" || return 1
@@ -118,6 +127,38 @@ write_direct_settings() {
     && "$HOOK_REGISTER" remove "$target" >/dev/null \
     && preserve_mode "$source" "$target"
 }
+write_proxy_mcp() {
+  local source="$1" target="$2"
+  jq --arg url "$PROXY_URL" '
+    .mcpServers["context-bonsai"].env=(.mcpServers["context-bonsai"].env // {}) |
+    .mcpServers["context-bonsai"].env.ANTHROPIC_BASE_URL=$url
+  ' "$source" > "$target" \
+    && preserve_mode "$source" "$target"
+}
+write_direct_mcp() {
+  local source="$1" target="$2" prior="${3:-}" active_hash=""
+  if [ -f "$prior" ] && jq -e '.mcpServers["context-bonsai"]' "$prior" >/dev/null 2>&1; then
+    active_hash="$(jq -r '.activeMcpHash // empty' "$PROXY_STATE/active.json" 2>/dev/null)"
+    if [ -n "$active_hash" ] && [ "$(sha256 "$source")" = "$active_hash" ]; then
+      cp "$prior" "$target" && preserve_mode "$source" "$target"
+      return $?
+    fi
+    jq --slurpfile prior "$prior" \
+      '.mcpServers["context-bonsai"]=$prior[0].mcpServers["context-bonsai"]' \
+      "$source" > "$target" \
+      && preserve_mode "$source" "$target"
+    return $?
+  fi
+  jq --arg url "$PROXY_URL" '
+    if .mcpServers["context-bonsai"].env.ANTHROPIC_BASE_URL==$url
+    then del(.mcpServers["context-bonsai"].env.ANTHROPIC_BASE_URL)
+    else . end |
+    if .mcpServers["context-bonsai"].env=={}
+    then del(.mcpServers["context-bonsai"].env)
+    else . end
+  ' "$source" > "$target" \
+    && preserve_mode "$source" "$target"
+}
 render_plists() {
   local stamp="$1" proxy_cand="$PROXY_PLIST.cb-candidate.$stamp" guard_cand="$GUARD_PLIST.cb-candidate.$stamp"
   cat > "$proxy_cand" <<EOF
@@ -162,7 +203,7 @@ verify_proxy_state() {
   version="$(cb_claude_version)"; bundle="$(cb_claude_live_bundle)"
   [ -n "$version" ] && [ -n "$bundle" ] && [ -f "$bundle" ] \
     && cb_bundle_clean "$bundle" && bundle_version_matches "$bundle" "$version" \
-    && cb_claude_proxy && settings_proxy_active && mcp_present \
+    && cb_claude_proxy && settings_proxy_active && mcp_proxy_active \
     && proxy_health && loaded "$PROXY_LABEL" && loaded "$GUARD_LABEL" \
     && ! loaded "$WATCH_LABEL"
 }
@@ -242,7 +283,8 @@ if [ "$ACTION" = "retire" ]; then
     exit 2
   }
   cb_claude_proxy && { echo "Refusing to stop the active Claude proxy route." >&2; exit 10; }
-  settings_proxy_absent || { echo "Refusing to stop: Claude settings still route to this proxy." >&2; exit 10; }
+  settings_proxy_absent && mcp_proxy_absent \
+    || { echo "Refusing to stop: Claude settings or MCP still route to this proxy." >&2; exit 10; }
   bootout "$GUARD_LABEL"; bootout "$PROXY_LABEL"
   echo "Claude proxy supervision stopped after explicit drain confirmation; plist and evidence files were retained."
   exit 0
@@ -258,6 +300,7 @@ for file in "$PROXY_SCRIPT" "$CORRELATE_SCRIPT" "$HOOK_SCRIPT" "$HOOK_REGISTER" 
 done
 grep -qF '[[CB-PRUNE v1 archive=' "$CB_PORT/mcp-server/index.ts" \
   && grep -qF 'canonicalHash' "$CB_PORT/mcp-server/index.ts" \
+  && grep -qF 'verifiedLocalProxyEnforcement' "$CB_PORT/mcp-server/index.ts" \
   || { echo "Runtime MCP lacks the wire-marker/shared-hash capability; nothing changed." >&2; exit 10; }
 for command in node bun jq shasum plutil "$CURL_BIN" "$LAUNCHCTL_BIN"; do
   command -v "$command" >/dev/null 2>&1 || { echo "Required command missing: $command" >&2; exit 10; }
@@ -273,6 +316,11 @@ if [ "$ACTION" = "enable" ]; then
   existing_url="$(jq -r '.env.ANTHROPIC_BASE_URL // empty' "$CLAUDE_SETTINGS")"
   [ -z "$existing_url" ] || [ "$existing_url" = "$PROXY_URL" ] || {
     echo "ANTHROPIC_BASE_URL is already owned by another route ($existing_url); nothing changed." >&2
+    exit 10
+  }
+  existing_mcp_url="$(jq -r '.mcpServers["context-bonsai"].env.ANTHROPIC_BASE_URL // empty' "$CB_CLAUDE_JSON")"
+  [ -z "$existing_mcp_url" ] || [ "$existing_mcp_url" = "$PROXY_URL" ] || {
+    echo "The context-bonsai MCP already has a different ANTHROPIC_BASE_URL ($existing_mcp_url); nothing changed." >&2
     exit 10
   }
   if ! proxy_health && port_responds; then
@@ -300,16 +348,21 @@ if [ "$ACTION" = "enable" ]; then
   stock_cand="$(dirname "$bundle")/.cb-proxy-stock.$stamp"
   prior_settings="$(dirname "$CLAUDE_SETTINGS")/.cb-proxy-settings-prior.$stamp"
   settings_cand="$(dirname "$CLAUDE_SETTINGS")/.cb-proxy-settings.$stamp"
+  prior_mcp="$(dirname "$CB_CLAUDE_JSON")/.cb-proxy-mcp-prior.$stamp"
+  mcp_cand="$(dirname "$CB_CLAUDE_JSON")/.cb-proxy-mcp.$stamp"
   cp "$bundle" "$prior_bundle" && chmod +x "$prior_bundle" \
     && cp "$backup" "$stock_cand" && chmod +x "$stock_cand" \
     && cp "$CLAUDE_SETTINGS" "$prior_settings" \
+    && cp "$CB_CLAUDE_JSON" "$prior_mcp" \
     && write_proxy_settings "$CLAUDE_SETTINGS" "$settings_cand" \
-    && jq -e . "$settings_cand" >/dev/null \
+    && write_proxy_mcp "$CB_CLAUDE_JSON" "$mcp_cand" \
+    && jq -e . "$settings_cand" >/dev/null && jq -e . "$mcp_cand" >/dev/null \
     && cb_bundle_fully_patched "$prior_bundle" \
     && cb_bundle_clean "$stock_cand" && bundle_version_matches "$stock_cand" "$version" \
     || { echo "Candidate staging failed; live state untouched." >&2; exit 10; }
   prior_bundle_hash="$(sha256 "$prior_bundle")"
   prior_settings_hash="$(sha256 "$prior_settings")"
+  prior_mcp_hash="$(sha256 "$prior_mcp")"
   render_plists "$stamp" || { echo "LaunchAgent staging failed; live state untouched." >&2; exit 10; }
 
   previous_mode="$(mode_value)"
@@ -331,10 +384,11 @@ if [ "$ACTION" = "enable" ]; then
     exit 10
   }
 
-  committed_bundle=0; committed_settings=0
+  committed_bundle=0; committed_settings=0; committed_mcp=0
   cb_set_claude_mode proxy && { bootout "$WATCH_LABEL"; true; } \
     && mv "$stock_cand" "$bundle" && committed_bundle=1 \
     && mv "$settings_cand" "$CLAUDE_SETTINGS" && committed_settings=1 \
+    && mv "$mcp_cand" "$CB_CLAUDE_JSON" && committed_mcp=1 \
     && { loaded "$GUARD_LABEL" || bootstrap "$GUARD_LABEL" "$GUARD_PLIST"; } \
     && verify_proxy_state \
     && { [ "$daily_was_loaded" = "0" ] || loaded "$DAILY_LABEL"; }
@@ -342,9 +396,11 @@ if [ "$ACTION" = "enable" ]; then
   if [ "$commit_rc" = "0" ]; then
     jq -n --arg activatedAt "$(cb_ts)" --arg url "$PROXY_URL" --arg version "$version" \
       --arg bundle "$bundle" --arg priorBundle "$prior_bundle" \
-      --arg priorSettings "$prior_settings" --arg build "$(expected_build_id)" \
+      --arg priorSettings "$prior_settings" --arg priorMcp "$prior_mcp" \
+      --arg activeMcpHash "$(sha256 "$CB_CLAUDE_JSON")" --arg build "$(expected_build_id)" \
       '{activatedAt:$activatedAt,url:$url,claudeVersion:$version,bundle:$bundle,
-        priorBundle:$priorBundle,priorSettings:$priorSettings,buildId:$build}' \
+        priorBundle:$priorBundle,priorSettings:$priorSettings,priorMcp:$priorMcp,
+        activeMcpHash:$activeMcpHash,buildId:$build}' \
       > "$PROXY_STATE/active.json"
     cb_notify "Context Bonsai — Claude proxy enabled" \
       "Claude $version now uses the supervised zero-patch Bonsai proxy for new sessions. Existing sessions were untouched." \
@@ -354,6 +410,7 @@ if [ "$ACTION" = "enable" ]; then
   fi
 
   rollback_ok=1
+  [ "$committed_mcp" = "0" ] || mv "$prior_mcp" "$CB_CLAUDE_JSON" || rollback_ok=0
   [ "$committed_settings" = "0" ] || mv "$prior_settings" "$CLAUDE_SETTINGS" || rollback_ok=0
   [ "$committed_bundle" = "0" ] || mv "$prior_bundle" "$bundle" || rollback_ok=0
   cb_set_claude_mode "$previous_mode" || rollback_ok=0
@@ -364,7 +421,8 @@ if [ "$ACTION" = "enable" ]; then
   [ "$proxy_was_loaded" = "1" ] || bootout "$PROXY_LABEL"
   if [ "$rollback_ok" = "1" ] && cb_bundle_fully_patched "$bundle" \
     && [ "$(sha256 "$bundle")" = "$prior_bundle_hash" ] \
-    && [ "$(sha256 "$CLAUDE_SETTINGS")" = "$prior_settings_hash" ]; then
+    && [ "$(sha256 "$CLAUDE_SETTINGS")" = "$prior_settings_hash" ] \
+    && [ "$(sha256 "$CB_CLAUDE_JSON")" = "$prior_mcp_hash" ]; then
     echo "Claude proxy activation failed; prior patched state was auto-restored." >&2
   else
     echo "URGENT: Claude proxy activation failed and exact restoration needs review. Evidence: $PROXY_STATE" >&2
@@ -377,7 +435,8 @@ version="$(cb_claude_version)"; bundle="$(cb_claude_live_bundle)"
 [ -n "$version" ] && [ -n "$bundle" ] && [ -f "$bundle" ] \
   || { echo "Could not resolve the installed Claude bundle; proxy state unchanged." >&2; exit 20; }
 if cb_bundle_fully_patched "$bundle" && bundle_version_matches "$bundle" "$version" \
-  && settings_proxy_absent && [ "$(mode_value)" = "enabled" ] && mcp_present; then
+  && settings_proxy_absent && mcp_proxy_absent \
+  && [ "$(mode_value)" = "enabled" ] && mcp_present; then
   echo "Claude host-patch mode is already enabled; proxy route is absent."
   exit 0
 fi
@@ -386,11 +445,22 @@ existing_url="$(jq -r '.env.ANTHROPIC_BASE_URL // empty' "$CLAUDE_SETTINGS")"
   echo "ANTHROPIC_BASE_URL is owned by another route ($existing_url); nothing changed." >&2
   exit 10
 }
-settings_cand="$(dirname "$CLAUDE_SETTINGS")/.cb-proxy-offramp-settings.$(date -u +%Y%m%dT%H%M%SZ)-$$"
-prior_settings="$(dirname "$CLAUDE_SETTINGS")/.cb-proxy-offramp-prior.$(date -u +%Y%m%dT%H%M%SZ)-$$"
+existing_mcp_url="$(jq -r '.mcpServers["context-bonsai"].env.ANTHROPIC_BASE_URL // empty' "$CB_CLAUDE_JSON")"
+[ -z "$existing_mcp_url" ] || [ "$existing_mcp_url" = "$PROXY_URL" ] || {
+  echo "The context-bonsai MCP ANTHROPIC_BASE_URL is owned by another route ($existing_mcp_url); nothing changed." >&2
+  exit 10
+}
+offstamp="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+settings_cand="$(dirname "$CLAUDE_SETTINGS")/.cb-proxy-offramp-settings.$offstamp"
+prior_settings="$(dirname "$CLAUDE_SETTINGS")/.cb-proxy-offramp-prior.$offstamp"
+mcp_cand="$(dirname "$CB_CLAUDE_JSON")/.cb-proxy-offramp-mcp.$offstamp"
+prior_mcp="$(dirname "$CB_CLAUDE_JSON")/.cb-proxy-offramp-mcp-prior.$offstamp"
+saved_mcp="$(jq -r '.priorMcp // empty' "$PROXY_STATE/active.json" 2>/dev/null)"
 cp "$CLAUDE_SETTINGS" "$prior_settings" \
+  && cp "$CB_CLAUDE_JSON" "$prior_mcp" \
   && write_direct_settings "$CLAUDE_SETTINGS" "$settings_cand" \
-  && jq -e . "$settings_cand" >/dev/null \
+  && write_direct_mcp "$CB_CLAUDE_JSON" "$mcp_cand" "$saved_mcp" \
+  && jq -e . "$settings_cand" >/dev/null && jq -e . "$mcp_cand" >/dev/null \
   || { echo "Could not stage direct-route settings; proxy remains active." >&2; exit 10; }
 
 previous_mode="$(mode_value)"
@@ -405,9 +475,13 @@ if [ "$reconcile_rc" != "0" ] || ! cb_bundle_fully_patched "$bundle" \
   exit 10
 fi
 
-if mv "$settings_cand" "$CLAUDE_SETTINGS" && settings_proxy_absent; then
+committed_settings=0; committed_mcp=0
+if mv "$settings_cand" "$CLAUDE_SETTINGS" && committed_settings=1 \
+  && mv "$mcp_cand" "$CB_CLAUDE_JSON" && committed_mcp=1 \
+  && settings_proxy_absent && mcp_proxy_absent; then
   if [ -f "$WATCH_PLIST" ] && ! loaded "$WATCH_LABEL"; then
     bootstrap "$WATCH_LABEL" "$WATCH_PLIST" || {
+      [ "$committed_mcp" = "0" ] || mv "$prior_mcp" "$CB_CLAUDE_JSON" 2>/dev/null || true
       mv "$prior_settings" "$CLAUDE_SETTINGS" 2>/dev/null || true
       cb_set_claude_mode proxy || true
       echo "WatchPaths restart failed; proxy route was restored and the patched bundle remains safe." >&2
@@ -422,6 +496,7 @@ if mv "$settings_cand" "$CLAUDE_SETTINGS" && settings_proxy_absent; then
   exit 0
 fi
 
+[ "$committed_mcp" = "0" ] || mv "$prior_mcp" "$CB_CLAUDE_JSON" 2>/dev/null || true
 mv "$prior_settings" "$CLAUDE_SETTINGS" 2>/dev/null || true
 cb_set_claude_mode proxy || true
 echo "Direct-route settings swap failed; proxy route was restored and the patched bundle remains safe." >&2

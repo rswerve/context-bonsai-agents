@@ -26,6 +26,7 @@ jq -e '.parentCommit and .tweakccCommit and .sharedCoreCommit and .sharedCoreTre
 [[ -f "$RUNTIME/tweakcc_context_bonsai/proxy-prototype/proxy.mjs" ]]
 [[ -f "$RUNTIME/tweakcc_context_bonsai/hooks/context-bonsai-gauge.ts" ]]
 grep -qF '[[CB-PRUNE v1 archive=' "$RUNTIME/tweakcc_context_bonsai/mcp-server/index.ts"
+grep -qF 'verifiedLocalProxyEnforcement' "$RUNTIME/tweakcc_context_bonsai/mcp-server/index.ts"
 node --check "$RUNTIME/tweakcc_context_bonsai/proxy-prototype/proxy.mjs"
 node "$RUNTIME/tweakcc_context_bonsai/proxy-prototype/correlate.test.mjs" >/dev/null
 node "$RUNTIME/tweakcc_context_bonsai/proxy-prototype/proxy.test.mjs" >/dev/null
