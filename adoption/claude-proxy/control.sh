@@ -6,11 +6,18 @@
 set -uo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Decided BEFORE sourcing lib.sh, which creates its state directory on load. verify and
+# a dry-run adopt must be provably read-only, and a created directory is still a write.
+case "${1:-}" in
+  verify)        CB_LIB_NO_INIT=1 ;;
+  adopt|release) [ "${CB_ADOPT_DRY_RUN:-0}" = "1" ] && CB_LIB_NO_INIT=1 ;;
+esac
+export CB_LIB_NO_INIT="${CB_LIB_NO_INIT:-0}"
 source "$DIR/../auto-maintenance/lib.sh"
 
 ACTION="${1:-}"
-case "$ACTION" in enable|rollback|verify|guard|retire) ;; *)
-  echo "usage: $0 enable|rollback|verify|guard|retire" >&2
+case "$ACTION" in adopt|release|enable|rollback|verify|guard|retire) ;; *)
+  echo "usage: $0 adopt|release|verify|guard|retire   (enable/rollback are retired)" >&2
   exit 2
 esac
 if [ "$ACTION" = "enable" ]; then
@@ -55,7 +62,7 @@ WATCH_PLIST="$LAUNCH_AGENT_DIR/$WATCH_LABEL.plist"
 HOOK_COMMAND="bun run $HOOK_SCRIPT"
 PATH_VALUE="$HOME/.local/bin:$HOME/.bun/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
-mkdir -p "$PROXY_STATE" "$LAUNCH_AGENT_DIR" 2>/dev/null || true
+[ "$CB_LIB_NO_INIT" = "1" ] || mkdir -p "$PROXY_STATE" "$LAUNCH_AGENT_DIR" 2>/dev/null || true
 
 sha256() { shasum -a 256 "$1" | awk '{print $1}'; }
 preserve_mode() { chmod "$(stat -f '%Lp' "$1")" "$2"; }
@@ -293,6 +300,257 @@ if [ "$ACTION" = "verify" ]; then
   fi
   echo "Claude proxy mode verification failed." >&2
   exit 10
+fi
+
+# ---- adopt ---------------------------------------------------------------
+# Puts a machine into proxy mode, or repairs one that is partly there. This is the
+# non-patch-coupled replacement for the retired `enable`: it asserts the desired
+# state rather than performing a patched->stock transaction, so it is safe to
+# re-run and safe on a machine that is already correct.
+#
+# One planner, two consumers: adopt_plan names the facts that DIFFER, dry-run
+# prints that plan, and apply executes that same plan. Neither path re-derives
+# what needs doing, so they cannot drift.
+adopt_backup_path() {  # $1 = live bundle path
+  printf '%s/%s.backup' "$CB_BACKUP_DIR" "$(printf '%s' "$1" | sed 's/[^a-zA-Z0-9._-]/_/g')"
+}
+
+adopt_plan() {  # emits one token per fact that differs from the desired state
+  local bundle; bundle="$(cb_claude_live_bundle)"
+  [ "$(mode_value)" = "proxy" ]              || echo mode
+  loaded "$WATCH_LABEL"                      && echo watch
+  loaded "$PROXY_LABEL"                      || echo proxy_agent
+  settings_proxy_active                      || echo settings
+  mcp_proxy_active                           || echo mcp
+  [ -n "$bundle" ] && cb_bundle_any_patched "$bundle" && echo bundle
+  return 0
+}
+
+# Validates prerequisites for the PLANNED facts only, before anything is written.
+# A machine that already satisfies a fact is never blocked by that fact's inputs.
+adopt_preflight() {  # $1 = plan
+  local plan="$1" rc=0 version bundle backup url
+  version="$(cb_claude_version)"; bundle="$(cb_claude_live_bundle)"
+  command -v jq >/dev/null 2>&1 || { echo "adopt: jq is required." >&2; return 1; }
+
+  case "$plan" in *settings*)
+    jq -e . "$CLAUDE_SETTINGS" >/dev/null 2>&1 \
+      || { echo "adopt: $CLAUDE_SETTINGS is not valid JSON." >&2; rc=1; }
+    url="$(jq -r '.env.ANTHROPIC_BASE_URL // empty' "$CLAUDE_SETTINGS" 2>/dev/null)"
+    [ -z "$url" ] || [ "$url" = "$PROXY_URL" ] \
+      || { echo "adopt: ANTHROPIC_BASE_URL is owned by another route ($url); refusing." >&2; rc=1; }
+    [ -x "$HOOK_REGISTER" ] || { echo "adopt: hook registrar missing: $HOOK_REGISTER" >&2; rc=1; }
+    [ -f "$HOOK_SCRIPT" ]   || { echo "adopt: gauge hook missing: $HOOK_SCRIPT" >&2; rc=1; }
+  ;; esac
+
+  case "$plan" in *mcp*)
+    jq -e . "$CB_CLAUDE_JSON" >/dev/null 2>&1 \
+      || { echo "adopt: $CB_CLAUDE_JSON is not valid JSON." >&2; rc=1; }
+    mcp_present || { echo "adopt: the context-bonsai MCP server is not registered; run maintenance first." >&2; rc=1; }
+    url="$(jq -r '.mcpServers["context-bonsai"].env.ANTHROPIC_BASE_URL // empty' "$CB_CLAUDE_JSON" 2>/dev/null)"
+    [ -z "$url" ] || [ "$url" = "$PROXY_URL" ] \
+      || { echo "adopt: the MCP base URL is owned by another route ($url); refusing." >&2; rc=1; }
+  ;; esac
+
+  case "$plan" in *proxy_agent*)
+    [ -f "$PROXY_PLIST" ] || { echo "adopt: proxy LaunchAgent is not installed: $PROXY_PLIST" >&2; rc=1; }
+  ;; esac
+
+  # Routing Claude at a dead proxy breaks every request, so never write the base URL
+  # without proof the proxy is serving. If we are ALSO starting it, that proof comes
+  # after bootstrap during apply; if it is supposed to be up already, demand it now.
+  case "$plan" in *settings*)
+    case "$plan" in
+      *proxy_agent*) ;;
+      *) proxy_health \
+           || { echo "adopt: the proxy is not serving a matching build; refusing to route Claude at it." >&2; rc=1; };;
+    esac
+  ;; esac
+
+  # The bundle swap is the one step that can break his Claude install, so the
+  # backup must be present, genuinely clean, and the SAME version as what is live.
+  case "$plan" in *bundle*)
+    backup="$(adopt_backup_path "$bundle")"
+    if [ ! -f "$backup" ]; then
+      echo "adopt: no stock backup for the live bundle: $backup" >&2; rc=1
+    else
+      cb_bundle_clean "$backup" \
+        || { echo "adopt: the stock backup is itself patched; refusing to swap it in." >&2; rc=1; }
+      [ -n "$version" ] && bundle_version_matches "$backup" "$version" \
+        || { echo "adopt: the stock backup is not version $version; refusing to swap it in." >&2; rc=1; }
+    fi
+  ;; esac
+  return $rc
+}
+
+if [ "$ACTION" = "adopt" ]; then
+  DRY="${CB_ADOPT_DRY_RUN:-0}"; STAGED=""
+  adopt_cleanup() { [ -z "$STAGED" ] || rm -f $STAGED 2>/dev/null; }
+  # Lock BEFORE planning, not after preflight. Preflight validates the very bundle and
+  # settings that apply then mutates, so a maintenance run landing in between would leave
+  # adopt executing a stale plan — swapping in a backup that was version-matched when
+  # checked and is not any more. Holding it across plan+preflight+apply is the only way
+  # the validation still describes what gets written. A dry run takes no lock: it mutates
+  # nothing, and cb_acquire_lock itself writes.
+  if [ "$DRY" != "1" ]; then
+    cb_acquire_lock || { echo "adopt: maintenance is already running; retry shortly." >&2; exit 20; }
+    trap 'adopt_cleanup; cb_release_lock' EXIT
+  fi
+  PLAN="$(adopt_plan)"
+  if [ -z "$PLAN" ]; then
+    echo "Claude proxy mode already fully adopted; nothing to change."
+    verify_proxy_state || { echo "…but verify still fails; run '$0 verify' for detail." >&2; exit 10; }
+    exit 0
+  fi
+  adopt_preflight "$PLAN" || { echo "adopt: preflight failed; nothing was changed." >&2; exit 10; }
+
+  if [ "$DRY" = "1" ]; then
+    echo "DRY RUN — no changes made. Would change:"
+    for fact in $PLAN; do case "$fact" in
+      mode)        echo "  - claude-mode: $(mode_value) -> proxy (stops the patcher re-patching)";;
+      watch)       echo "  - unload $WATCH_LABEL (the re-patch watcher)";;
+      proxy_agent) echo "  - load $PROXY_LABEL";;
+      settings)    echo "  - $CLAUDE_SETTINGS: route ANTHROPIC_BASE_URL to $PROXY_URL + register gauge hooks";;
+      mcp)         echo "  - $CB_CLAUDE_JSON: route the context-bonsai MCP to $PROXY_URL";;
+      bundle)      echo "  - restore stock $(cb_claude_version) from $(adopt_backup_path "$(cb_claude_live_bundle)")";;
+    esac; done
+    exit 0
+  fi
+
+  # ponytail: apply CONVERGES, it does not transact. Preflight is all-or-nothing, but if
+  # a later fact fails mid-apply the earlier ones stay applied and the run exits non-zero.
+  # That is deliberate for an asserter: re-running repairs the remainder, and every fact
+  # is independently checked, so a partial run is a machine closer to correct rather than
+  # a corrupt one. It is safe here only because preflight already validated every planned
+  # fact, so a mid-apply failure means I/O trouble, not a bad plan — and because the one
+  # hard-to-reverse fact (bundle) runs last, after everything else has succeeded. If a
+  # future fact is added that is BOTH irreversible and not last, this needs real rollback.
+  STAMP="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+  for fact in $PLAN; do
+    case "$fact" in
+      # Mode first: it stops the reconciler re-patching while the rest is applied.
+      mode) cb_set_claude_mode proxy || { echo "adopt: could not persist proxy mode." >&2; exit 10; }
+            echo "  set claude-mode=proxy";;
+      # bootout() swallows failure by design, so confirm rather than assume. Reporting
+      # a watcher as unloaded while it is still live is the one lie that would let the
+      # re-patch treadmill keep running under a "successfully adopted" message.
+      watch) bootout "$WATCH_LABEL"
+            loaded "$WATCH_LABEL" && { echo "adopt: could not unload $WATCH_LABEL." >&2; exit 10; }
+            echo "  unloaded $WATCH_LABEL";;
+      # Bootstrapping only proves launchd accepted the job. Settings comes next and points
+      # Claude at this URL, so prove it is actually SERVING a matching build first —
+      # otherwise adopt is the thing that breaks every Claude request.
+      proxy_agent) bootstrap "$PROXY_LABEL" "$PROXY_PLIST" \
+            || { echo "adopt: proxy LaunchAgent failed to start." >&2; exit 10; }
+            for delay in ${CB_PROXY_START_DELAYS:-0.2 0.5 1 2}; do
+              proxy_health && break
+              sleep "$delay"
+            done
+            proxy_health || { echo "adopt: proxy started but is not serving a matching build." >&2; exit 10; }
+            echo "  loaded $PROXY_LABEL";;
+      settings) cand="$CLAUDE_SETTINGS.cb-adopt.$STAMP"; STAGED="$STAGED $cand"
+            write_proxy_settings "$CLAUDE_SETTINGS" "$cand" && jq -e . "$cand" >/dev/null 2>&1 \
+              && mv "$cand" "$CLAUDE_SETTINGS" \
+              || { echo "adopt: could not write proxy settings." >&2; exit 10; }
+            echo "  routed $CLAUDE_SETTINGS + registered gauge hooks";;
+      mcp) cand="$CB_CLAUDE_JSON.cb-adopt.$STAMP"; STAGED="$STAGED $cand"
+            write_proxy_mcp "$CB_CLAUDE_JSON" "$cand" && jq -e . "$cand" >/dev/null 2>&1 \
+              && mv "$cand" "$CB_CLAUDE_JSON" \
+              || { echo "adopt: could not write the MCP proxy env." >&2; exit 10; }
+            echo "  routed the context-bonsai MCP";;
+      # Bundle LAST: the only hard-to-reverse step, committed once everything else holds.
+      bundle) live="$(cb_claude_live_bundle)"; cand="$(dirname "$live")/.cb-adopt-stock.$STAMP"
+            STAGED="$STAGED $cand"
+            cp "$(adopt_backup_path "$live")" "$cand" && preserve_mode "$live" "$cand" \
+              && mv "$cand" "$live" \
+              || { echo "adopt: could not restore the stock bundle; the live bundle is untouched." >&2; exit 10; }
+            echo "  restored stock $(cb_claude_version)";;
+    esac
+  done
+
+  if verify_proxy_state; then
+    echo "Claude proxy mode adopted: stock bundle, MCP+hooks, matching supervised proxy, WatchPaths suppressed."
+    exit 0
+  fi
+  echo "adopt: changes applied but verification still fails; run '$0 verify' for detail." >&2
+  exit 10
+fi
+
+# ---- release -------------------------------------------------------------
+# The off-ramp adopt owes. Reverses ONLY Bonsai-owned state and leaves everything else
+# alone: the write_direct_* helpers delete ANTHROPIC_BASE_URL only when it is OUR url,
+# and the hook registrar removes only its own exact command, so unrelated permissions,
+# plugins, model, theme and any other route survive untouched.
+#
+# Deliberately NOT done: the stock bundle is left stock and the WatchPaths agent is left
+# unloaded. Reloading it would re-patch the binary, which is the treadmill this whole
+# migration existed to end. Mode therefore goes to `disabled`, not `enabled` — Bonsai off
+# AND staying off, rather than off until the next Claude release quietly patches it back.
+release_plan() {
+  settings_proxy_absent          || echo settings
+  mcp_proxy_absent               || echo mcp
+  loaded "$PROXY_LABEL"          && echo proxy_agent
+  [ "$(mode_value)" = "disabled" ] || echo mode
+  return 0
+}
+
+if [ "$ACTION" = "release" ]; then
+  DRY="${CB_ADOPT_DRY_RUN:-0}"; STAGED=""
+  release_cleanup() { [ -z "$STAGED" ] || rm -f $STAGED 2>/dev/null; }
+  # Same reasoning as adopt: the lock spans plan, checks and mutation so the checks still
+  # describe what gets written. Dry run stays lock-free.
+  if [ "$DRY" != "1" ]; then
+    cb_acquire_lock || { echo "release: maintenance is already running; retry shortly." >&2; exit 20; }
+    trap 'release_cleanup; cb_release_lock' EXIT
+  fi
+  PLAN="$(release_plan)"
+  if [ -z "$PLAN" ]; then echo "Claude proxy mode already released; nothing to change."; exit 0; fi
+  command -v jq >/dev/null 2>&1 || { echo "release: jq is required." >&2; exit 10; }
+  case "$PLAN" in *settings*)
+    jq -e . "$CLAUDE_SETTINGS" >/dev/null 2>&1 \
+      || { echo "release: $CLAUDE_SETTINGS is not valid JSON; nothing was changed." >&2; exit 10; }
+    [ -x "$HOOK_REGISTER" ] \
+      || { echo "release: hook registrar missing: $HOOK_REGISTER" >&2; exit 10; };; esac
+  case "$PLAN" in *mcp*)
+    jq -e . "$CB_CLAUDE_JSON" >/dev/null 2>&1 \
+      || { echo "release: $CB_CLAUDE_JSON is not valid JSON; nothing was changed." >&2; exit 10; };; esac
+
+  if [ "$DRY" = "1" ]; then
+    echo "DRY RUN — no changes made. Would change:"
+    for fact in $PLAN; do case "$fact" in
+      settings)    echo "  - $CLAUDE_SETTINGS: drop our ANTHROPIC_BASE_URL + unregister our gauge hooks";;
+      mcp)         echo "  - $CB_CLAUDE_JSON: drop our base URL from the context-bonsai MCP env";;
+      proxy_agent) echo "  - unload $PROXY_LABEL";;
+      mode)        echo "  - claude-mode: $(mode_value) -> disabled (Bonsai off and staying off)";;
+    esac; done
+    exit 0
+  fi
+
+  STAMP="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+  for fact in $PLAN; do
+    case "$fact" in
+      # Settings first: stop routing Claude at the proxy BEFORE stopping the proxy, so
+      # there is no window where the base URL points at something no longer listening.
+      settings) cand="$CLAUDE_SETTINGS.cb-release.$STAMP"; STAGED="$STAGED $cand"
+            write_direct_settings "$CLAUDE_SETTINGS" "$cand" && jq -e . "$cand" >/dev/null 2>&1 \
+              && mv "$cand" "$CLAUDE_SETTINGS" \
+              || { echo "release: could not rewrite settings; nothing further changed." >&2; exit 10; }
+            echo "  unrouted $CLAUDE_SETTINGS + unregistered gauge hooks";;
+      mcp) cand="$CB_CLAUDE_JSON.cb-release.$STAMP"; STAGED="$STAGED $cand"
+            write_direct_mcp "$CB_CLAUDE_JSON" "$cand" && jq -e . "$cand" >/dev/null 2>&1 \
+              && mv "$cand" "$CB_CLAUDE_JSON" \
+              || { echo "release: could not rewrite the MCP env." >&2; exit 10; }
+            echo "  unrouted the context-bonsai MCP";;
+      proxy_agent) bootout "$PROXY_LABEL"
+            loaded "$PROXY_LABEL" && { echo "release: could not unload $PROXY_LABEL." >&2; exit 10; }
+            echo "  unloaded $PROXY_LABEL";;
+      mode) cb_set_claude_mode disabled || { echo "release: could not persist disabled mode." >&2; exit 10; }
+            echo "  set claude-mode=disabled";;
+    esac
+  done
+  echo "Claude Bonsai released: stock bundle, no proxy route, no gauge hooks, patcher suppressed."
+  echo "Re-adopt with: $0 adopt"
+  exit 0
 fi
 
 if [ "$ACTION" = "retire" ]; then

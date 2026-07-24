@@ -21,7 +21,11 @@ CB_CODEX_SYMLINK="${CB_CODEX_SYMLINK:-$HOME/.local/bin/codex}"
 CB_CLAUDE_JSON="${CB_CLAUDE_JSON:-$HOME/.claude.json}"                # override in fixtures
 CB_BACKUP_DIR="${CB_BACKUP_DIR:-$HOME/.context-bonsai/tweakcc-backups}"  # stock-bundle backups; override in fixtures
 
-mkdir -p "$CB_STATE" 2>/dev/null || true
+# Read-only callers (control.sh verify, adopt --dry-run) set CB_LIB_NO_INIT=1 so that
+# merely sourcing this file writes nothing. Creating a state directory is still a write:
+# on a fresh machine it is the difference between "reported what it would do" and
+# "already started doing it", and adoption fixtures assert zero filesystem change.
+[ "${CB_LIB_NO_INIT:-0}" = "1" ] || mkdir -p "$CB_STATE" 2>/dev/null || true
 
 # --- Logging ---
 cb_ts() { date -u '+%Y-%m-%dT%H:%M:%SZ'; }
