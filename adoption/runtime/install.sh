@@ -49,6 +49,11 @@ git -C "$REPO_ROOT/codex_context_bonsai" ls-tree -r --full-tree HEAD > "$CANDIDA
 node "$CANDIDATE/tweakcc_context_bonsai/proxy-prototype/correlate.test.mjs"
 node "$CANDIDATE/tweakcc_context_bonsai/proxy-prototype/proxy.test.mjs"
 bash "$CANDIDATE/adoption/claude-proxy/test-fixtures.sh"
+# The source lane's own certifier already runs this suite, but that only protects source
+# UPDATES — ordinary runtime packaging could ship a broken reconciler. Offline mode drops
+# only the real-fork ls-remote invariants; every reconciliation scenario uses local bare
+# remotes, so the gate does not depend on GitHub being reachable.
+CB_SOURCE_TEST_OFFLINE=1 bash "$CANDIDATE/adoption/auto-maintenance/source/test-source-reconcile.sh"
 bun test "$CANDIDATE/adoption/auto-maintenance/codex/reconcile-codex.test.ts"
 CB_INCIDENT_TEST_ROOT="$STATE_ROOT/incident-tests-$STAMP" \
   bash "$CANDIDATE/adoption/auto-maintenance/test-incident-reminder.sh"

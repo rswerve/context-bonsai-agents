@@ -151,9 +151,16 @@ run_fixture() {
   set -e
 }
 
+# Every reconciliation scenario below runs against local bare remotes; the only network
+# dependency in this suite is the pair of real-fork invariants that bracket it. Offline
+# mode drops just those, so runtime packaging can gate on the same suite without
+# requiring GitHub. The source certifier runs online and keeps the full guard.
+OFFLINE="${CB_SOURCE_TEST_OFFLINE:-0}"
 LIVE_BEFORE="$(readlink "$HOME/.local/share/context-bonsai/runtime/current")"
-REAL_PARENT_BEFORE="$(git ls-remote https://github.com/rswerve/context-bonsai-agents.git refs/heads/main | cut -f1)"
-REAL_TWEAK_BEFORE="$(git ls-remote https://github.com/rswerve/tweakcc_context_bonsai.git refs/heads/main | cut -f1)"
+if [[ "$OFFLINE" != "1" ]]; then
+  REAL_PARENT_BEFORE="$(git ls-remote https://github.com/rswerve/context-bonsai-agents.git refs/heads/main | cut -f1)"
+  REAL_TWEAK_BEFORE="$(git ls-remote https://github.com/rswerve/tweakcc_context_bonsai.git refs/heads/main | cut -f1)"
+fi
 
 printf '%s\n' '=== idempotent candidate remote setup ==='
 remote_fixture="$ROOT/remote-helper"
@@ -171,6 +178,90 @@ check 'matching pre-existing remote is accepted' "$second_rc" '0'
 check 'mismatched pre-existing remote is rejected' "$mismatch_rc" '10'
 check 'mismatch does not retarget remote' \
   "$(git -C "$remote_fixture" remote get-url upstream)" \
+  'https://example.invalid/upstream.git'
+
+# A remote section carrying only a fetch refspec reads as ABSENT to a url-key check but
+# as PRESENT to `git remote add`, so the add fails against a remote that ends up correct.
+# This is not what broke production — it is a second shape reaching the identical rc=3.
+# Ensuring means asserting the end state, not trusting our own mutation to produce it.
+urlless_fixture="$ROOT/remote-helper-urlless"
+git init -q "$urlless_fixture"
+git -C "$urlless_fixture" config --add remote.upstream.fetch '+refs/heads/*:refs/remotes/upstream/*'
+set +e
+"$SCRIPT_DIR/ensure-remote.sh" "$urlless_fixture" upstream https://example.invalid/upstream.git
+urlless_rc=$?
+set -e
+check 'url-less remote section is repaired, not fatal' "$urlless_rc" '0'
+check 'url-less repair sets the expected url' \
+  "$(git -C "$urlless_fixture" config --get-all remote.upstream.url)" \
+  'https://example.invalid/upstream.git'
+
+# Same shape, but the pre-existing section points somewhere else once repaired: still
+# never silently retargeted.
+conflict_fixture="$ROOT/remote-helper-conflict"
+git init -q "$conflict_fixture"
+git -C "$conflict_fixture" remote add upstream https://example.invalid/other.git
+set +e
+"$SCRIPT_DIR/ensure-remote.sh" "$conflict_fixture" upstream https://example.invalid/upstream.git >/dev/null 2>&1
+conflict_rc=$?
+set -e
+check 'conflicting remote still rejected' "$conflict_rc" '10'
+check 'conflicting remote not retargeted' \
+  "$(git -C "$conflict_fixture" remote get-url upstream)" \
+  'https://example.invalid/other.git'
+
+# The real 2026-07-24 cause. VS Code's GitHub Pull Requests extension opened the fresh
+# tweak clone at 10:00:12.182 and logged its own successful `git remote add upstream`
+# at .635; ours then failed. A failed add therefore does NOT imply a url-less section —
+# the winner may have written a COMPLETE remote pointing elsewhere, and repairing
+# blindly would silently retarget it. Shim git so the add always loses to a foreign url.
+race_shim="$ROOT/race-shim"; mkdir -p "$race_shim"
+cat > "$race_shim/git" <<'SHIM'
+#!/usr/bin/env bash
+if [[ "${3:-}" == "remote" && "${4:-}" == "add" ]]; then
+  "$RACE_REAL_GIT" -C "$2" config --add remote.upstream.url https://example.invalid/hijack.git
+  echo "error: remote upstream already exists." >&2
+  exit 3
+fi
+exec "$RACE_REAL_GIT" "$@"
+SHIM
+chmod +x "$race_shim/git"
+race_fixture="$ROOT/remote-helper-race"
+git init -q "$race_fixture"
+set +e
+RACE_REAL_GIT="$(command -v git)" PATH="$race_shim:$PATH" \
+  "$SCRIPT_DIR/ensure-remote.sh" "$race_fixture" upstream https://example.invalid/upstream.git >/dev/null 2>&1
+race_rc=$?
+set -e
+check 'remote that appears mid-run is rejected' "$race_rc" '10'
+check 'remote that appears mid-run is NOT retargeted' \
+  "$(git -C "$race_fixture" config --get-all remote.upstream.url)" \
+  'https://example.invalid/hijack.git'
+
+# The exact production path: the extension adds the SAME url we want, so our add loses
+# with rc=3 against a remote that is already correct. This is the case that must now
+# SUCCEED — before the fix its rc=3 became the script's, failing the whole reconcile.
+agree_shim="$ROOT/agree-shim"; mkdir -p "$agree_shim"
+cat > "$agree_shim/git" <<'SHIM'
+#!/usr/bin/env bash
+if [[ "${3:-}" == "remote" && "${4:-}" == "add" ]]; then
+  "$RACE_REAL_GIT" -C "$2" config --add remote.upstream.url "$6"
+  echo "error: remote upstream already exists." >&2
+  exit 3
+fi
+exec "$RACE_REAL_GIT" "$@"
+SHIM
+chmod +x "$agree_shim/git"
+agree_fixture="$ROOT/remote-helper-agree"
+git init -q "$agree_fixture"
+set +e
+RACE_REAL_GIT="$(command -v git)" PATH="$agree_shim:$PATH" \
+  "$SCRIPT_DIR/ensure-remote.sh" "$agree_fixture" upstream https://example.invalid/upstream.git >/dev/null 2>&1
+agree_rc=$?
+set -e
+check 'losing the race to the SAME url succeeds' "$agree_rc" '0'
+check 'losing the race to the SAME url leaves one url' \
+  "$(git -C "$agree_fixture" config --get-all remote.upstream.url)" \
   'https://example.invalid/upstream.git'
 
 printf '%s\n' '=== source no-change ==='
@@ -270,8 +361,12 @@ check 'retained-runtime recovery activates fork main' \
 
 printf '%s\n' '=== real state invariants ==='
 check 'live runtime untouched' "$(readlink "$HOME/.local/share/context-bonsai/runtime/current")" "$LIVE_BEFORE"
-check 'real parent fork untouched' "$(git ls-remote https://github.com/rswerve/context-bonsai-agents.git refs/heads/main | cut -f1)" "$REAL_PARENT_BEFORE"
-check 'real tweakcc fork untouched' "$(git ls-remote https://github.com/rswerve/tweakcc_context_bonsai.git refs/heads/main | cut -f1)" "$REAL_TWEAK_BEFORE"
+if [[ "$OFFLINE" == "1" ]]; then
+  printf '%s\n' '  SKIP: real fork invariants (offline mode)'
+else
+  check 'real parent fork untouched' "$(git ls-remote https://github.com/rswerve/context-bonsai-agents.git refs/heads/main | cut -f1)" "$REAL_PARENT_BEFORE"
+  check 'real tweakcc fork untouched' "$(git ls-remote https://github.com/rswerve/tweakcc_context_bonsai.git refs/heads/main | cut -f1)" "$REAL_TWEAK_BEFORE"
+fi
 
 printf '\nRESULT: %s passed, %s failed\n' "$pass" "$fail"
 printf 'Retained fixtures: %s\n' "$ROOT"
