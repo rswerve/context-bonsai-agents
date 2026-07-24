@@ -17,6 +17,16 @@ if [ "$ACTION" = "enable" ]; then
   echo "Claude proxy activation is retired; the live-model harness was removed." >&2
   exit 2
 fi
+# Retired 2026-07-24 alongside `enable`. Claude now runs stock-binary + proxy-only
+# (claude-mode=proxy, WatchPaths unloaded, zero patch markers). This path would set
+# mode=enabled, re-patch the live bundle, strip proxy routing and reload WatchPaths —
+# silently undoing that. Off-ramp is now: remove ANTHROPIC_BASE_URL from
+# ~/.claude/settings.json + the context-bonsai MCP env, and bootout the proxy agent.
+if [ "$ACTION" = "rollback" ]; then
+  echo "Claude proxy rollback is retired; it would re-patch the live bundle and undo proxy-only mode." >&2
+  echo "To disable Bonsai: drop ANTHROPIC_BASE_URL from ~/.claude/settings.json and bootout com.atighi.context-bonsai-proxy." >&2
+  exit 2
+fi
 
 RUNTIME_CURRENT="${CB_RUNTIME_CURRENT:-$HOME/.local/share/context-bonsai/runtime/current}"
 PROXY_SCRIPT="${CB_PROXY_SCRIPT:-$RUNTIME_CURRENT/tweakcc_context_bonsai/proxy-prototype/proxy.mjs}"
@@ -29,7 +39,11 @@ LAUNCH_AGENT_DIR="${CB_LAUNCH_AGENT_DIR:-$HOME/Library/LaunchAgents}"
 LAUNCH_DOMAIN="${CB_LAUNCH_DOMAIN:-gui/$(id -u)}"
 LAUNCHCTL_BIN="${CB_LAUNCHCTL:-/bin/launchctl}"
 CURL_BIN="${CB_CURL:-/usr/bin/curl}"
-PROXY_PORT="${CB_PROXY_PORT:-18399}"
+# 8399 is the port the live route actually uses (com.atighi.context-bonsai-proxy
+# plist, ~/.claude/settings.json, and the context-bonsai MCP env all agree on it).
+# The former 18399 default predated that activation and made `verify` report a
+# false failure against a healthy install.
+PROXY_PORT="${CB_PROXY_PORT:-8399}"
 PROXY_URL="http://127.0.0.1:$PROXY_PORT"
 PROXY_LABEL="com.atighi.context-bonsai-proxy"
 GUARD_LABEL="com.atighi.context-bonsai-proxy-guard"
@@ -204,8 +218,12 @@ verify_proxy_state() {
   [ -n "$version" ] && [ -n "$bundle" ] && [ -f "$bundle" ] \
     && cb_bundle_clean "$bundle" && bundle_version_matches "$bundle" "$version" \
     && cb_claude_proxy && settings_proxy_active && mcp_proxy_active \
-    && proxy_health && loaded "$PROXY_LABEL" && loaded "$GUARD_LABEL" \
+    && proxy_health && loaded "$PROXY_LABEL" \
     && ! loaded "$WATCH_LABEL"
+    # GUARD_LABEL intentionally not required: the proxy plist carries KeepAlive=true,
+    # which covers process death. The residual is availability-only (an unhealthy-but-
+    # running proxy), never context loss or bundle corruption — so a separate guard
+    # agent would be machinery without a job.
 }
 
 guard_disable_route() {
