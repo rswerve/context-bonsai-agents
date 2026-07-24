@@ -88,4 +88,21 @@ if [[ "$(readlink "$RUNTIME_ROOT/current")" != "$TARGET" ]]; then
   print -u2 "runtime current pointer did not advance; previous target restored"
   exit 1
 fi
+# The proxy resolves its build id from runtime/current AT STARTUP, and the MCP refuses
+# to enforce unless the two agree. Advancing the pointer under a running proxy therefore
+# leaves it stale, and every prune fails closed — silently, and looking exactly like a
+# correlation bug. KeepAlive does not help: the process is healthy, just outdated.
+# Restart unconditionally rather than diffing build ids; it costs a second and cannot be
+# forgotten. Only the proxy reads runtime/current at startup, so nothing else needs this.
+readonly PROXY_LABEL="com.atighi.context-bonsai-proxy"
+if launchctl print "gui/$(id -u)/$PROXY_LABEL" >/dev/null 2>&1; then
+  if launchctl kickstart -k "gui/$(id -u)/$PROXY_LABEL" >/dev/null 2>&1; then
+    print "supervised proxy restarted onto the new runtime"
+  else
+    print -u2 "runtime advanced but the proxy did NOT restart; it is still running the previous build."
+    print -u2 "Prunes will fail closed until you run: launchctl kickstart -k gui/$(id -u)/$PROXY_LABEL"
+    exit 1
+  fi
+fi
+
 print "Context Bonsai runtime installed and verified: $TARGET"
