@@ -99,7 +99,19 @@ chmod +x "$BASE/cert-ok" "$BASE/cert-fail" "$BASE/verify-ok" "$BASE/verify-fail"
 make_scenario() {
   local name="$1"
   local s="$ROOT/$name"
-  mkdir -p "$s/remotes" "$s/runtime/runtime" "$s/history" "$s/scratch"
+  mkdir -p "$s/remotes" "$s/runtime/runtime" "$s/history" "$s/scratch" "$s/bin"
+  cat > "$s/bin/launchctl" <<'LAUNCHCTL'
+#!/usr/bin/env bash
+case "${1:-}" in
+  print) test "${CB_SOURCE_TEST_PROXY_LOADED:-0}" = "1";;
+  kickstart)
+    printf 'restart\n' >> "$CB_SOURCE_TEST_SCENARIO/proxy-restarts"
+    test "${CB_SOURCE_TEST_PROXY_RESTART_FAIL:-0}" != "1"
+    ;;
+  *) exit 2;;
+esac
+LAUNCHCTL
+  chmod +x "$s/bin/launchctl"
   git clone -q --bare "$BASE/parent-origin.git" "$s/remotes/parent-origin.git"
   git clone -q --bare "$BASE/parent-upstream.git" "$s/remotes/parent-upstream.git"
   git clone -q --bare "$BASE/tweak-origin.git" "$s/remotes/tweak-origin.git"
@@ -134,6 +146,10 @@ run_fixture() {
   set +e
   OUTPUT="$(
     GIT_ALLOW_PROTOCOL=file \
+    PATH="$s/bin:$PATH" \
+    CB_SOURCE_TEST_SCENARIO="$s" \
+    CB_SOURCE_TEST_PROXY_LOADED="${CB_SOURCE_TEST_PROXY_LOADED:-0}" \
+    CB_SOURCE_TEST_PROXY_RESTART_FAIL="${CB_SOURCE_TEST_PROXY_RESTART_FAIL:-0}" \
     CB_STATE="$s/state" \
     CB_SOURCE_PARENT_ORIGIN_URL="$s/remotes/parent-origin.git" \
     CB_SOURCE_PARENT_UPSTREAM_URL="$s/remotes/parent-upstream.git" \
@@ -346,18 +362,43 @@ printf '%s\n' '=== post-install verification rollback ==='
 s="$(make_scenario post-verify-fail)"
 advance_remote "$s/remotes/parent-upstream.git" candidate.txt 'candidate' 'candidate update' "$s/parent-upstream-work"
 before="$(readlink "$s/runtime/runtime/current")"
-run_fixture "$s" "$BASE/cert-ok" "$BASE/verify-fail"
+CB_SOURCE_TEST_PROXY_LOADED=1 run_fixture "$s" "$BASE/cert-ok" "$BASE/verify-fail"
 check 'post-verify failure rc' "$RC" '10'
 check 'post-verify failure summary' "$OUTPUT" 'source: post-install verification failed — previous runtime restored (escalate)'
 check 'post-verify rollback exact' "$(readlink "$s/runtime/runtime/current")" "$before"
+check 'post-verify rollback restarts loaded proxy' "$(wc -l < "$s/proxy-restarts" | tr -d ' ')" '1'
 
 printf '%s\n' '=== retained-runtime recovery after rollback ==='
-run_fixture "$s" "$BASE/cert-ok" "$BASE/verify-ok"
+restarts_before="$(wc -l < "$s/proxy-restarts" | tr -d ' ')"
+CB_SOURCE_TEST_PROXY_LOADED=1 run_fixture "$s" "$BASE/cert-ok" "$BASE/verify-ok"
 check 'retained-runtime recovery rc' "$RC" '0'
 check 'retained-runtime recovery summary' "$(printf '%s' "$OUTPUT" | grep -c 'upstream merged + runtime verified')" '1'
 check 'retained-runtime recovery activates fork main' \
   "$(jq -r .parentCommit "$s/runtime/runtime/current/runtime-manifest.json")" \
   "$(git --git-dir="$s/remotes/parent-origin.git" rev-parse main)"
+check 'retained-runtime recovery restarts loaded proxy' \
+  "$(( $(wc -l < "$s/proxy-restarts") - restarts_before ))" '1'
+
+printf '%s\n' '=== retained-runtime recovery with unloaded proxy ==='
+ln -s "$before" "$s/runtime/runtime/.unloaded-current"
+mv -fh "$s/runtime/runtime/.unloaded-current" "$s/runtime/runtime/current"
+restarts_before="$(wc -l < "$s/proxy-restarts" | tr -d ' ')"
+run_fixture "$s" "$BASE/cert-ok" "$BASE/verify-ok"
+check 'unloaded recovery rc' "$RC" '0'
+check 'unloaded recovery activates fork main' \
+  "$(jq -r .parentCommit "$s/runtime/runtime/current/runtime-manifest.json")" \
+  "$(git --git-dir="$s/remotes/parent-origin.git" rev-parse main)"
+check 'unloaded recovery does not start proxy' \
+  "$(wc -l < "$s/proxy-restarts" | tr -d ' ')" "$restarts_before"
+
+printf '%s\n' '=== retained-runtime restart failure ==='
+ln -s "$before" "$s/runtime/runtime/.restart-fail-current"
+mv -fh "$s/runtime/runtime/.restart-fail-current" "$s/runtime/runtime/current"
+CB_SOURCE_TEST_PROXY_LOADED=1 CB_SOURCE_TEST_PROXY_RESTART_FAIL=1 \
+  run_fixture "$s" "$BASE/cert-ok" "$BASE/verify-ok"
+check 'restart failure rc' "$RC" '10'
+check 'restart failure surfaces incident' "$OUTPUT" 'source: runtime install failed — previous runtime retained (escalate)'
+check 'restart failure rolls pointer back' "$(readlink "$s/runtime/runtime/current")" "$before"
 
 printf '%s\n' '=== real state invariants ==='
 check 'live runtime untouched' "$(readlink "$HOME/.local/share/context-bonsai/runtime/current")" "$LIVE_BEFORE"

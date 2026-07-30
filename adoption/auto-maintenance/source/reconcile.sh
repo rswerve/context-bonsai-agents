@@ -36,6 +36,11 @@ run() {
   record "RUN: $*"
   "$@" >> "$LOG" 2>&1
 }
+restart_proxy_if_loaded() {
+  local target="gui/$(id -u)/com.atighi.context-bonsai-proxy"
+  launchctl print "$target" >/dev/null 2>&1 || return 0
+  run launchctl kickstart -k "$target"
+}
 valid_oid() { [[ "$1" =~ ^[0-9a-f]{40}$ ]]; }
 remote_oid() {
   local url="$1" ref="$2" out
@@ -227,7 +232,8 @@ if [[ -d "$EXPECTED" ]]; then
     if [[ "$(readlink "$CURRENT" 2>/dev/null || true)" == "$PREVIOUS" ]]; then
       ln -s "$EXPECTED" "$RUNTIME_ROOT/.source-current-$RUN_ID" &&
         mv -fh "$RUNTIME_ROOT/.source-current-$RUN_ID" "$CURRENT" &&
-        [[ "$(readlink "$CURRENT" 2>/dev/null || true)" == "$EXPECTED" ]] && install_ok=1
+        [[ "$(readlink "$CURRENT" 2>/dev/null || true)" == "$EXPECTED" ]] &&
+        restart_proxy_if_loaded && install_ok=1
     fi
   fi
 else
@@ -254,6 +260,8 @@ if ! run "${verify_cmd[@]}" ||
    [[ "$(jq -r '.tweakccCommit // empty' "$CURRENT/runtime-manifest.json" 2>> "$LOG")" != "$TWEAK_CANDIDATE" ]]; then
   rollback_runtime "$ROLLBACK" "$PREVIOUS" "$EXPECTED" ||
     say "source: post-install verification failed and rollback needs attention" 10
+  restart_proxy_if_loaded ||
+    say "source: previous runtime restored but proxy restart failed (escalate)" 10
   say "source: post-install verification failed — previous runtime restored (escalate)" 10
 fi
 retain_rollback "$ROLLBACK" "verified"
